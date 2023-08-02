@@ -1,0 +1,11 @@
+console.log('--- log start ---');
+ await test_function();
+ console.log('--- log end ---');
+
+위와 같은 코드에서, 콘솔로그만 찍히고, 나중에 결과가 나오는, 비동기 문제가 있었음.
+
+https://yceffort.kr/2021/04/nodejs-multithreading-worker-threads
+
+여기 나온, Promise로 함수를 감싸는 방법으로 해결함?
+
++) if문으로, threads.size == 0 일때  resolve('성공?'); 함수를 써 줘야 리턴!! 안그러면 무한 로딩

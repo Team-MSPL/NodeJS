@@ -1,0 +1,26 @@
+에러
+npm install firebase --save
+npm WARN deprecated uglify-es@3.3.9: support for ECMAScript is superseded by `uglify-js` as of v3.13.0
+npm ERR! code 1
+npm ERR! path C:\workspaces\nodejs\server_basic\node_modules\protobufjs
+npm ERR! command failed
+npm ERR! command C:\Windows\system32\cmd.exe /d /s /c node scripts/postinstall
+npm ERR! 'node' is not recognized as an internal or external command,
+npm ERR! operable program or batch file.
+
+npm ERR! A complete log of this run can be found in:
+npm ERR!     C:\Users\tulee3474\AppData\Local\npm-cache\_logs\2023-07-31T09_50_42_174Z-debug-0.log
+
+
+해결 방법
+시스템 변수에 NODE_HOME 추가, Path에 %NODE_HOME% 추가
+터미널에 SET PATH=C:\Program Files\Nodejs;%PATH% 하니까 사용자 변수는 다 날라가고 저거 두 개만 남음...(이후 플러터나 RN에서 문제 생길 수도)
+
+이후 다시 npm install firebase --save
+도중에 문제 생겨서 npm audit fix + npm audit fix --force
+
+npm install firebase-admin --save
+
+npm install firebase@latest --save
+
+하니까 해결
