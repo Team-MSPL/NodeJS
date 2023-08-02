@@ -76,7 +76,7 @@ async function readAllPlace(city) {
 
 async function readPlaceList(city) {
     let placeList = null;
-    const placeListSnapshot = await firestore().collection(city).doc('관광지목록').get();
+    const placeListSnapshot = await database.collection(city).doc('관광지목록').get();
 
     placeList = placeListSnapshot.data().관광지;
 
@@ -86,7 +86,7 @@ async function readPlaceList(city) {
 async function readOnePlace(city, name) {
     let placeData = {};
     try {
-        const onePlaceSnapshot = await firestore().collection(city).doc(name).get();
+        const onePlaceSnapshot = await database.collection(city).doc(name).get();
         let item = onePlaceSnapshot.data();
 
         let name = item.name;

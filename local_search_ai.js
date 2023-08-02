@@ -1,6 +1,6 @@
 //import { readAllPlace } from './firebase_read_place.js';
 
-var { readAllPlace, enoughPlaceInThread } = require('./firebase_read_place.js');
+var { readAllPlace } = require('./firebase_read_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 var enoughPlaceInThread = require('./local_search_ai_thread.js');
 var _ = require('lodash');
