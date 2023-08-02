@@ -11,57 +11,6 @@ var http = require('http');
 
 let firstTime = true;
 
-//const { localSearchAI, enoughPlace } = require('./local_search_ai');
-
-//이태운 - 임시 데이터
-const regionList = ['서울 전체'];
-const selectList = [
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0],
-];
-const selectListInRegion = [
-    [0, 1, 0, 0, 0, 1, 0],
-    [1, 0, 1, 1],
-    [1, 1, 1, 1, 0],
-    [1, 0, 1, 0, 1, 1, 0, 1, 1],
-    [0, 1, 1, 0],
-];
-const accomodationList = [
-    { name: '', lat: 35.333, lng: 122.32323, takenTime: 30, category: 4 },
-    { name: '', lat: 35.333, lng: 122.32323, takenTime: 30, category: 4 },
-    { name: '', lat: 35.333, lng: 122.32323, takenTime: 30, category: 4 },
-    { name: '', lat: 34.333, lng: 121.32323, takenTime: 30, category: 4 },
-];
-const essentialPlaceList = [
-    {
-        day: 1,
-        name: '필수여행지1',
-        lat: 35.51243,
-        lng: 127.5436,
-        category: 5,
-        takenTime: 60,
-        id: 1,
-    },
-    {
-        day: 2,
-        name: '필수여행지2',
-        lat: 35.12221,
-        lng: 127.6234,
-        category: 5,
-        takenTime: 60,
-        id: 1,
-    },
-];
-const timeLimitArray = [10, 20];
-const nDay = 2;
-const transit = 1;
-
-const distanceSensitivity = 2; // 거리민감도
-//이태운 - 임시 데이터
-
 // 1. 요청한 url을 객체로 만들기 위해 url 모듈사용
 var url = require('url');
 // 2. 요청한 url 중에 Query String 을 객체로 만들기 위해 querystring 모듈 사용
@@ -91,7 +40,7 @@ app.get('/ai/data', async (req, res) => {
             // 3. 콘솔화면에 로그 시작 부분을 출력
             console.log('--- log start ---');
 
-            await localSearchAI({
+            const resultData = await localSearchAI({
                 regionList: jsonData['regionList'],
                 accomodationList: jsonData['accomodationList'],
                 selectList: jsonData['selectList'],
@@ -105,7 +54,7 @@ app.get('/ai/data', async (req, res) => {
             firstTime = false;
 
             // 이 예제에서는 그대로 JSON 데이터를 응답으로 보내줍니다.
-            res.json({ success: true, data: jsonData });
+            res.json({ success: true, resultData: resultData, enoughPlace: enoughPlace });
             //res.send('ai success' + jsonData);
         } catch (error) {
             // JSON 파싱 에러 처리
