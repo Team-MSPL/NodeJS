@@ -46,7 +46,8 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
             // 우리가 워커가 일을 할수있게 분배하고 직접 짜야 한다. 여간 복잡한게 아니다..
             for (let i = 0; i < 5; i++) {
                 threads.add(
-                    new Worker('./local_search_ai_thread.js', {
+                    //이거 경로는 root 폴더를 기준으로 설정해야함. worker가 root폴더에 있기 때문에!!
+                    new Worker('./src/ai/local_search_ai_thread.js', {
                         workerData: {
                             accomodationList: accomodationList,
                             selectList: selectList,

@@ -1,6 +1,6 @@
 //import { localSearchAI, enoughPlace } from './local_search_ai.js';
-var { localSearchAI, enoughPlace } = require('./local_search_ai.js');
-var { regionSearch } = require('./region_search.js');
+var { localSearchAI, enoughPlace } = require('./ai/local_search_ai.js');
+var { regionSearch } = require('./ai/region_search.js');
 //var { test_function_run } = require('./test2.js');
 //const { Worker, isMainThread, parentPort } = require('worker_threads');
 //const path = require('path');
@@ -10,8 +10,26 @@ const port = Number(process.env.PORT) || 8080;
 
 let firstTime = true;
 
+// const mongoose = require('mongoose');
+
+// // MongoDB에 연결
+// mongoose.connect('mongodb://localhost/danim_database', { useNewUrlParser: true, useUnifiedTopology: true });
+
+// const db = mongoose.connection;
+
+// const handleOpen = () => console.log('✅ Connected to DB');
+// const handleError = () => console.log('❌ DB error', error);
+// db.on('error', handleError);
+// db.once('open', handleOpen);
+
 app.listen(port, () => {
     console.log(`server is listening at localhost:${port}`);
+    //mongodb://이름:비밀번호@localhost:27017/admin
+    // mongoose.connect('mongodb://root:1234@localhost:27017/admin', {
+    //     dbName: 'danim_database',
+    //     useNewUrlParser: true,
+    //     userCreateIndex: true,
+    // });
     //console.log(`server is listening at localhost:${process.env.PORT}`);
 });
 
