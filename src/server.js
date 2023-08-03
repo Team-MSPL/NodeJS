@@ -7,10 +7,11 @@ var { regionSearch } = require('./ai/region_search.js');
 const express = require('express');
 const app = express();
 const port = Number(process.env.PORT) || 8080;
+const mongoose = require('mongoose');
+var connect = require('./Schemas'); //이러면, 이 폴더 내부에 있는 index.js가 자동으로 import됨. 그래서 파일 이름이 중요!
+connect();
 
 let firstTime = true;
-
-// const mongoose = require('mongoose');
 
 // // MongoDB에 연결
 // mongoose.connect('mongodb://localhost/danim_database', { useNewUrlParser: true, useUnifiedTopology: true });
@@ -74,6 +75,7 @@ app.get('/ai', async (req, res) => {
         }
     }
 });
+
 app.get('/regionSearch', async (req, res) => {
     // 클라이언트로부터 전달된 JSON 데이터
     const requestData = req.query.data;

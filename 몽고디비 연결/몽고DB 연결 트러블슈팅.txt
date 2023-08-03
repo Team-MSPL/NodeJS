@@ -1,0 +1,40 @@
+server is listening at localhost:8080
+C:\workspaces\nodejs\server_basic\node_modules\mongoose\lib\index.js:398
+    throw new MongooseError('Mongoose.prototype.connect() no longer accepts a callback');
+          ^
+
+MongooseError: Mongoose.prototype.connect() no longer accepts a callback
+    at Mongoose.connect 
+
+
+
+해결책
+
+오류 메시지에 따르면 Mongoose.prototype.connect() no longer accepts a callback 오류가 발생했습니다. 이 오류는 Mongoose의 connect() 메서드가 더 이상 콜백을 지원하지 않는다는 것을 나타냅니다.
+
+최신 버전의 Mongoose를 사용하고 계신 것 같은데, 이전 버전과는 다르게 connect() 메서드의 동작이 변경되었습니다. 콜백 대신에 프로미스(Promise)를 반환하는 방식으로 변경되었습니다.
+
+이에 따라 코드를 수정하여 문제를 해결할 수 있습니다. 아래는 수정 방법에 대한 안내입니다:
+
+연결 코드 수정:
+mongoose.connect() 메서드를 호출할 때 콜백을 사용하지 말고, 프로미스를 반환하도록 변경해야 합니다.
+
+javascript
+Copy code
+// 이전 코드 (콜백 사용)
+// mongoose.connect('mongodb://localhost/mydatabase', { useNewUrlParser: true, useUnifiedTopology: true }, (err) => {
+//   if (err) throw err;
+//   console.log('Connected to MongoDB');
+// });
+
+// 수정된 코드 (프로미스 사용)
+mongoose.connect('mongodb://localhost/mydatabase', { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    console.log('Connected to MongoDB');
+  })
+  .catch((err) => {
+    console.error('Error connecting to MongoDB:', err);
+  });
+위와 같이 수정하면 mongoose.connect() 메서드가 프로미스를 반환하므로 .then()과 .catch()를 사용하여 연결 성공 및 실패를 처리할 수 있습니다.
+
+이제 위의 수정을 적용하여 코드를 실행하면 오류가 해결되어야 합니다.
