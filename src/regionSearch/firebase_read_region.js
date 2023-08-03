@@ -1,4 +1,4 @@
-const { database } = require('./database.js');
+const { database } = require('../firebase/database.js');
 
 async function readAllRegion() {
     let allregion = [];

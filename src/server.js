@@ -1,6 +1,6 @@
 //import { localSearchAI, enoughPlace } from './local_search_ai.js';
 var { localSearchAI, enoughPlace } = require('./ai/local_search_ai.js');
-var { regionSearch } = require('./ai/region_search.js');
+var { regionSearch } = require('./regionSearch/region_search.js');
 //var { test_function_run } = require('./test2.js');
 //const { Worker, isMainThread, parentPort } = require('worker_threads');
 //const path = require('path');
