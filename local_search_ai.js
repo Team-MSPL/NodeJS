@@ -186,7 +186,19 @@ async function localSearchAI({
     //AI 실행
     // const readData = await routeSearch(accomodationList, selectList, essentialPlaceList, timeLimitArray, nDay, transit);
 
-    await ai_run(accomodationList, selectList, essentialPlaceList, time, nDay);
+    //숙소에 성향값 넣어주기
+    let a = {
+        popular: 0,
+        partner: [0, 0, 0, 0, 0, 0, 0],
+        concept: [0, 0, 0, 0],
+        play: [0, 0, 0, 0, 0, 0],
+        tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        season: [0, 0, 0, 0],
+    };
+    const accomodationList2 = accomodationList.map((item, idx) => {
+        return Object.assign({}, item, a);
+    });
+    await ai_run(accomodationList2, selectList, essentialPlaceList, time, nDay);
     const resultData = pathList;
 
     //시간 재기

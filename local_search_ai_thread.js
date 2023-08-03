@@ -845,7 +845,27 @@ if (isMainThread) {
     threadNum = workerData.threadNum;
     console.log('Thread', threadNum + 1);
 
+    /*
+    //숙소에 성향값 넣어주기
+    let accomodationList = [];
+    workerData.accomodationList.map((item, idx) => {
+        accomodationList.push({
+            name: item.name,
+            lat: item.lat,
+            lng: item.lng,
+            takenTime: item.takenTime,
+            popular: 0,
+            partner: [0, 0, 0, 0, 0, 0, 0],
+            concept: [0, 0, 0, 0],
+            play: [0, 0, 0, 0, 0, 0],
+            tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            season: [0, 0, 0, 0],
+            category: item.category,
+        });
+    });*/
+
     routeSearch(
+        //accomodationList,
         workerData.accomodationList,
         workerData.selectList,
         workerData.essentialPlaceList,
