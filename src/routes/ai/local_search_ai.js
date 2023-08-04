@@ -44,7 +44,8 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
 
         if (isMainThread) {
             // 우리가 워커가 일을 할수있게 분배하고 직접 짜야 한다. 여간 복잡한게 아니다..
-            for (let i = 0; i < 5; i++) {
+            //쓰레드 수 10개! - 나중에 중복 처리하면 줄어든다.
+            for (let i = 0; i < 10; i++) {
                 threads.add(
                     //이거 경로는 root 폴더를 기준으로 설정해야함. worker가 root폴더에 있기 때문에!!
                     new Worker('./src/routes/ai/local_search_ai_thread.js', {
@@ -182,11 +183,6 @@ async function localSearchAI({
     }
     //timeLimit 계산 종료
 
-    //AI를 위한 데이터 전처리 종료
-
-    //AI 실행
-    // const readData = await routeSearch(accomodationList, selectList, essentialPlaceList, timeLimitArray, nDay, transit);
-
     //숙소에 성향값 넣어주기
     let a = {
         popular: 0,
@@ -199,8 +195,16 @@ async function localSearchAI({
     const accomodationList2 = accomodationList.map((item, idx) => {
         return Object.assign({}, item, a);
     });
+
+    //AI를 위한 데이터 전처리 종료
+
+    //AI 실행
     await ai_run(accomodationList2, selectList, essentialPlaceList, time, nDay);
-    const resultData = pathList;
+
+    //여기서, 프리셋 중복을 체크한다. 중복되는 값이 있으면 제거한다. - Set()을 사용하여 빠르게!!!
+
+    const uniqueArrays = new Set(pathList.map(JSON.stringify));
+    const resultData = Array.from(uniqueArrays).map(JSON.parse);
 
     //시간 재기
     const endTime = performance.now();
@@ -218,6 +222,7 @@ async function localSearchAI({
     }
 
     //console.log(result);
+    console.log(`프리셋 개수`, resultData.length);
     console.log(`AI 돌리는데 걸리는 시간`);
 
     const elapsedTime = endTime - startTime;
@@ -237,9 +242,3 @@ async function localSearchAI({
 
 module.exports.localSearchAI = localSearchAI;
 module.exports.enoughPlace = enoughPlace;
-// module.exports.count = count;
-// module.exports.placeList = placeList;
-// module.exports.placeListCopy = placeListCopy;
-// module.exports.transitInAI = transitInAI;
-// module.exports.distanceSensitivityInAI = distanceSensitivityInAI;
-// module.exports.selectedNum = selectedNum;
