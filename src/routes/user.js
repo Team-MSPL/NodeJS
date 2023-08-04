@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../schemas/users.js');
+const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
 
 // 사용자 전체 조회
 router.get('/all', (req, res, next) => {
@@ -64,10 +65,10 @@ router.post('/signUp', async (req, res) => {
         };
 
         // JWT 비밀키 (이 비밀키를 가지고 토큰을 생성하고 검증합니다)
-        const secretKey = 'your-secret-key';
+        dotenv.config(); // .env 파일의 환경 변수 로드
 
         // JWT 생성
-        const userJwtToken = jwt.sign(payload, secretKey, { expiresIn: '6m' }); // 유효기간 6개월
+        const userJwtToken = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '6m' }); // 유효기간 6개월
         // TODO 이후에 토큰 유효기간을 1~2시간으로 줄이고, Refresh token으로 대체하자.
 
         // JWT 저장

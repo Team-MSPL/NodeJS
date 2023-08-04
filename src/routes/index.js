@@ -6,7 +6,8 @@ router.get('/', function (req, res, next) {
     res.render('index', { title: 'Express' });
 });
 
-router.use('/users', require('./users'));
+router.use('/user', require('./user'));
+router.use('/travelCourse', require('./travel_course'));
 router.use('/comment', require('./comment'));
 router.use('/ai', require('./ai'));
 router.use('/regionSearch', require('./region_search'));
