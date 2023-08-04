@@ -5,7 +5,7 @@
 //const admin = require('firebase-admin');
 //const express = require('express');
 //const router = express.Router();
-const { database } = require('../firebase/database.js');
+const { database } = require('../firebase/firebase_options.js');
 //const { initializeApp, cert } = require('firebase-admin/app');
 //const { getFirestore } = require('firebase-admin/firestore');
 //const serviceAccount = require('./danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json');

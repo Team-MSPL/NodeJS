@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
 /**
- * 닉네임, 프로필이미지, 파이어베이스토큰
+ * 닉네임, 프로필이미지, 식별 토큰
  */
 const userSchema = new Schema({
     //닉네임
@@ -10,7 +10,6 @@ const userSchema = new Schema({
         type: String, // 자료형
         required: true, // 필수 여부
         unique: true, // 고유 값
-        default: true,
     },
     //프로필이미지
     userProfileImage: {
