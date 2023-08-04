@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../schemas/users.js');
+const jwt = require('jsonwebtoken');
 
 // 사용자 전체 조회
 router.get('/', (req, res, next) => {
@@ -9,30 +10,20 @@ router.get('/', (req, res, next) => {
             res.json(users);
         })
         .catch((err) => {
-            console.error(err);
+            console.error('/users - GET 함수에 문제 발생 : ', error);
             next(err);
         });
 });
 
-// 유저 생성
-// router.post('/', (req, res, next) => {
-//     const user = new User({
-//         userName: req.body.userName,
-//         userProfileImage: req.body.userProfileImage,
-//         userToken: req.body.userToken,
-//     });
-//     user.save()
-//         .then((result) => {
-//             res.json(result);
-//         })
-//         .catch((err) => {
-//             console.error(err);
-//             next(err);
-//         });
-// });
 router.post('/', async (req, res) => {
     try {
         const { userName, userProfileImage, userToken } = req.body;
+
+        // userToken(고유값)을 사용하여 이미 가입된 사용자가 있는지 확인
+        const existingUser = await User.findOne({ userToken });
+        if (existingUser) {
+            return res.status(400).json({ message: '이미 회원가입을 한 유저입니다.' });
+        }
 
         //여기가 객체에 값을 배당하는 부분임!! 여기를 수정 안해서 에러났었음
         const newUser = new User({
@@ -42,7 +33,38 @@ router.post('/', async (req, res) => {
         });
 
         const savedUser = await newUser.save();
-        res.status(201).json(savedUser);
+
+        //JWT토큰 생성
+
+        // 페이로드 데이터 (토큰에 담을 정보)
+        const payload = {
+            userName: savedUser.userName,
+            userProfileImage: savedUser.userProfileImage,
+            userToken: savedUser.userToken,
+            _id: savedUser._id.toString(), // 이 부분은 데이터베이스에서 생성된 고유 ID를 사용해야 합니다.
+        };
+
+        // JWT 비밀키 (이 비밀키를 가지고 토큰을 생성하고 검증합니다)
+        const secretKey = 'your-secret-key';
+
+        // JWT 생성
+        const userJwtToken = jwt.sign(payload, secretKey, { expiresIn: '6m' }); // 유효기간 6개월
+        // TODO 이후에 토큰 유효기간을 1~2시간으로 줄이고, Refresh token으로 대체하자.
+
+        // JWT 저장
+        // TODO 저장 안하는 방식도 고려할 것. 실제로 재윤이도 저장 안함
+        savedUser.userJwtToken = userJwtToken;
+        await savedUser.save(); // 토큰을 저장한 후 데이터베이스 업데이트
+
+        console.log('Generated JWT:', userJwtToken);
+
+        res.status(201).json({
+            userId: savedUser._id.toString(),
+            userName: userName,
+            userProfileImage: userProfileImage,
+            userToken: userToken,
+            userJwtToken: userJwtToken,
+        });
     } catch (error) {
         console.log(req.body);
         console.error('/users - POST 함수에 문제 발생 : ', error);
