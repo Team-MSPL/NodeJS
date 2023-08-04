@@ -4,7 +4,7 @@ const User = require('../schemas/users.js');
 const jwt = require('jsonwebtoken');
 
 // 사용자 전체 조회
-router.get('/', (req, res, next) => {
+router.get('/all', (req, res, next) => {
     User.find()
         .then((users) => {
             res.json(users);
@@ -15,7 +15,26 @@ router.get('/', (req, res, next) => {
         });
 });
 
-router.post('/', async (req, res) => {
+// 사용자 단일 조회 (userName, userToken을 기준으로)
+router.get('/signIn/:userName/:userToken', async (req, res) => {
+    const { userName, userToken } = req.params;
+
+    try {
+        const user = await User.findOne({ userName, userToken });
+
+        if (!user) {
+            return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+        }
+
+        res.json(user);
+    } catch (error) {
+        console.error('/users/:userName/:userToken - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 사용자 회원 가입
+router.post('/signUp', async (req, res) => {
     try {
         const { userName, userProfileImage, userToken } = req.body;
 

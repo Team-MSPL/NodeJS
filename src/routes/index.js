@@ -8,5 +8,7 @@ router.get('/', function (req, res, next) {
 
 router.use('/users', require('./users'));
 router.use('/comment', require('./comment'));
+router.use('/ai', require('./ai'));
+router.use('/regionSearch', require('./region_search'));
 
 module.exports = router;
