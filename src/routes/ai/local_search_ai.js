@@ -2,7 +2,7 @@
 
 var { readAllPlace } = require('./firebase_read_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
-var enoughPlaceInThread = require('./local_search_ai_thread.js');
+var _ = require('./local_search_ai_thread.js');
 var _ = require('lodash');
 
 var enoughPlace = true; //관광지가 부족하여 중단할 경우 false가 됨. -> 다이어로그 표시!
@@ -77,9 +77,10 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
                 });
                 //worker.on('exit', resolve);
                 worker.on('exit', () => {
-                    //pathList.push(worker.result);
-                    //console.log(pathList);
                     threads.delete(worker);
+
+                    //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
+                    enoughPlace = false;
 
                     if (threads.size === 0) {
                         //console.timeEnd('prime' + primeNum);
@@ -196,6 +197,8 @@ async function localSearchAI({
         return Object.assign({}, item, a);
     });
 
+    pathList = []; // 초기화
+
     //AI를 위한 데이터 전처리 종료
 
     //AI 실행
@@ -210,6 +213,15 @@ async function localSearchAI({
     const endTime = performance.now();
     //console.log(resultData);
 
+    //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
+    //if (!enoughPlaceInThread) {
+    //    enoughPlace = false;
+    //}
+
+    if (resultData === [[]]) {
+        resultData = [];
+    }
+
     for (let i = 0; i < resultData.length; i++) {
         console.log(`코스`, i + 1);
         for (let j = 0; j < resultData[i].length; j++) {
@@ -223,6 +235,7 @@ async function localSearchAI({
 
     //console.log(result);
     console.log(`프리셋 개수`, resultData.length);
+    console.log('enoughPlace : ', enoughPlace);
     console.log(`AI 돌리는데 걸리는 시간`);
 
     const elapsedTime = endTime - startTime;
@@ -230,15 +243,8 @@ async function localSearchAI({
     console.log(`Elapsed time: ${elapsedTime / 1000} seconds`);
     console.log(`------------------------------------------`);
 
-    //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
-    if (!enoughPlaceInThread) {
-        enoughPlace = false;
-    }
-
-    return resultData;
+    return { resultData: resultData, enoughPlace: enoughPlace };
 }
 
-//export { localSearchAI, enoughPlace };
-
 module.exports.localSearchAI = localSearchAI;
-module.exports.enoughPlace = enoughPlace;
+//module.exports.enoughPlace = enoughPlace;

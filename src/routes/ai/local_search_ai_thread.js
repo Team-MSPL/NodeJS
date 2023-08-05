@@ -42,7 +42,10 @@ var corDis = [];
 // 관광지 점수 계산 프로세스 - 가장 많이 반복되는 함수
 function placePoint(selectList, beforePlace, targetPlace) {
     //반려견과, 실내여행지는 예외처리 - selectList에 있고 + 점수가 30점 이하면, sum = 0을 리턴
-    if ((selectList[0][6] == 1 && targetPlace.partner[6] < 30) || (selectList[3][5] == 1 && targetPlace.tour[5] < 30)) {
+    if (
+        (selectList[0][6] === 1 && targetPlace.partner[6] < 30) ||
+        (selectList[3][5] === 1 && targetPlace.tour[5] < 30)
+    ) {
         return -10000000;
     }
 
@@ -119,7 +122,8 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
     todayEssentialPlaceList.length > 0 &&
         todayEssentialPlaceList.map((item, idx) => {
             path.push(item);
-            placeListCopy = placeListCopy.filter((item2) => item2.name !== item.name);
+            //어차피, todayEssentialPlaceList만드는 과정에서 필터링해줌
+            //placeListCopy = placeListCopy.filter((item2) => item2.name !== item.name);
         });
 
     let numPlace = placeListCopy.length; //향후 반복문 내부에서 값이 바뀔 것이기에, 미리 저장해두고 사용한다.
@@ -147,7 +151,7 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
 
             console.log('남은 관광지 수1111');
             console.log(numPlace);
-            enoughPlace = false;
+            enoughPlaceInThread = false;
             break;
         }
 
@@ -175,7 +179,7 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
         }
 
         // path에 관광지 추가, placeListCopy에서는 제거
-        path.push(placeListCopy[nextIndex]);
+        path.push(_.cloneDeep(placeListCopy[nextIndex]));
         placeListCopy.splice(nextIndex, 1);
 
         //그리디 종료 시점 계산 - 오늘치 총 소요시간을 계산함
@@ -196,35 +200,23 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
 function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList) {
     //숙소, 필수여행지 선택 횟수에 따라 2-opts 시도 횟수 조절
     let iterations = 5000 - selectedNum * 600; //2-opts 시도 횟수
-    //성능이 구려서, Flutter의 1/10로 낮춤
 
     let bestPath = _.cloneDeep(path);
 
     let bestPoint = 0;
 
-    let selectWay = 0;
+    let selectWay = 1;
 
     //판단 기준은 placePoint의 합으로 한다.
     bestPoint += placePoint(selectList, dummy, bestPath[0]);
     for (let i = 1; i < bestPath.length; i++) {
         bestPoint += placePoint(selectList, bestPath[i - 1], bestPath[i]);
     }
+
     for (let i = 0; i < iterations + 1; i++) {
-        let newPath = _.cloneDeep(bestPath);
-        var addPlace;
-        var removePlace;
-        let flag3 = false;
         let idx1 = -1;
         let idx2 = -1;
         if (bestPath.length > 2) {
-            //코스 마지막이 숙소라면, 인덱스로 선택되면 안됨
-            // if (todayAccomodationList[1].name != '') {
-            // 	idx1 = Math.floor(Math.random() * (bestPath.length - 2)) + 1;
-            // 	idx2 = Math.floor(Math.random() * (bestPath.length - 2)) + 1;
-            // } else {
-            // 	idx1 = Math.floor(Math.random() * (bestPath.length - 1)) + 1;
-            // 	idx2 = Math.floor(Math.random() * (bestPath.length - 1)) + 1;
-            // }
             const isAccommodationEmpty = todayAccomodationList[1].name === '';
             const maxIdx = bestPath.length - (isAccommodationEmpty ? 1 : 2);
 
@@ -236,143 +228,115 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
         }
 
         //두 개의 인덱스는 같으면 안됨!
-        // 속도를 위해 while -> if, continue로 바꿔봄
-        if (idx1 == idx2) {
-            // //코스 마지막이 숙소라면, 인덱스로 선택되면 안됨
-            // if (todayAccomodationList[1].name != '') {
-            // 	idx2 = Math.floor(Math.random() * (bestPath.length - 1)) + 1;
-            // } else {
-            // 	idx2 = Math.floor(Math.random() * (bestPath.length - 1)) + 1;
-            // }
-            continue;
-        }
-
         //idx1, 2 순서 정렬 - idx1이 idx2보다 작아야함 (오름차순)
-        if (idx1 > idx2) {
+        if (idx1 >= idx2) {
+            if (idx1 === idx2) {
+                continue;
+            }
             let idx3 = idx1;
             idx1 = idx2;
             idx2 = idx3;
         }
 
-        let idxa = -1;
-
         //1. 관광지 하나를 새 관광지로 바꾼다. - 모든 관광지를 갈 경우 안함.
-        if ((i == 0 || selectWay == 1) && placeListCopy.length > 0) {
-            var temp;
-            let flag = true;
-            let flag2 = 0;
-            flag3 = false;
+        if (selectWay === 1 && placeListCopy.length > 0) {
+            let newPath = _.cloneDeep(bestPath);
+            let idxa = Math.floor(Math.random() * (placeListCopy.length - 1));
+            let idxr = idx1;
 
-            while (true) {
-                idxa = Math.floor(Math.random() * placeListCopy.length);
-                let temp2 = _.cloneDeep(placeListCopy[idxa]);
-
-                for (let j = 1; j < newPath.length; j++) {
-                    if (temp2.name == newPath[j].name) {
-                        flag = false; //같은 이름이 있으면, 반복하여 다른 Place찾음
-                    }
-                }
-                if (flag) {
-                    temp = _.cloneDeep(temp2);
-                    break;
-                } else {
-                    flag2 += 1;
-                }
-                flag = true; //이거땜에 많이 헤멨었는데, 까먹지 말고 초기화할것!
-                //만약을 대비
-                if (flag2 > 10) {
-                    flag3 = true;
-                    break;
-                }
-            }
-            if (flag3) {
-                continue;
-            }
-            addPlace = null;
-            addPlace = _.cloneDeep(temp);
-            removePlace = null;
-            removePlace = _.cloneDeep(newPath[idx1]);
-
-            if (addPlace.name == removePlace.name) {
-                continue;
-            }
+            let addPlace = _.cloneDeep(placeListCopy[idxa]);
+            let removePlace = _.cloneDeep(newPath[idxr]);
 
             //필수여행지(todayEssentialPlaceList)가 있는데, removePlace가 이 안에 있다면, continue
-            let flag4 = false;
-            todayEssentialPlaceList.map((item, idx) => {
-                if (removePlace.name == item.name) {
-                    flag4 = true; //같은 이름이 있으면, continue;
-                }
-            });
-
-            if (flag4) {
-                //제거할 Place가 fixedPlace여서 continue합니다.
-                continue;
+            //todayEssentialPlaceList.map((item, idx) => {
+            if (
+                todayEssentialPlaceList.some((item) => item.name === removePlace.name) ||
+                newPath.some((item) => item.name === addPlace.name)
+            ) {
+                continue; //같은 이름이 있으면, continue;
             }
 
-            // removePlace = _.cloneDeep(newPath[idx1]); 이므로, idx1을 삭제
-            newPath.splice(idx1, 1);
-            //newPath = newPath.filter(item => item.name !== _.cloneDeep(removePlace).name);
             //혹시모르니까, 추가전에 한번 더 없애줌 - 제거 가능?
             //newPath = newPath.filter(item => item.name !== _.cloneDeep(addPlace).name);
-            if (idx1 >= newPath.length) {
-                newPath.push(_.cloneDeep(addPlace));
-            } else {
-                newPath.splice(idx1, 0, addPlace);
+            // removePlace = _.cloneDeep(newPath[idxr]); 이므로, 삭제
+            //중복 문제가 발생하는 부분
+            //newPath.splice(idxr, 1, _.cloneDeep(addPlace));
+            newPath[idxr] = _.cloneDeep(addPlace);
+            //newPath.splice(idxr, 1, _.cloneDeep(removePlace));
+
+            //임시 추가 - 이러면 2개가 제거되니까 idxr번째에 삽입이 안되서 에러
+            //newPath = newPath.filter((item) => item.name !== _.cloneDeep(addPlace).name);
+            //newPath = newPath.filter((item) => item.name !== _.cloneDeep(removePlace).name);
+            //newPath.splice(idxr, 0, _.cloneDeep(addPlace));
+            //placeListCopy.splice(idxa, 1, _.cloneDeep(removePlace));
+
+            //코스 개선 여부 확인
+            let newPoint = 0;
+            newPoint += placePoint(selectList, dummy, newPath[0]);
+            for (let n = 1; n < newPath.length; n++) {
+                newPoint += placePoint(selectList, newPath[n - 1], newPath[n]);
             }
-        }
-        //2. 이미 있는 코스에서 2개를 바꾼다.
-        else {
-            let temp;
-            let temp2;
 
-            temp = _.cloneDeep(newPath[idx1]);
-            temp2 = _.cloneDeep(newPath[idx2]);
-
-            newPath.splice(idx1, 1);
-            newPath.splice(idx2 - 1, 1);
-
-            idx1 >= newPath.length ? newPath.push(_.cloneDeep(temp2)) : newPath.splice(idx1, 0, _.cloneDeep(temp2));
-            idx2 >= newPath.length ? newPath.push(_.cloneDeep(temp)) : newPath.splice(idx1, 0, _.cloneDeep(temp));
-        }
-
-        let newPoint = 0;
-
-        newPoint += placePoint(selectList, dummy, newPath[0]);
-
-        for (let n = 1; n < newPath.length; n++) {
-            newPoint += placePoint(selectList, newPath[n - 1], newPath[n]);
-        }
-
-        if (newPoint >= bestPoint) {
-            bestPath = newPath;
-
-            //만약 1번 방법일 경우, placeListCopy도 업데이트 해줘야함
-            if ((i == 0 || selectWay == 1) && placeListCopy.length > 0 && addPlace.name != removePlace.name) {
-                //let temp2 = _.cloneDeep(placeListCopy[idxa]); 이므로, 인덱스는 idxa
-                //placeListCopy = placeListCopy.filter(item => item.name !== addPlace.name);
-                placeListCopy.splice(idxa, 1);
-
+            if (newPoint > bestPoint) {
                 //혹시 모르니까 추가 전에 한번 더 없애줌 - 제거 가능
                 //placeListCopy = placeListCopy.filter(item => item.name !== removePlace.name);
+                //이걸 주석처리해도 문제가 생기네?
+                //placeListCopy.splice(idxa, 1, _.cloneDeep(removePlace));
+                placeListCopy[idxa] = _.cloneDeep(removePlace);
+                // arr1 배열의 요소들을 중복 없이 저장하는 Set을 생성
+                const set = new Set(newPath.map((item) => JSON.stringify(item.name)));
 
-                if (addPlace.name != removePlace.name) {
-                    placeListCopy.push(_.cloneDeep(removePlace));
+                // arr2 배열의 요소들 중 arr1에 이미 존재하는 요소가 있는지 확인
+                if (placeListCopy.some((item) => set.has(JSON.stringify(item.name)))) {
+                    //if (placeListCopy.length !== 1) {
+                    console.log(i);
+                    console.log(newPath);
+                    console.log(newPath.length);
+                    console.log(addPlace.name);
+                    console.log(removePlace.name);
+                    console.log(idxa);
+                    console.log(idxr);
+                    console.log(placeListCopy.length);
+                    console.log(placeListCopy);
+                    console.log('==================');
+
+                    return bestPath;
+                    // }
                 }
-            }
 
-            bestPoint = newPoint;
+                bestPath = _.cloneDeep(newPath);
+                bestPoint = newPoint;
 
-            //다음 개선 방법 선택
-            if (selectWay == 0 || selectWay == 1) {
+                //다음 개선 방법 선택
                 selectWay = 1;
             } else {
                 selectWay = 2;
             }
-        } else {
-            //개선이 안됐을 경우, 기존과 다른 방법 선택
-            //다음 개선 방법 선택
-            if (selectWay == 0 || selectWay == 1) {
+        }
+        //2. 이미 있는 코스에서 2개를 바꾼다.
+        else {
+            let bestPathCopy = _.cloneDeep(bestPath);
+            let temp = bestPathCopy[idx1];
+            let temp2 = bestPathCopy[idx2];
+
+            let newPathCopy = _.cloneDeep(bestPathCopy); // 새로운 배열에 현재의 newPath를 복사
+            newPathCopy[idx1] = _.cloneDeep(temp2); // 새로운 배열의 idx1 위치에 temp2를 할당
+            newPathCopy[idx2] = _.cloneDeep(temp); // 새로운 배열의 idx2 위치에 temp를 할당
+
+            let newPath = _.cloneDeep(newPathCopy);
+
+            //코스 개선 여부 확인
+            let newPoint = 0;
+            newPoint += placePoint(selectList, dummy, newPath[0]);
+            for (let n = 1; n < newPath.length; n++) {
+                newPoint += placePoint(selectList, newPath[n - 1], newPath[n]);
+            }
+
+            if (newPoint > bestPoint) {
+                bestPath = _.cloneDeep(newPath);
+                bestPoint = newPoint;
+
+                //다음 개선 방법 선택
                 selectWay = 2;
             } else {
                 selectWay = 1;
@@ -461,8 +425,8 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
 
             //숙소일경우
             if (
-                bestPath[t].name == todayAccomodationList[0].name ||
-                bestPath[t].name == todayAccomodationList[1].name
+                bestPath[t].name === todayAccomodationList[0].name ||
+                bestPath[t].name === todayAccomodationList[1].name
             ) {
                 checkAcm = true;
             }
@@ -471,7 +435,7 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
             todayEssentialPlaceList.length > 0 &&
                 todayEssentialPlaceList.map((item, idx) => {
                     //bestPath[t]가 todayEssentialPlaceList 내부에 있을 경우, 필수 여행지라는 뜻
-                    if (bestPath[t].name == item.name) {
+                    if (bestPath[t].name === item.name) {
                         checkEssential = true;
                     }
                 });
@@ -501,15 +465,17 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
         for (let x = 0; x < canPopPlaceListPointCopy.length; x++) {
             //let index = canPopPlaceListPoint.indexOf(canPopPlaceListPointCopy[x]); //낮은 점수부터 index에 넣어 빼려는 시도
             let index = canPopPlaceListPointCopy[x].index;
-            if (bestPath.length == 1) {
+            if (bestPath.length === 1) {
                 break;
             } else {
-                // let index2 = bestPath.indexOf(bestPath.find(item => item.name === canPopPlaceList[index].name));
-                // if (index2 !== -1) {
+                // let index2 = bestPath.indexOf(bestPath.find(item => item.name ==== canPopPlaceList[index].name));
+                // if (index2 !=== -1) {
                 // 	bestPath.splice(index2, 1);
                 // }
 
                 bestPath = bestPath.filter((item) => item.name != canPopPlaceList[index].name);
+                //placeListCopy에도 추가
+                placeListCopy.push(_.cloneDeep(canPopPlaceList[index]));
             }
 
             totalTime = 0;
@@ -521,11 +487,11 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
                 break;
             }
             //canPopPlaceList가 없음. 뺄 수 있는 관광지가 없다는 뜻
-            if (canPopPlaceList.length == 0) {
+            if (canPopPlaceList.length === 0) {
                 break;
             }
             //반복문이 너무 반복되어버렸을 경우. 에러
-            x == canPopPlaceListPointCopy.length - 1 &&
+            x === canPopPlaceListPointCopy.length - 1 &&
                 console.log('place pop 에러', canPopPlaceList.length, bestPath.length, todayEssentialPlaceList.length);
         }
     }
@@ -560,7 +526,7 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
 
     //searchFullCourse의 결과로 나온 모든 코스를 검사함 - corDis 검사
     for (let x = 0; x < corDis.length; x++) {
-        if (corDis[x].length == 0) {
+        if (corDis[x].length === 0) {
             console.log('경로최적화 중 알 수 없는 에러 발생');
             // console.log(bestPoint);
             // for (let q = 0; q < corDis.length; q++) {
@@ -578,7 +544,7 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
         todayAccomodationList[1].name != '' && corDis[x].push(_.cloneDeep(todayAccomodationList[1]));
 
         for (let y = 0; y < corDisNow.length - 1; y++) {
-            if (corDisNow[y].lat == 0.0) {
+            if (corDisNow[y].lat === 0.0) {
                 continue;
             }
             let latDiff = corDisNow[y].lat - corDisNow[y + 1].lat;
@@ -601,7 +567,7 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
 //Step 4. 마지막으로, 완전탐색(재귀)를 통해 코스 최적화 (조합 최적화)
 function searchFullCourse(unselectPlaceList, selectPlaceList) {
     //selectPlaceList가 모든 관광지를 가져온 경우
-    if (unselectPlaceList.length == 0) {
+    if (unselectPlaceList.length === 0) {
         corDis.push(_.cloneDeep(selectPlaceList));
         //console.log(selectPlaceList.length);
     }
@@ -649,6 +615,30 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
 
     //nDay 반복문 시작 - 날짜만큼 반복
     for (let d = 0; d < nDay; d++) {
+        //필수여행지 추가 - map형식임
+        let todayEssentialPlaceList = []; // 하루치 필수여행지만 객체 배열로 빼둠
+        essentialPlaceList.length > 0 &&
+            essentialPlaceList.map((item, idx) => {
+                //fixedPlaceDayList의 원소가 d+1(n일차)와 같을때만
+                if (item.day === d + 1) {
+                    let readData = {
+                        name: item.name,
+                        lat: item.lat,
+                        lng: item.lng,
+                        takenTime: item.takenTime,
+                        popular: 0,
+                        partner: [0, 0, 0, 0, 0, 0, 0],
+                        concept: [0, 0, 0, 0],
+                        play: [0, 0, 0, 0, 0, 0],
+                        tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        season: [0, 0, 0, 0],
+                        category: item.category,
+                    };
+                    todayEssentialPlaceList.push(readData);
+                    placeListCopy = placeListCopy.filter((item) => item.name !== readData.name);
+                }
+            });
+
         //전날 숙소를 지정해뒀을 경우
         if (accomodationList[d].name !== '') {
             firstPlace = _.cloneDeep(accomodationList[d]);
@@ -657,16 +647,16 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                 //이러면, 관광지 부족하다는 뜻!, 중단하고 프리셋에서 안내메세지 띄우자
                 console.log('남은 관광지 수2222');
                 console.log(placeListCopy.length);
-                enoughPlace = false;
+                enoughPlaceInThread = false;
                 break;
             }
         }
         //숙소를 지정해두지 않았을 경우
         else {
             //첫날이면
-            if (d == 0) {
+            if (d === 0) {
                 //첫째날 숙소(마지막 장소)가 있을 경우
-                if (accomodationList[d + 1].name == '') {
+                if (accomodationList[d + 1].name === '') {
                     let point = [];
                     //모든 관광지의 시간을 제외한 point를 탐색
                     for (let f = 0; f < placeListCopy.length; f++) {
@@ -696,7 +686,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                         console.log(index);
                         console.log(pointCopy.length);
                         console.log(placeListCopy.length);
-                        enoughPlace = false;
+                        enoughPlaceInThread = false;
                         break;
                     }
                     firstPlace = _.cloneDeep(placeListCopy[index]);
@@ -729,7 +719,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                         //이러면, 관광지 부족하다는 뜻!, 중단하고 프리셋에서 안내메세지 띄우자
                         console.log('남은 관광지 수4444');
                         console.log(placeListCopy.length);
-                        enoughPlace = false;
+                        enoughPlaceInThread = false;
                         break;
                     }
                     firstPlace = _.cloneDeep(placeListCopy[index]);
@@ -765,37 +755,13 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                     //이러면, 관광지 부족하다는 뜻!, 중단하고 프리셋에서 안내메세지 띄우자
                     console.log('남은 관광지 수5555');
                     console.log(placeListCopy.length);
-                    enoughPlace = false;
+                    enoughPlaceInThread = false;
                     break;
                 }
 
                 firstPlace = _.cloneDeep(placeListCopy[index]);
             }
         }
-
-        //이태운 - 필수여행지 추가 - map형식임
-        let todayEssentialPlaceList = []; // 하루치 필수여행지만 객체 배열로 빼둠
-        essentialPlaceList.length > 0 &&
-            essentialPlaceList.map((item, idx) => {
-                //fixedPlaceDayList의 원소가 d+1(n일차)와 같을때만
-                if (item.day === d + 1) {
-                    let readData = {
-                        name: item.name,
-                        lat: item.lat,
-                        lng: item.lng,
-                        takenTime: item.takenTime,
-                        popular: 0,
-                        partner: [0, 0, 0, 0, 0, 0, 0],
-                        concept: [0, 0, 0, 0],
-                        play: [0, 0, 0, 0, 0, 0],
-                        tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                        season: [0, 0, 0, 0],
-                        category: item.category,
-                    };
-                    todayEssentialPlaceList.push(readData);
-                    placeListCopy = placeListCopy.filter((item) => item.name !== readData.name);
-                }
-            });
 
         //초기 path 만들기
         let initializePath = await initializeGreedy(selectList, firstPlace, todayEssentialPlaceList, time[d]);
@@ -815,6 +781,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
             todayEssentialPlaceList,
             time[d]
         );
+        //let improvedPath = initializePath;
         //console.log(improvedPath);
         //i번째 프리셋 pathList에 추가
         tempPath.push(improvedPath);
@@ -845,25 +812,6 @@ if (isMainThread) {
     threadNum = workerData.threadNum;
     console.log('Thread', threadNum + 1);
 
-    /*
-    //숙소에 성향값 넣어주기
-    let accomodationList = [];
-    workerData.accomodationList.map((item, idx) => {
-        accomodationList.push({
-            name: item.name,
-            lat: item.lat,
-            lng: item.lng,
-            takenTime: item.takenTime,
-            popular: 0,
-            partner: [0, 0, 0, 0, 0, 0, 0],
-            concept: [0, 0, 0, 0],
-            play: [0, 0, 0, 0, 0, 0],
-            tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            season: [0, 0, 0, 0],
-            category: item.category,
-        });
-    });*/
-
     routeSearch(
         //accomodationList,
         workerData.accomodationList,
@@ -873,8 +821,11 @@ if (isMainThread) {
         workerData.nDay
     );
 
+    //return enoughPlaceInThread;
+
     // generatePrimes(workerData.start, workerData.range);
     // console.log(primes);
     // parentPort.postMessage(primes);
 }
-module.exports.enoughPlaceInThread = enoughPlaceInThread;
+
+//module.exports.enoughPlaceInThread = enoughPlaceInThread;

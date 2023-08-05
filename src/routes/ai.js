@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
         console.log('--- log end ---');
 
         // 이 예제에서는 그대로 JSON 데이터를 응답으로 보내줍니다.
-        res.json({ success: true, resultData: resultData, enoughPlace: enoughPlace });
+        res.json(resultData);
     } catch (error) {
         // JSON 파싱 에러 처리
         res.status(400).json({ success: false, error: 'Invalid JSON data' });
