@@ -20,20 +20,25 @@ router.get('/all', (req, res, next) => {
 router.get('/signIn', async (req, res) => {
     try {
         const { userName, userToken } = req.body;
-        const user = await User.findOne({ userName, userToken });
+        //하나를 찾는 함수 - fineOne!
+        User.findOne({ userName, userToken })
+            .then((user) => {
+                if (!user) {
+                    return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+                }
 
-        if (!user) {
-            return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
-        }
-
-        //res.json(user);
-        res.status(201).json({
-            userId: user._id.toString(),
-            userName: user.userName,
-            userProfileImage: user.userProfileImage,
-            userToken: user.userToken,
-            userJwtToken: user.userJwtToken,
-        });
+                res.status(201).json({
+                    userId: user._id.toString(),
+                    userName: user.userName,
+                    userProfileImage: user.userProfileImage,
+                    userToken: user.userToken,
+                    userJwtToken: user.userJwtToken,
+                });
+            })
+            .catch((error) => {
+                console.error('User.findOne() 함수에 문제 발생 : ', error);
+                res.status(403).json({ message: '잘못된 userName, userToken 입니다.' });
+            });
     } catch (error) {
         console.error('/users/:userName/:userToken - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -74,7 +79,7 @@ router.post('/signUp', async (req, res) => {
         dotenv.config(); // .env 파일의 환경 변수 로드
 
         // JWT 생성
-        const userJwtToken = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '6m' }); // 유효기간 6개월
+        const userJwtToken = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
         // TODO 이후에 토큰 유효기간을 1~2시간으로 줄이고, Refresh token으로 대체하자.
 
         // JWT 저장
