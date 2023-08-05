@@ -17,17 +17,23 @@ router.get('/all', (req, res, next) => {
 });
 
 // 사용자 단일 조회 (userName, userToken을 기준으로)
-router.get('/signIn/:userName/:userToken', async (req, res) => {
-    const { userName, userToken } = req.params;
-
+router.get('/signIn', async (req, res) => {
     try {
+        const { userName, userToken } = req.body;
         const user = await User.findOne({ userName, userToken });
 
         if (!user) {
             return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
         }
 
-        res.json(user);
+        //res.json(user);
+        res.status(201).json({
+            userId: user._id.toString(),
+            userName: user.userName,
+            userProfileImage: user.userProfileImage,
+            userToken: user.userToken,
+            userJwtToken: user.userJwtToken,
+        });
     } catch (error) {
         console.error('/users/:userName/:userToken - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });

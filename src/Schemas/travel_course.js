@@ -15,7 +15,7 @@ let TimetableType = {
 };
 
 const travelCourseSchema = new Schema({
-    //유저 ID - 유저가 회원가입할때, 기본 제공 되는 _id (ObjectId)
+    //유저 ID - 유저가 회원가입, 로그인할때, 기본 제공 되는 _id (ObjectId)
     userId: {
         type: String, // 자료형
         required: true, // 필수 여부
