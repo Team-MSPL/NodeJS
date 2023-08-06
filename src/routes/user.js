@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../schemas/user.js');
+const TravelCourse = require('../schemas/travel_course.js');
 const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
@@ -109,6 +110,9 @@ router.delete('/withdraw', async (req, res) => {
             return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
         }
 
+        // 사용자의 travelCourse 데이터 삭제
+        await TravelCourse.deleteMany({ userId: user._id });
+
         // 사용자 삭제
         await User.deleteOne({ _id: user._id });
 
@@ -123,6 +127,10 @@ router.delete('/withdraw', async (req, res) => {
                 })
                 .catch((error) => {
                     console.error('Error deleting user:', error);
+                    res.status(405).json({
+                        message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
+                    });
+                    return;
                 });
         }
 
