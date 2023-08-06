@@ -50,10 +50,10 @@ const travelCourseSchema = new Schema({
         required: true,
     },
     //타임테이블
-    timetable: {
-        type: [[TimetableType]],
-        required: true,
-    },
+    // timetable: {
+    //     type: [[TimetableType]],
+    //     required: true,
+    // },
     timetable: {
         type: [
             [
@@ -65,7 +65,6 @@ const travelCourseSchema = new Schema({
         ],
         required: true,
     },
-
     //여행 일기
     diary: {
         type: String,
@@ -77,7 +76,7 @@ const travelCourseSchema = new Schema({
         default: [], //기본값
     },
     //여행 리뷰 & 별점 유무
-    picture: {
+    reviewCheck: {
         type: Boolean,
         default: false, //기본값
     },

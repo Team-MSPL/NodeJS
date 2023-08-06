@@ -1,4 +1,4 @@
-var { readAllRegion } = require('./firebase_read_region.js');
+var { readAllRegion } = require('../firebase/firebase_read_region.js');
 
 var _ = require('lodash');
 
@@ -65,15 +65,14 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
 
     //sum = sum / countNum; //이거로 몇개를 선택했든 평균낼 수 있음!! - 가중치의 존재로, 이래봤자 평균이 들쭉날쭉함
 
-    const latDiff = targetregion.lat - recentPosition.lat;
-    const longDiff = targetregion.lng - recentPosition.lng;
+    if (recentPosition.lat !== 0.0 || recentPosition.lng !== 0.0) {
+        const latDiff = targetregion.lat - recentPosition.lat;
+        const longDiff = targetregion.lng - recentPosition.lng;
 
-    //대중교통, 자차에 따른 거리민감도 계산 - 삼항 연산자로 간단하게 바꿈
-    //latDiff * latDiff와 같은 부분도 거듭 제곱 연산자 **로 바꿈
-    //TODO 거리민감도 계산이 확 달라지기에, Math.sqrt를 제거하지 못했음. 추후 제거할 것
-    let distance = Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivity * 0.15) * sumForDistance;
-    sum -= distance; // 거리가 커질수록 안좋은 것임. 총점수에 - 연산으로 계산해줘야함. 위와 마찬가지로 Math.round()연산 제거
-    //sum += 1 / distance;
+        let distance = Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivity * 0.15) * sumForDistance;
+        sum -= distance; // 거리가 커질수록 안좋은 것임. 총점수에 - 연산으로 계산해줘야함.
+        //sum += 1 / distance;
+    }
     return sum;
 }
 
@@ -125,7 +124,7 @@ async function regionSearch({ selectList, selectPopular, distanceSensitivity, re
 
     let result = [];
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
         result.push(regionPointList[i].name);
         console.log(regionPointList[i].point);
     }
@@ -133,7 +132,7 @@ async function regionSearch({ selectList, selectPopular, distanceSensitivity, re
     //시간 재기
     const endTime = performance.now();
 
-    console.log(`상위 5개 지역. 성향 선택 개수`, countNum);
+    console.log(`상위 10개 지역. 성향 선택 개수`, countNum);
     console.log(result);
 
     console.log(`알고리즘 돌리는데 걸리는 시간`);

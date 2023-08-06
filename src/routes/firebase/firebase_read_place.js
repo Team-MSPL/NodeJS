@@ -5,7 +5,7 @@
 //const admin = require('firebase-admin');
 //const express = require('express');
 //const router = express.Router();
-const { database } = require('../firebase/firebase_options.js');
+const { database } = require('./firebase_options.js');
 //const { initializeApp, cert } = require('firebase-admin/app');
 //const { getFirestore } = require('firebase-admin/firestore');
 //const serviceAccount = require('./danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json');
@@ -16,11 +16,11 @@ const { database } = require('../firebase/firebase_options.js');
 //});
 //const db = getFirestore();
 
-async function readAllPlace(city) {
+async function readAllPlace(region) {
     let allPlace = [];
     try {
         //"관광지 목록" 문서는 제거
-        const placeSnapshot = await database.collection(city).where('name', '!=', '관광지 목록').get();
+        const placeSnapshot = await database.collection(region).where('name', '!=', '관광지 목록').get();
         let data = [];
         placeSnapshot.forEach((doc) => {
             const docData = doc.data();
@@ -74,19 +74,19 @@ async function readAllPlace(city) {
     return allPlace;
 }
 
-async function readPlaceList(city) {
+async function readPlaceList(region) {
     let placeList = null;
-    const placeListSnapshot = await database.collection(city).doc('관광지목록').get();
+    const placeListSnapshot = await database.collection(region).doc('관광지목록').get();
 
     placeList = placeListSnapshot.data().관광지;
 
     return placeList;
 }
 
-async function readOnePlace(city, name) {
+async function readOnePlace(region, name) {
     let placeData = {};
     try {
-        const onePlaceSnapshot = await database.collection(city).doc(name).get();
+        const onePlaceSnapshot = await database.collection(region).doc(name).get();
         let item = onePlaceSnapshot.data();
 
         let name = item.name;

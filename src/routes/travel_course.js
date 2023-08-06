@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const TravelCourse = require('../schemas/travel_course.js');
+const Manage = require('../schemas/manage.js');
 const dotenv = require('dotenv');
 
 // 1. 여행 코스 목록 가져오기 ( 메인 화면 + 내 여행 목록 )
@@ -66,7 +67,7 @@ router.get('/getOneTravelCourse', async (req, res) => {
 
             //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
             TravelCourse.findOne({ _id: travelId }) //travelId를 저장해둔 것이 아니라, _id를 찾는거임
-                .select('region day nDay transit timetable')
+                .select('region day nDay transit tendency timetable diary picture reviewCheck')
                 .then((travelCourse) => {
                     if (!travelCourse) {
                         console.log(travelCourse);

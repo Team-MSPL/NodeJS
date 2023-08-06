@@ -16,9 +16,23 @@ let TimetableType = {
 
 const manageSchema = new Schema({
     // travelId
+    userId: {
+        type: String, // 자료형
+        required: true, // 필수 여부
+    },
     travelId: {
         type: String, // 자료형
         required: true, // 필수 여부
+        unique: true, // 고유 값
+    },
+    review: {
+        type: String, // 자료형
+    },
+    point: {
+        type: Number, // 자료형
+    },
+    tendencyPoint: {
+        type: [[Number]], // 자료형
     },
 
     // 아래는 여행 코스가 삭제되어도 리뷰된 여행 코스의 정보를 볼 수 있게 저장해두는 것.
@@ -44,10 +58,10 @@ const manageSchema = new Schema({
         required: true,
     },
     //여행 일정
-    timetable: {
-        type: [[TimetableType]],
-        required: true,
-    },
+    // timetable: {
+    //     type: [[TimetableType]],
+    //     required: true,
+    // },
     timetable: {
         type: [
             [
@@ -61,4 +75,4 @@ const manageSchema = new Schema({
     },
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model('Manage', manageSchema);
