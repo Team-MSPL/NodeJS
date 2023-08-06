@@ -52,7 +52,8 @@ router.post('/reviewAndPoint', async (req, res) => {
 
             //파이어베이스에서 데이터셋 업데이트
             if (point !== -1 || tendencyPoint.length !== 0) {
-                await updatePoint(point, tendencyPoint, region, tendency, timetable);
+                // TODO 정식 오픈때 주석처리 해제. 디버깅하는 동안 데이터셋 유지
+                //await updatePoint(point, tendencyPoint, region, tendency, timetable);
             }
 
             res.status(201).json({ message: '여행 리뷰 및 별점 저장 완료.' });
