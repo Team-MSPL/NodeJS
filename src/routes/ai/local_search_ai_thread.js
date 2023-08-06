@@ -205,7 +205,9 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
 
     let bestPoint = 0;
 
-    let selectWay = 1;
+    let selectWay = 2;
+
+    let pathLength = placeListCopy.length;
 
     //판단 기준은 placePoint의 합으로 한다.
     bestPoint += placePoint(selectList, dummy, bestPath[0]);
@@ -214,61 +216,28 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
     }
 
     for (let i = 0; i < iterations + 1; i++) {
-        let idx1 = -1;
-        let idx2 = -1;
-        if (bestPath.length > 2) {
-            const isAccommodationEmpty = todayAccomodationList[1].name === '';
-            const maxIdx = bestPath.length - (isAccommodationEmpty ? 1 : 2);
-
-            idx1 = Math.floor(Math.random() * maxIdx) + 1;
-            idx2 = Math.floor(Math.random() * maxIdx) + 1;
-        } else {
-            //twoOpts할 필요없이, 코스가 너무 짧음
-            break;
-        }
-
-        //두 개의 인덱스는 같으면 안됨!
-        //idx1, 2 순서 정렬 - idx1이 idx2보다 작아야함 (오름차순)
-        if (idx1 >= idx2) {
-            if (idx1 === idx2) {
-                continue;
-            }
-            let idx3 = idx1;
-            idx1 = idx2;
-            idx2 = idx3;
-        }
-
         //1. 관광지 하나를 새 관광지로 바꾼다. - 모든 관광지를 갈 경우 안함.
         if (selectWay === 1 && placeListCopy.length > 0) {
             let newPath = _.cloneDeep(bestPath);
             let idxa = Math.floor(Math.random() * (placeListCopy.length - 1));
-            let idxr = idx1;
+
+            const isAccommodationEmpty = todayAccomodationList[1].name === '';
+            const maxIdx = bestPath.length - (isAccommodationEmpty ? 1 : 2);
+            let idxr = ~~(Math.random() * maxIdx) + 1;
 
             let addPlace = _.cloneDeep(placeListCopy[idxa]);
             let removePlace = _.cloneDeep(newPath[idxr]);
 
             //필수여행지(todayEssentialPlaceList)가 있는데, removePlace가 이 안에 있다면, continue
-            //todayEssentialPlaceList.map((item, idx) => {
             if (
-                todayEssentialPlaceList.some((item) => item.name === removePlace.name) ||
-                newPath.some((item) => item.name === addPlace.name)
+                todayEssentialPlaceList.some((item) => item.name === removePlace.name) //||
+                //newPath.some((item) => item.name === addPlace.name)
             ) {
                 continue; //같은 이름이 있으면, continue;
             }
 
-            //혹시모르니까, 추가전에 한번 더 없애줌 - 제거 가능?
-            //newPath = newPath.filter(item => item.name !== _.cloneDeep(addPlace).name);
-            // removePlace = _.cloneDeep(newPath[idxr]); 이므로, 삭제
-            //중복 문제가 발생하는 부분
-            //newPath.splice(idxr, 1, _.cloneDeep(addPlace));
+            //newPath 개선 시도
             newPath[idxr] = _.cloneDeep(addPlace);
-            //newPath.splice(idxr, 1, _.cloneDeep(removePlace));
-
-            //임시 추가 - 이러면 2개가 제거되니까 idxr번째에 삽입이 안되서 에러
-            //newPath = newPath.filter((item) => item.name !== _.cloneDeep(addPlace).name);
-            //newPath = newPath.filter((item) => item.name !== _.cloneDeep(removePlace).name);
-            //newPath.splice(idxr, 0, _.cloneDeep(addPlace));
-            //placeListCopy.splice(idxa, 1, _.cloneDeep(removePlace));
 
             //코스 개선 여부 확인
             let newPoint = 0;
@@ -278,31 +247,8 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
             }
 
             if (newPoint > bestPoint) {
-                //혹시 모르니까 추가 전에 한번 더 없애줌 - 제거 가능
-                //placeListCopy = placeListCopy.filter(item => item.name !== removePlace.name);
-                //이걸 주석처리해도 문제가 생기네?
-                //placeListCopy.splice(idxa, 1, _.cloneDeep(removePlace));
+                //placeListCopy도 업데이트
                 placeListCopy[idxa] = _.cloneDeep(removePlace);
-                // arr1 배열의 요소들을 중복 없이 저장하는 Set을 생성
-                const set = new Set(newPath.map((item) => JSON.stringify(item.name)));
-
-                // arr2 배열의 요소들 중 arr1에 이미 존재하는 요소가 있는지 확인
-                if (placeListCopy.some((item) => set.has(JSON.stringify(item.name)))) {
-                    //if (placeListCopy.length !== 1) {
-                    console.log(i);
-                    console.log(newPath);
-                    console.log(newPath.length);
-                    console.log(addPlace.name);
-                    console.log(removePlace.name);
-                    console.log(idxa);
-                    console.log(idxr);
-                    console.log(placeListCopy.length);
-                    console.log(placeListCopy);
-                    console.log('==================');
-
-                    return bestPath;
-                    // }
-                }
 
                 bestPath = _.cloneDeep(newPath);
                 bestPoint = newPoint;
@@ -313,17 +259,43 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
                 selectWay = 2;
             }
         }
+
         //2. 이미 있는 코스에서 2개를 바꾼다.
         else {
-            let bestPathCopy = _.cloneDeep(bestPath);
-            let temp = bestPathCopy[idx1];
-            let temp2 = bestPathCopy[idx2];
+            let idx1 = -1;
+            let idx2 = -1;
 
-            let newPathCopy = _.cloneDeep(bestPathCopy); // 새로운 배열에 현재의 newPath를 복사
-            newPathCopy[idx1] = _.cloneDeep(temp2); // 새로운 배열의 idx1 위치에 temp2를 할당
-            newPathCopy[idx2] = _.cloneDeep(temp); // 새로운 배열의 idx2 위치에 temp를 할당
+            if (bestPath.length > 2) {
+                const isAccommodationEmpty = todayAccomodationList[1].name === '';
+                const maxIdx = bestPath.length - (isAccommodationEmpty ? 1 : 2);
 
-            let newPath = _.cloneDeep(newPathCopy);
+                // Math.floor()보다 ~~이 더 빠르다고함. 이 Math연산이 시간을 은근 잡아먹음.
+                //idx1 = Math.floor(Math.random() * maxIdx) + 1;
+                //idx2 = Math.floor(Math.random() * maxIdx) + 1;
+                idx1 = ~~(Math.random() * maxIdx) + 1;
+                idx2 = ~~(Math.random() * maxIdx) + 1;
+
+                //두 개의 인덱스는 같으면 안됨!
+                //idx1, 2 순서 정렬 - idx1이 idx2보다 작아야함 (오름차순)
+                if (idx1 >= idx2) {
+                    if (idx1 === idx2) {
+                        continue;
+                    }
+                    let idx3 = idx1;
+                    idx1 = idx2;
+                    idx2 = idx3;
+                }
+            } else {
+                //twoOpts할 필요없이, 코스가 너무 짧음
+                break;
+            }
+
+            let newPath = _.cloneDeep(bestPath);
+            let temp = bestPath[idx1];
+            let temp2 = bestPath[idx2];
+
+            newPath[idx1] = _.cloneDeep(temp2);
+            newPath[idx2] = _.cloneDeep(temp);
 
             //코스 개선 여부 확인
             let newPoint = 0;
@@ -362,6 +334,9 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
 
     let bestPoint = 0;
 
+    //오늘차 기준으로 placeListCopy를 저장해두고, 이후 반복문이 끝날때마다 업데이트 해줌
+    let placeListCopySaveInThisDay = _.cloneDeep(placeListCopy);
+
     //판단 기준은 시간 제외, placePoint의 합으로 한다.
     //제한 시간은 동일하니, 동선이 좋다면 관광지 수가 많아 점수가 높을 것
     bestPoint += placePoint(selectList, dummy, bestPath[0]);
@@ -373,12 +348,11 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
     while (kOptContinue) {
         //console.log('twoOpt 실행', kOptCheck, kOptCheck2);
         //console.log(bestPoint);
+
         let newPath = twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList);
 
         let newPoint = 0;
-
         newPoint += placePoint(selectList, dummy, newPath[0]);
-
         for (let i = 1; i < newPath.length; i++) {
             newPoint += placePoint(selectList, newPath[i - 1], newPath[i]);
         }
@@ -393,6 +367,11 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
             kOptCheck += 1;
             kOptCheck2 += 1;
         }
+        //여기서 중복 처리를 안해서 문제가 계속 발생하였음! - newPath기준으로 placeListCopy가 맞춰져있었는데, placeListCopy가 업데이트가 안됨
+        //ㅅㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄ
+        const bestPathSet = new Set(bestPath.map((item) => JSON.stringify(item.name)));
+        placeListCopy = _.cloneDeep(placeListCopySaveInThisDay);
+        placeListCopy = placeListCopy.filter((item) => !bestPathSet.has(JSON.stringify(item.name)));
 
         //개선이 StopRepeat만큼 일어나지 않으면 반복문 종료
         if (kOptCheck >= StopRepeat || kOptCheck2 >= StopRepeat2) {
@@ -605,7 +584,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
 
     //path의 List,관광지의 List의 List, 날짜별로 한번 더 쪼갠것임
     //pathList[프리셋넘버][n일차넘버][n번째관광지] - 중요!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    let pathList = [];
+    //let pathList = [];
 
     var firstPlace = _.cloneDeep(dummy);
 
@@ -635,7 +614,6 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                         category: item.category,
                     };
                     todayEssentialPlaceList.push(readData);
-                    placeListCopy = placeListCopy.filter((item) => item.name !== readData.name);
                 }
             });
 
@@ -795,8 +773,8 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
     //개선안 고민해볼 것!!
     //}
 
-    parentPort.postMessage(tempPath);
-    return tempPath;
+    parentPort.postMessage({ path: tempPath, enoughPlaceInThread: enoughPlaceInThread });
+    return { path: tempPath, enoughPlaceInThread: enoughPlaceInThread };
     //return pathList;
 }
 

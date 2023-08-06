@@ -3,7 +3,7 @@
 var { readAllPlace } = require('./firebase_read_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 var _ = require('./local_search_ai_thread.js');
-var _ = require('lodash');
+//var _ = require('lodash');
 
 var enoughPlace = true; //관광지가 부족하여 중단할 경우 false가 됨. -> 다이어로그 표시!
 
@@ -39,7 +39,7 @@ async function dataLoading(cityList) {
 function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
     const threads = new Set();
     return new Promise((resolve, reject) => {
-        let primeNum = Math.floor(Math.random() * 1000) + 1;
+        //let primeNum = Math.floor(Math.random() * 1000) + 1;
         //console.time('prime' + primeNum);
 
         if (isMainThread) {
@@ -73,14 +73,16 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
                 });
                 worker.on('message', (message) => {
                     //console.log('Message from worker:', message);
-                    pathList.push(message);
+                    pathList.push(message.path);
+
+                    //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
+                    if (!message.enoughPlaceInThread) {
+                        enoughPlace = false;
+                    }
                 });
                 //worker.on('exit', resolve);
                 worker.on('exit', () => {
                     threads.delete(worker);
-
-                    //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
-                    enoughPlace = false;
 
                     if (threads.size === 0) {
                         //console.timeEnd('prime' + primeNum);
@@ -125,15 +127,26 @@ async function localSearchAI({
     transitInAI = transit;
     distanceSensitivityInAI = distanceSensitivity;
 
-    // 숙소, 필수여행지 총 합계 계산 + 총날짜도 고려!! - , 반복 횟수 줄이기에 사용
-    // 총날짜 (nDay)를 3으로 나눈 몫만큼 빼주자 -> 3일이면 -1, 6일이면 -2 -> 날짜가 많으면 선택 많이해도 지장 줄어드니까
+    // 1) 숙소, 필수여행지 총 합계 계산 + 총날짜도 고려!! - , 반복 횟수 줄이기에 사용
+    // 1) 총날짜 (nDay)를 3으로 나눈 몫만큼 빼주자 -> 3일이면 -1, 6일이면 -2 -> 날짜가 많으면 선택 많이해도 지장 줄어드니까
+    // 2) ai run 전에 숙소, 필수 여행지를 placeList에서 제거 작업
     let accomodationNum = 0;
     accomodationList.map((item, idx) => {
         if (item.name != '') {
             accomodationNum += 1;
+            //placeList에서도 제거해서, 중복 피하기!
+            placeList = placeList.filter((itemP) => itemP.name !== item.name);
+            placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
         }
     });
-    selectedNum = accomodationNum + essentialPlaceList.length - ~~(nDay / 3);
+
+    essentialPlaceList.map((item, idx) => {
+        //placeList에도 제거해서, 중복 피하기!
+        placeList = placeList.filter((itemP) => itemP.name !== item.name);
+        placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
+    });
+
+    selectedNum = accomodationNum + essentialPlaceList.length - Math.floor(nDay / 3);
 
     //selectList 선순회 - placePoint에서 평균 구할 때 사용 - 내부에서 계산하면 시간 오래 걸리니까
     count = [0, 0, 0, 0, 0]; //초기화
@@ -212,11 +225,6 @@ async function localSearchAI({
     //시간 재기
     const endTime = performance.now();
     //console.log(resultData);
-
-    //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
-    //if (!enoughPlaceInThread) {
-    //    enoughPlace = false;
-    //}
 
     if (resultData === [[]]) {
         resultData = [];
