@@ -101,40 +101,46 @@ router.get('/signIn', async (req, res) => {
 // 3. 회원 탈퇴 + 구글 및 익명 -> 파이어베이스에서 사용자 정보 삭제
 router.delete('/withdraw', async (req, res) => {
     try {
-        const { userName, userToken, signUpFirebase } = req.body;
+        const token = req.header('Authorization').split(' ')[1];
 
-        // 사용자 찾기
-        const user = await User.findOne({ userName, userToken });
+        dotenv.config();
 
-        if (!user) {
-            return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
-        }
+        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+            const { userName, userToken, signUpFirebase } = req.body;
 
-        // 사용자의 travelCourse 데이터 삭제
-        await TravelCourse.deleteMany({ userId: user._id });
+            // 사용자 찾기
+            const user = await User.findOne({ userName, userToken });
 
-        // 사용자 삭제
-        await User.deleteOne({ _id: user._id });
+            if (!user) {
+                return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+            }
 
-        if (signUpFirebase) {
-            // 파이어베이스에서 사용자 인증 정보 삭제 - 이건 firebase-admin써야함
-            const auth = admin.auth();
+            // 사용자의 travelCourse 데이터 삭제
+            await TravelCourse.deleteMany({ userId: user._id });
 
             // 사용자 삭제
-            auth.deleteUser(userToken)
-                .then(() => {
-                    console.log(`Successfully deleted user with UID: ${userToken}`);
-                })
-                .catch((error) => {
-                    console.error('Error deleting user:', error);
-                    res.status(405).json({
-                        message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
-                    });
-                    return;
-                });
-        }
+            await User.deleteOne({ _id: user._id });
 
-        res.status(201).json({ message: '회원 탈퇴가 완료되었습니다.' });
+            if (signUpFirebase) {
+                // 파이어베이스에서 사용자 인증 정보 삭제 - 이건 firebase-admin써야함
+                const auth = admin.auth();
+
+                // 사용자 삭제
+                auth.deleteUser(userToken)
+                    .then(() => {
+                        console.log(`Successfully deleted user with UID: ${userToken}`);
+                    })
+                    .catch((error) => {
+                        console.error('Error deleting user:', error);
+                        res.status(405).json({
+                            message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
+                        });
+                        return;
+                    });
+            }
+
+            res.status(201).json({ message: '회원 탈퇴가 완료되었습니다.' });
+        });
     } catch (error) {
         console.error('/users/withdraw - DELETE 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
