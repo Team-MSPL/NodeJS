@@ -106,6 +106,11 @@ router.delete('/withdraw', async (req, res) => {
         dotenv.config();
 
         jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
             const { userName, userToken, signUpFirebase } = req.body;
 
             // 사용자 찾기
