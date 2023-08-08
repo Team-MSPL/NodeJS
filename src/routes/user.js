@@ -19,7 +19,7 @@ router.post('/signUp', async (req, res) => {
         // userToken(고유값)을 사용하여 이미 가입된 사용자가 있는지 확인
         const existingUser = await User.findOne({ userToken });
         if (existingUser) {
-            return res.status(400).json({ message: '이미 회원가입을 한 유저입니다.' });
+            return res.status(401).json({ message: '이미 회원가입을 한 유저입니다.' });
         }
 
         //여기가 객체에 값을 배당하는 부분임!! 여기를 수정 안해서 에러났었음
@@ -86,6 +86,7 @@ router.get('/signIn', async (req, res) => {
                     userProfileImage: user.userProfileImage,
                     userToken: user.userToken,
                     userJwtToken: user.userJwtToken,
+                    functionToken: user.functionToken,
                 });
             })
             .catch((error) => {
@@ -152,7 +153,46 @@ router.delete('/withdraw', async (req, res) => {
     }
 });
 
-// 4. 회원 전체 조회
+// 4. 회원 보유 기능 토큰 수정하기
+router.patch('/updateFunctionToken', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        dotenv.config();
+
+        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { functionToken } = req.body;
+
+            // Update the travel functionToken
+            User.findOneAndUpdate({ userJwtToken: token }, { functionToken: functionToken }, { new: true }) // { new: true }로 리턴값 받기
+                .then((updatedfunctionToken) => {
+                    if (!updatedfunctionToken) {
+                        console.log(updatedfunctionToken);
+                        return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+                    }
+
+                    //res.status(201).json(travelCourse);
+                    res.status(201).json({ message: '회원이 보유한 기능 토큰 갯수 수정 완료.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOneAndUpdate() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 functionToken 입니다.' });
+                });
+
+            //res.status(201).json({ message: '회원이 보유한 기능 토큰 갯수 수정 완료.' });
+        });
+    } catch (error) {
+        console.error('/users/updateFunctionToken - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 5. 회원 전체 조회
 router.get('/all', (req, res, next) => {
     User.find()
         .then((users) => {

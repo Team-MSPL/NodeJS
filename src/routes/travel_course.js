@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const TravelCourse = require('../schemas/travel_course.js');
-const Manage = require('../schemas/manage.js');
 const dotenv = require('dotenv');
 
 // 1. 여행 코스 목록 가져오기 ( 메인 화면 + 내 여행 목록 )

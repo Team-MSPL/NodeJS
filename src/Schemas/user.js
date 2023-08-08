@@ -10,7 +10,7 @@ const userSchema = new Schema({
     //     type: String, // 자료형
     //     //unique: true, // 고유 값
     // },
-    // //닉네임
+    //닉네임
     userName: {
         type: String, // 자료형
         required: true, // 필수 여부
@@ -29,9 +29,7 @@ const userSchema = new Schema({
     //JWT토큰
     userJwtToken: {
         type: String,
-    },
-    comment: {
-        type: String,
+        unique: true, // 고유 값
     },
     createdAt: {
         type: Date,

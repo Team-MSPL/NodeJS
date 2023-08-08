@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Manage = require('../schemas/manage.js');
+const ManageTravel = require('../schemas/manage_travel.js');
 const TravelCourse = require('../schemas/travel_course.js');
 const { database } = require('./firebase/firebase_options.js');
 var { readAllPlace, readOnePlace } = require('./firebase/firebase_read_place.js');
@@ -34,7 +34,7 @@ router.post('/reviewAndPoint', async (req, res) => {
             });
 
             // 여행 코스에 대한 별점과 리뷰 정보 저장
-            const newReview = new Manage({
+            const newReview = new ManageTravel({
                 userId,
                 travelId,
                 review,
@@ -61,7 +61,7 @@ router.post('/reviewAndPoint', async (req, res) => {
             //내가 찾아서 하는게 아니라, 클라이언트에서 보내주는 것이 맞다
             // TravelCourse.findOne({ _id: travelId })
         } catch (error) {
-            console.error('/manage/reviewAndPoint - POST 함수에 문제 발생 : ', error);
+            console.error('/ManageTravel/reviewAndPoint - POST 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'leternal server error' });
         }
     });

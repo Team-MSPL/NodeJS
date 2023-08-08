@@ -159,41 +159,31 @@ async function localSearchAI({
     let timeLimit = 0;
     let time = [];
 
-    //시간 지정 안했을 경우 하루당 8시간
-    if (timeLimitArray == null) {
-        timeLimit = 8 * 60;
-        for (let d = 0; d < nDay; d++) {
-            time.push(timeLimit);
-        }
+    //당일치기여행이면, timeLimitArray[0]~timeLimitArray[1]만 생각하면 된다.
+    if (nDay == 1) {
+        timeLimit = timeLimitArray[1] - timeLimitArray[0];
+
+        timeLimit > 6 ? (timeLimit = timeLimit - 5) : (timeLimit = timeLimit - 3);
+
+        timeLimit = timeLimit * 60;
+        time.push(timeLimit);
     }
-    //시간 지정 했을 경우
+    //timeLimit 계산해주기 - timeLimitArray[0] = 첫날 시작시간
+    //timeLimitArray[1] = 마지막 날 끝나는 시간
+    //3시간 이동시간으로 빼주기
     else {
-        //당일치기여행이면, timeLimitArray[0]~timeLimitArray[1]만 생각하면 된다.
-        if (nDay == 1) {
-            timeLimit = timeLimitArray[1] - timeLimitArray[0];
+        timeLimit = 20 - timeLimitArray[0];
+        timeLimit = timeLimit * 60;
+        time.push(timeLimit);
 
-            timeLimit > 6 ? (timeLimit = timeLimit - 5) : (timeLimit = timeLimit - 3);
-
-            timeLimit = timeLimit * 60;
+        for (let d = 0; d < nDay - 2; d++) {
+            timeLimit = 9 * 60;
             time.push(timeLimit);
         }
-        //timeLimit 계산해주기 - timeLimitArray[0] = 첫날 시작시간
-        //timeLimitArray[1] = 마지막 날 끝나는 시간
-        //3시간 이동시간으로 빼주기
-        else {
-            timeLimit = 20 - timeLimitArray[0];
-            timeLimit = timeLimit * 60;
-            time.push(timeLimit);
 
-            for (let d = 0; d < nDay - 2; d++) {
-                timeLimit = 8 * 60;
-                time.push(timeLimit);
-            }
-
-            timeLimit = timeLimitArray[1] - 8;
-            // timeLimit = timeLimit * 60;
-            time.push(timeLimit * 60);
-        }
+        timeLimit = timeLimitArray[1] - 9;
+        // timeLimit = timeLimit * 60;
+        time.push(timeLimit * 60);
     }
     //timeLimit 계산 종료
 

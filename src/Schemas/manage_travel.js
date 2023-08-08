@@ -14,7 +14,7 @@ let TimetableType = {
     id: String,
 };
 
-const manageSchema = new Schema({
+const manageTravelSchema = new Schema({
     // travelId
     userId: {
         type: String, // 자료형
@@ -75,4 +75,4 @@ const manageSchema = new Schema({
     },
 });
 
-module.exports = mongoose.model('Manage', manageSchema);
+module.exports = mongoose.model('ManageTravel', manageTravelSchema);

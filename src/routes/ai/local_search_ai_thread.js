@@ -577,7 +577,7 @@ function searchFullCourse(unselectPlaceList, selectPlaceList) {
     });
 }
 
-async function routeSearch(accomodationList, selectList, essentialPlaceList, time, nDay) {
+async function routeSearch(accomodationList, selectList, essentialPlaceList, timeLimit, nDay) {
     // await안쓰면 이 함수 따로 돌리고 넘어가서, placeList에 원소 안넣은 상태로 코드돌림
     //프리셋 갯수 결정
     //let numPreset = 5;
@@ -616,7 +616,6 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                     todayEssentialPlaceList.push(readData);
                 }
             });
-
         //전날 숙소를 지정해뒀을 경우
         if (accomodationList[d].name !== '') {
             firstPlace = _.cloneDeep(accomodationList[d]);
@@ -741,8 +740,31 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
             }
         }
 
+        // 오늘 시간 제한이 너무 짧을 경우...
+        if (
+            timeLimit[d] <= 1 &&
+            (todayEssentialPlaceList.length >= 1 ||
+                accomodationList[d].name !== '' ||
+                accomodationList[d + 1].name !== '')
+        ) {
+            let todayPath = [];
+            if (accomodationList[d].name !== '') {
+                todayPath.push(accomodationList[d]);
+            }
+            if (todayEssentialPlaceList.length > 0) {
+                todayPath = [...todayPath, ...todayEssentialPlaceList];
+            }
+            if (accomodationList[d + 1].name !== '') {
+                todayPath.push(accomodationList[d]);
+            }
+
+            tempPath.push(todayPath);
+
+            continue;
+        }
+
         //초기 path 만들기
-        let initializePath = await initializeGreedy(selectList, firstPlace, todayEssentialPlaceList, time[d]);
+        let initializePath = await initializeGreedy(selectList, firstPlace, todayEssentialPlaceList, timeLimit[d]);
         //태운 - 임시로 accomodationList 하나 추가해 봄. - 왜 되는지는 모르겠네??
         if (d != nDay - 1 && accomodationList[d + 1].name != '') {
             initializePath.push(_.cloneDeep(accomodationList[d + 1]));
@@ -757,7 +779,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
             selectList,
             todayAccomodationList,
             todayEssentialPlaceList,
-            time[d]
+            timeLimit[d]
         );
         //let improvedPath = initializePath;
         //console.log(improvedPath);
