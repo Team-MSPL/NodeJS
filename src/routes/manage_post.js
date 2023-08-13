@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const ManagePost = require('../schemas/manage_post.js');
 const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
+require('dotenv').config();
+
 var _ = require('lodash');
 
 // 게시글 신고하기
@@ -11,9 +12,9 @@ router.post('/reportPost', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
+    //dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });

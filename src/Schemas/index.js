@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
+const dotenv = require('dotenv');
 
-const connect = () => {
+const connect = async () => {
     if (process.env.NODE_ENV !== 'production') {
         mongoose.set('debug', true);
     }
@@ -22,8 +23,14 @@ const connect = () => {
     //     }
     // );
     // 수정된 코드 (프로미스 사용)
-    mongoose
-        .connect('mongodb://localhost/mydatabase', { useNewUrlParser: true, useUnifiedTopology: true })
+    dotenv.config();
+    await mongoose
+        //.connect('mongodb://54.180.92.25/danim_database', {
+        .connect('mongodb://127.0.0.1/danim_database', {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            //bufferCommands: false,
+        })
         .then(() => {
             console.log('Connected to MongoDB');
         })

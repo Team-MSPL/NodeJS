@@ -4,7 +4,7 @@ const User = require('../schemas/user.js');
 const TravelCourse = require('../schemas/travel_course.js');
 const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
+require('dotenv').config();
 const serviceAccount = require('../../danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json'); // 서비스 계정 키의 경로
 
 admin.initializeApp({
@@ -42,10 +42,10 @@ router.post('/signUp', async (req, res) => {
         };
 
         // JWT 비밀키 (이 비밀키를 가지고 토큰을 생성하고 검증합니다)
-        dotenv.config(); // .env 파일의 환경 변수 로드
+        //dotenv.config(); // .env 파일의 환경 변수 로드
 
         // JWT 생성
-        const userJwtToken = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
+        const userJwtToken = jwt.sign(payload, '${process.env.SECRET_KEY}', { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
         // TODO 이후에 토큰 유효기간을 1~2시간으로 줄이고, Refresh token으로 대체하자.
 
         // JWT 저장
@@ -70,7 +70,7 @@ router.post('/signUp', async (req, res) => {
 });
 
 // 2. 로그인 ( 구글, 카카오, 애플, 익명 ) (userName, userToken을 기준으로)
-router.get('/signIn', async (req, res) => {
+router.post('/signIn', async (req, res) => {
     try {
         const { userName, userToken } = req.body;
         //하나를 찾는 함수 - fineOne!
@@ -104,9 +104,7 @@ router.delete('/withdraw', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
 
-        dotenv.config();
-
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -158,9 +156,7 @@ router.patch('/updateFunctionToken', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
 
-        dotenv.config();
-
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });

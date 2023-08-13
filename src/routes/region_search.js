@@ -5,14 +5,14 @@ const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 var { regionSearch } = require('./region_search/region_search_algorithm.js');
 
 // 여행 지역 추천
-router.get('/run', async (req, res) => {
+router.post('/run', async (req, res) => {
     // 클라이언트에서 전달한 JWT 토큰 추출
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
     dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });

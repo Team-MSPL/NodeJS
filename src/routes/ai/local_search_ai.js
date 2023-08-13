@@ -48,7 +48,7 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
             for (let i = 0; i < 10; i++) {
                 threads.add(
                     //이거 경로는 root 폴더를 기준으로 설정해야함. worker가 root폴더에 있기 때문에!!
-                    new Worker('./src/routes/ai/local_search_ai_thread.js', {
+                    new Worker('./routes/ai/local_search_ai_thread.js', {
                         workerData: {
                             accomodationList: accomodationList,
                             selectList: selectList,

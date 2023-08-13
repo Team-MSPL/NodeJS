@@ -12,7 +12,7 @@ router.get('/postList', async (req, res) => {
     // JWT 토큰 검증
     dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });
@@ -52,7 +52,7 @@ router.get('/getOnePost', async (req, res) => {
     // JWT 토큰 검증
     dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });
@@ -60,7 +60,7 @@ router.get('/getOnePost', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { postId } = req.body;
+            const { postId } = req.query;
 
             //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
             Post.findOne({ _id: postId }) //postId를 저장해둔 것이 아니라, _id를 찾는거임
@@ -92,7 +92,7 @@ router.post('/savePost', async (req, res) => {
         // JWT 토큰 검증
         dotenv.config(); // .env 파일의 환경 변수 로드
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -128,7 +128,7 @@ router.patch('/updatePost', async (req, res) => {
 
         dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -169,7 +169,7 @@ router.delete('/deletePost', async (req, res) => {
 
         dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -204,7 +204,7 @@ router.patch('/clickLike', async (req, res) => {
 
         dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -245,7 +245,7 @@ router.patch('/unclickLike', async (req, res) => {
 
         dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -286,7 +286,7 @@ router.patch('/saveComment', async (req, res) => {
 
         dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -327,7 +327,7 @@ router.patch('/deleteComment', async (req, res) => {
 
         dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });

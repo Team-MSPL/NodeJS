@@ -5,7 +5,8 @@ const TravelCourse = require('../schemas/travel_course.js');
 const { database } = require('./firebase/firebase_options.js');
 var { readAllPlace, readOnePlace } = require('./firebase/firebase_read_place.js');
 const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
+require('dotenv').config();
+
 var _ = require('lodash');
 
 // 여행 리뷰 & 별점 저장하기
@@ -14,9 +15,9 @@ router.post('/reviewAndPoint', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
+    //dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });

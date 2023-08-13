@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const TravelCourse = require('../schemas/travel_course.js');
-const dotenv = require('dotenv');
+require('dotenv').config();
 
 // 1. 여행 코스 목록 가져오기 ( 메인 화면 + 내 여행 목록 )
 router.get('/travelList', async (req, res) => {
@@ -10,9 +10,9 @@ router.get('/travelList', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
+    //dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });
@@ -20,7 +20,7 @@ router.get('/travelList', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { userId } = req.body;
+            const { userId } = req.query;
 
             //여러개를 찾아, List로 묶어서 주는 함수 - find!
 
@@ -52,9 +52,9 @@ router.get('/getOneTravelCourse', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
+    //dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });
@@ -62,7 +62,7 @@ router.get('/getOneTravelCourse', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { travelId } = req.body;
+            const { travelId } = req.query;
 
             //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
             TravelCourse.findOne({ _id: travelId }) //travelId를 저장해둔 것이 아니라, _id를 찾는거임
@@ -93,9 +93,9 @@ router.post('/saveTravelCourse', async (req, res) => {
         const token = req.header('Authorization').split(' ')[1];
 
         // JWT 토큰 검증
-        dotenv.config(); // .env 파일의 환경 변수 로드
+        //dotenv.config(); // .env 파일의 환경 변수 로드
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -132,9 +132,9 @@ router.patch('/updateTravelCourse', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
 
-        dotenv.config();
+        //dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -169,9 +169,9 @@ router.patch('/updateDiary', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
 
-        dotenv.config();
+        //dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
@@ -206,9 +206,9 @@ router.delete('/deleteTravelCourse', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
 
-        dotenv.config();
+        //dotenv.config();
 
-        jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
