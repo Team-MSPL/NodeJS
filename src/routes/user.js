@@ -15,7 +15,7 @@ admin.initializeApp({
 // if (디비에있으면 ) 클라에 정보주기 esle if (없으면 ) 회원가입진행 else if(회원가입플래그면) 저장하고 로그인
 router.post('/signUpAndIn', async (req, res) => {
     try {
-        const { userName, userProfileImage, userToken, loginProvider } = req.body;
+        const { userName, userProfileImage, userToken, loginProvider, signUpFlag } = req.body;
 
         // userToken(고유값)을 사용하여 이미 가입된 사용자가 있는지 확인
         const existingUser = await User.findOne({ userToken });
@@ -29,7 +29,13 @@ router.post('/signUpAndIn', async (req, res) => {
                 loginProvider: existingUser.loginProvider,
             });
             //return res.status(401).json({ message: '이미 회원가입을 한 유저입니다.' });
-        } else {
+        }
+        //회원가입인데, 아직 약관 동의를 안구한 경우
+        else if (!signUpFlag) {
+            res.status(202).json({ message: '약관 동의가 필요합니다.' });
+        }
+        //회원가입인데, 약관 동의를 한 이후
+        else {
             //여기가 객체에 값을 배당하는 부분임!! 여기를 수정 안해서 에러났었음
             const newUser = new User({
                 userName,
