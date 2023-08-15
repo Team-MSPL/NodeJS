@@ -66,10 +66,11 @@ router.post('/signUpAndIn', async (req, res) => {
 
             res.status(201).json({
                 userId: savedUser._id.toString(),
-                userName: userName,
-                userProfileImage: userProfileImage,
-                userToken: userToken,
-                userJwtToken: userJwtToken,
+                userName: savedUser.userName,
+                userProfileImage: savedUser.userProfileImage,
+                userJwtToken: savedUser.userJwtToken,
+                functionToken: savedUser.functionToken,
+                loginProvider: savedUser.loginProvider,
             });
         }
     } catch (error) {
