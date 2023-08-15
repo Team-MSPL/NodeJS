@@ -31,6 +31,11 @@ const userSchema = new Schema({
         type: String,
         unique: true, // 고유 값
     },
+    //로그인 방법
+    loginProvider: {
+        type: String,
+        required: true,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

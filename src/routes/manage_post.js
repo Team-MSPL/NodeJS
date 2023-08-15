@@ -22,13 +22,13 @@ router.post('/reportPost', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { postId, reportReason, reportTime, reportWriter, post } = req.body;
+            const { postId, reportReason, reportedAt, reportWriter, post } = req.body;
 
             // 여행 코스에 대한 별점과 리뷰 정보 저장
             const newReport = new ManagePost({
                 postId: postId,
                 reportReason: reportReason,
-                reportTime: reportTime,
+                reportedAt: reportedAt,
                 reportWriter: reportWriter,
                 post: post,
                 // post: {

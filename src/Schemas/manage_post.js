@@ -15,7 +15,7 @@ const managePostSchema = new Schema({
         required: true,
     },
     //신고 시간
-    reportTime: {
+    reportedAt: {
         type: String,
         required: true,
     },
