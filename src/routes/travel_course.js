@@ -28,7 +28,7 @@ router.get('/travelList', async (req, res) => {
             TravelCourse.find({ userId })
                 .select('region day nDay')
                 .then((travelCourseList) => {
-                    if (!travelCourseList || travelCourseList.length == 0) {
+                    if (!travelCourseList) {
                         return res.status(404).json({ message: '저장된 여행이 없습니다.' });
                     }
 
