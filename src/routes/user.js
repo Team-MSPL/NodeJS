@@ -126,21 +126,28 @@ router.delete('/withdraw', async (req, res) => {
             await User.deleteOne({ _id: user._id });
 
             if (signUpFirebase) {
-                // 파이어베이스에서 사용자 인증 정보 삭제 - 이건 firebase-admin써야함
-                const auth = admin.auth();
+                try {
+                    // 파이어베이스에서 사용자 인증 정보 삭제 - 이건 firebase-admin써야함
+                    const auth = admin.auth();
 
-                // 사용자 삭제
-                auth.deleteUser(userToken)
-                    .then(() => {
-                        console.log(`Successfully deleted user with UID: ${userToken}`);
-                    })
-                    .catch((error) => {
-                        console.error('Error deleting user:', error);
-                        res.status(405).json({
-                            message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
+                    // 사용자 삭제
+                    auth.deleteUser(userToken)
+                        .then(() => {
+                            console.log(`Successfully deleted user with UID: ${userToken}`);
+                        })
+                        .catch((error) => {
+                            console.error('Error deleting user:', error);
+                            res.status(405).json({
+                                message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
+                            });
+                            return;
                         });
-                        return;
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                    res.status(405).json({
+                        message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
                     });
+                }
             }
 
             res.status(201).json({ message: '회원 탈퇴가 완료되었습니다.' });
@@ -195,7 +202,7 @@ router.get('/all', (req, res, next) => {
             res.json(users);
         })
         .catch((err) => {
-            console.error('/users - GET 함수에 문제 발생 : ', error);
+            console.error('/users - GET 함수에 문제 발생 : ', err);
             next(err);
         });
 });

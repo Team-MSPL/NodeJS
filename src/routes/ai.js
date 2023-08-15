@@ -7,6 +7,10 @@ var { localSearchAI } = require('./ai/local_search_ai.js');
 // 여행 코스 추천
 router.post('/run', async (req, res) => {
     // 클라이언트에서 전달한 JWT 토큰 추출
+
+    // 요청에 대한 타임아웃을 80초로 설정
+    req.setTimeout(80000); // 80초 = 80,000밀리초
+
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
@@ -50,8 +54,7 @@ router.post('/run', async (req, res) => {
             });
             console.log('--- log end ---');
 
-            // 이 예제에서는 그대로 JSON 데이터를 응답으로 보내줍니다.
-            res.json(resultData);
+            res.json({ status: 'success', data: resultData });
         } catch (error) {
             console.error('/ai/run - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'Internal server error' });

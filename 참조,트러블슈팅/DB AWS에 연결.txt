@@ -6,6 +6,10 @@ danim_database
 ssh 클라이언트 ssh 키?
 ssh -i "danim_database.pem" ubuntu@ec2-54-180-92-25.ap-northeast-2.compute.amazonaws.com
 
+!!!! 서버 인스턴스 중지 후 재실행시, 서버 ip 주소가 바뀜.
+이때, ssh 키 폴더에 있는 config 파일을 수정해줘야 함.
+그래야 ssh danim_database가 먹힘
+
 몽고DB 아이디 비번
 danim / danim0504
 
@@ -57,7 +61,7 @@ code 내부의 포트 번호(server.js의 웹 서버 번호)를 3000으로 맞�
 이건 몽고db 포트와 별개라서, 27017아닌게 맞음.
 그러고, 기본 포트인 80으로 오는 걸 3000으로 바꿔주는 명령어 사용
 sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 3000
-
+sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 3000
 
  Error: secretOrPrivateKey must have a value
 

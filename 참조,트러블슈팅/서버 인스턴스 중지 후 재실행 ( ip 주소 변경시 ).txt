@@ -1,0 +1,17 @@
+
+!!!! 서버 인스턴스 중지 후 재실행시, 서버 ip 주소가 바뀜.
+이때, ssh 키 폴더에 있는 config 파일을 수정해줘야 함.
+그래야 ssh danim_database가 먹힘
+
+
+이후 포트포워딩
+sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 3000
+sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 3000
+
+이후 몽고디비 연결
+systemctl start mongod # 실행
+systemctl status mongod # 실행 상태 확인
+
+나는 문제가 추가 발생하여, mongo 실행하여 createUser 시도
+use admin
+db.createUser({user: "test", pwd: "test", roles:["root"]});

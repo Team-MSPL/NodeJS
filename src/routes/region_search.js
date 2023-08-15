@@ -35,9 +35,7 @@ router.post('/run', async (req, res) => {
 
             console.log('--- log end ---');
 
-            // 이 예제에서는 그대로 JSON 데이터를 응답으로 보내줍니다.
             res.json(resultData);
-            //res.send('ai success' + jsonData);
         } catch (error) {
             console.error('/regionSearch/run - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'Internal server error' });
