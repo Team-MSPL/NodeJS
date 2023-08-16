@@ -20,11 +20,24 @@ router.post('/signUpAndIn', async (req, res) => {
         // userToken(고유값)을 사용하여 이미 가입된 사용자가 있는지 확인
         const existingUser = await User.findOne({ userToken });
         if (existingUser) {
+            //JWT토큰 생성
+
+            // 페이로드 데이터 (토큰에 담을 정보)
+            const payload = {
+                userName: existingUser.userName,
+                userProfileImage: existingUser.userProfileImage,
+                userToken: existingUser.userToken,
+                _id: existingUser._id.toString(), // 이 부분은 데이터베이스에서 생성된 고유 ID를 사용해야 합니다.
+            };
+
+            // JWT 생성
+            const userJwtToken = jwt.sign(payload, '${process.env.SECRET_KEY}', { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
+
             res.status(201).json({
                 userId: existingUser._id.toString(),
                 userName: existingUser.userName,
                 userProfileImage: existingUser.userProfileImage,
-                userJwtToken: existingUser.userJwtToken,
+                userJwtToken: userJwtToken,
                 functionToken: existingUser.functionToken,
                 loginProvider: existingUser.loginProvider,
             });
@@ -65,8 +78,8 @@ router.post('/signUpAndIn', async (req, res) => {
 
             // JWT 저장
             // TODO 저장 안하는 방식도 고려할 것. 실제로 재윤이도 저장 안함
-            savedUser.userJwtToken = userJwtToken;
-            await savedUser.save(); // 토큰을 저장한 후 데이터베이스 업데이트
+            //savedUser.userJwtToken = userJwtToken;
+            //await savedUser.save(); // 토큰을 저장한 후 데이터베이스 업데이트
 
             console.log('Generated JWT:', userJwtToken);
 
@@ -74,7 +87,7 @@ router.post('/signUpAndIn', async (req, res) => {
                 userId: savedUser._id.toString(),
                 userName: savedUser.userName,
                 userProfileImage: savedUser.userProfileImage,
-                userJwtToken: savedUser.userJwtToken,
+                userJwtToken: userJwtToken,
                 functionToken: savedUser.functionToken,
                 loginProvider: savedUser.loginProvider,
             });
@@ -86,35 +99,45 @@ router.post('/signUpAndIn', async (req, res) => {
     }
 });
 
-// 2. 로그인 ( 구글, 카카오, 애플, 익명 ) (userName, userToken을 기준으로)
-// router.post('/signIn', async (req, res) => {
-//     try {
-//         const { userName, userToken } = req.body;
-//         //하나를 찾는 함수 - fineOne!
-//         User.findOne({ userName, userToken })
-//             .then((user) => {
-//                 if (!user) {
-//                     return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
-//                 }
+// 2. 사용자 프로필 수정하기 ( 닉네임, 사진 )
+router.patch('/updateProfile', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
 
-//                 res.status(201).json({
-//                     userId: user._id.toString(),
-//                     userName: user.userName,
-//                     userProfileImage: user.userProfileImage,
-//                     userToken: user.userToken,
-//                     userJwtToken: user.userJwtToken,
-//                     functionToken: user.functionToken,
-//                 });
-//             })
-//             .catch((error) => {
-//                 console.error('User.findOne() 함수에 문제 발생 : ', error);
-//                 res.status(403).json({ message: '잘못된 userName, userToken 입니다.' });
-//             });
-//     } catch (error) {
-//         console.error('/users/:userName/:userToken - GET 함수에 문제 발생 : ', error);
-//         res.status(500).json({ message: 'Internal server error' });
-//     }
-// });
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { userName, userProfileImage } = req.body;
+
+            //분해 하고, 나온 id로
+            // Update the travel functionToken
+            User.findOneAndUpdate(
+                { _id: decoded },
+                { userName: userName, userProfileImage: userProfileImage },
+                { new: true }
+            ) // { new: true }로 리턴값 받기
+                .then((updatedProfile) => {
+                    if (!updatedProfile) {
+                        console.log(updatedProfile);
+                        return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+                    }
+
+                    //res.status(201).json(travelCourse);
+                    res.status(201).json({ message: '프로필 수정 완료.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOneAndUpdate() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 입력입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/updateProfile - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
 
 // 3. 회원 탈퇴 + 구글 및 익명 -> 파이어베이스에서 사용자 정보 삭제
 router.delete('/withdraw', async (req, res) => {
@@ -127,20 +150,25 @@ router.delete('/withdraw', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { userToken, signUpFirebase } = req.body;
+            console.log(req.body);
+
+            const { userId, signUpFirebase } = req.body;
 
             // 사용자 찾기
-            const user = await User.findOne({ userToken });
 
-            if (!user) {
+            let user;
+
+            try {
+                user = await User.findOne({ _id: userId });
+                if (!user) {
+                    return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+                }
+            } catch (err) {
                 return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
             }
 
             // 사용자의 travelCourse 데이터 삭제
-            await TravelCourse.deleteMany({ userId: user._id });
-
-            // 사용자 삭제
-            await User.deleteOne({ _id: user._id });
+            await TravelCourse.deleteMany({ userId: userId });
 
             if (signUpFirebase) {
                 try {
@@ -148,9 +176,9 @@ router.delete('/withdraw', async (req, res) => {
                     const auth = admin.auth();
 
                     // 사용자 삭제
-                    auth.deleteUser(userToken)
+                    auth.deleteUser(user.userToken)
                         .then(() => {
-                            console.log(`Successfully deleted user with UID: ${userToken}`);
+                            console.log(`Successfully deleted user with UID: ${user.userToken}`);
                         })
                         .catch((error) => {
                             console.error('Error deleting user:', error);
@@ -166,6 +194,9 @@ router.delete('/withdraw', async (req, res) => {
                     });
                 }
             }
+
+            // 사용자 삭제
+            await User.deleteOne({ _id: userId });
 
             res.status(201).json({ message: '회원 탈퇴가 완료되었습니다.' });
         });
@@ -188,8 +219,9 @@ router.patch('/updateFunctionToken', async (req, res) => {
 
             const { functionToken } = req.body;
 
+            //분해 하고, 나온 id로
             // Update the travel functionToken
-            User.findOneAndUpdate({ userJwtToken: token }, { functionToken: functionToken }, { new: true }) // { new: true }로 리턴값 받기
+            User.findOneAndUpdate({ _id: decoded }, { functionToken: functionToken }, { new: true }) // { new: true }로 리턴값 받기
                 .then((updatedfunctionToken) => {
                     if (!updatedfunctionToken) {
                         console.log(updatedfunctionToken);

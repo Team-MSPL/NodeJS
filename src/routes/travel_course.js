@@ -49,41 +49,29 @@ router.get('/travelList', async (req, res) => {
 
 // 2. 여행 코스 하나 가져오기
 router.get('/getOneTravelCourse', async (req, res) => {
-    const token = req.header('Authorization').split(' ')[1];
+    // JWT 토큰 필요 X
+    try {
+        const { travelId } = req.query;
 
-    // JWT 토큰 검증
-    //dotenv.config(); // .env 파일의 환경 변수 로드
+        //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+        TravelCourse.findOne({ _id: travelId }) //travelId를 저장해둔 것이 아니라, _id를 찾는거임
+            .select('region day nDay transit tendency timetable diary picture reviewCheck')
+            .then((travelCourse) => {
+                if (!travelCourse) {
+                    console.log(travelCourse);
+                    return res.status(404).json({ message: '저장된 여행이 없습니다.' });
+                }
 
-    jwt.verify(token, '${process.env.SECRET_KEY}', (err, decoded) => {
-        if (err) {
-            console.error('JWT 토큰 검증 에러:', err);
-            return res.status(401).json({ message: 'Unauthorized' });
-        }
-
-        // JWT 토큰 검증 성공 시 요청 처리
-        try {
-            const { travelId } = req.query;
-
-            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
-            TravelCourse.findOne({ _id: travelId }) //travelId를 저장해둔 것이 아니라, _id를 찾는거임
-                .select('region day nDay transit tendency timetable diary picture reviewCheck')
-                .then((travelCourse) => {
-                    if (!travelCourse) {
-                        console.log(travelCourse);
-                        return res.status(404).json({ message: '저장된 여행이 없습니다.' });
-                    }
-
-                    res.status(201).json(travelCourse);
-                })
-                .catch((error) => {
-                    console.error('TravelCourse.findOne() 함수에 문제 발생 : ', error);
-                    res.status(403).json({ message: '잘못된 travelId 입니다.' });
-                });
-        } catch (error) {
-            console.error('/travelCourse - GET 함수에 문제 발생 : ', error);
-            res.status(500).json({ message: 'Internal server error' });
-        }
-    });
+                res.status(201).json(travelCourse);
+            })
+            .catch((error) => {
+                console.error('TravelCourse.findOne() 함수에 문제 발생 : ', error);
+                res.status(403).json({ message: '잘못된 travelId 입니다.' });
+            });
+    } catch (error) {
+        console.error('/travelCourse - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 // 3. 여행 코스 저장하기 ( !!타임테이블 생성시 )
@@ -213,7 +201,7 @@ router.delete('/deleteTravelCourse', async (req, res) => {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
             }
-
+            console.log(req.body);
             const { travelId } = req.body;
 
             // Delete the travel course

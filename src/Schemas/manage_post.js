@@ -7,7 +7,10 @@ const managePostSchema = new Schema({
     //게시글 Id
     postId: {
         type: String, // 자료형
-        required: true, // 필수 여부
+    },
+    //댓글 Id
+    commentId: {
+        type: String, // 자료형
     },
     //신고 이유
     reportReason: {

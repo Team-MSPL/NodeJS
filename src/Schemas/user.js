@@ -27,10 +27,10 @@ const userSchema = new Schema({
         unique: true, // 고유 값
     },
     //JWT토큰
-    userJwtToken: {
-        type: String,
-        unique: true, // 고유 값
-    },
+    // userJwtToken: {
+    //     type: String,
+    //     unique: true, // 고유 값
+    // },
     //로그인 방법
     loginProvider: {
         type: String,

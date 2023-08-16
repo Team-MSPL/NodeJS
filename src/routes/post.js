@@ -6,81 +6,56 @@ const dotenv = require('dotenv');
 
 // 1. 게시글 목록 가져오기
 router.get('/postList', async (req, res) => {
-    // 클라이언트에서 전달한 JWT 토큰 추출
-    const token = req.header('Authorization').split(' ')[1];
+    // JWT 토큰 필요 X
+    try {
+        //const { userId } = req.body;
 
-    // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
+        //여러개를 찾아, List로 묶어서 주는 함수 - find!
 
-    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
-        if (err) {
-            console.error('JWT 토큰 검증 에러:', err);
-            return res.status(401).json({ message: 'Unauthorized' });
-        }
+        //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+        Post.find()
+            .select('postTitle postWriter postedAt liker comment')
+            .then((postList) => {
+                if (!postList || postList.length == 0) {
+                    return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
+                }
 
-        // JWT 토큰 검증 성공 시 요청 처리
-        try {
-            //const { userId } = req.body;
-
-            //여러개를 찾아, List로 묶어서 주는 함수 - find!
-
-            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
-            Post.find()
-                .select('postTitle postWriter postedAt liker comment')
-                .then((postList) => {
-                    if (!postList || postList.length == 0) {
-                        return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
-                    }
-
-                    res.status(201).json(postList);
-                })
-                .catch((error) => {
-                    console.error('Post.find() 함수에 문제 발생 : ', error);
-                    res.status(403).json({ message: '잘못된 요청 입니다.' });
-                });
-        } catch (error) {
-            console.error('/Post/postList - GET 함수에 문제 발생 : ', error);
-            res.status(500).json({ message: 'Internal server error' });
-        }
-    });
+                res.status(201).json(postList);
+            })
+            .catch((error) => {
+                console.error('Post.find() 함수에 문제 발생 : ', error);
+                res.status(403).json({ message: '잘못된 요청 입니다.' });
+            });
+    } catch (error) {
+        console.error('/Post/postList - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 // 2. 게시글 하나 가져오기
 router.get('/getOnePost', async (req, res) => {
-    const token = req.header('Authorization').split(' ')[1];
+    // JWT 토큰 필요 X
+    try {
+        const { postId } = req.query;
 
-    // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
+        //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+        Post.findOne({ _id: postId }) //postId를 저장해둔 것이 아니라, _id를 찾는거임
+            .then((post) => {
+                if (!post) {
+                    console.log(post);
+                    return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
+                }
 
-    jwt.verify(token, '${process.env.SECRET_KEY}', (err, decoded) => {
-        if (err) {
-            console.error('JWT 토큰 검증 에러:', err);
-            return res.status(401).json({ message: 'Unauthorized' });
-        }
-
-        // JWT 토큰 검증 성공 시 요청 처리
-        try {
-            const { postId } = req.query;
-
-            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
-            Post.findOne({ _id: postId }) //postId를 저장해둔 것이 아니라, _id를 찾는거임
-                .then((post) => {
-                    if (!post) {
-                        console.log(post);
-                        return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
-                    }
-
-                    res.status(201).json(post);
-                })
-                .catch((error) => {
-                    console.error('Post.findOne() 함수에 문제 발생 : ', error);
-                    res.status(403).json({ message: '잘못된 postId 입니다.' });
-                });
-        } catch (error) {
-            console.error('/Post/getOnePost - GET 함수에 문제 발생 : ', error);
-            res.status(500).json({ message: 'Internal server error' });
-        }
-    });
+                res.status(201).json(post);
+            })
+            .catch((error) => {
+                console.error('Post.findOne() 함수에 문제 발생 : ', error);
+                res.status(403).json({ message: '잘못된 postId 입니다.' });
+            });
+    } catch (error) {
+        console.error('/Post/getOnePost - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 // 3. 게시글 저장하기
