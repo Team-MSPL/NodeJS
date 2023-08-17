@@ -11,6 +11,9 @@ var connect = require('./schemas/index.js'); //이러면, 이 폴더 내부에 �
 var indexRouter = require('./routes/index.js');
 connect(); //MongoDB 연결
 
+// EJS 뷰 엔진 설정
+app.set('view engine', 'ejs'); // 'ejs'는 설치한 뷰 엔진의 이름
+
 app.listen(port, () => {
     console.log(`server is listening`);
     //console.log(`server is listening at ${url}:${port}`);

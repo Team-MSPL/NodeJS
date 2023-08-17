@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ManagePost = require('../schemas/manage_post.js');
+const Post = require('../schemas/post.js');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
@@ -22,14 +23,20 @@ router.post('/reportPost', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { postId, reportReason, reportedAt, reportWriter, post } = req.body;
+            const { postId, reportReason, reportedAt, reportWriter } = req.body;
+
+            const reportPost = await Post.findOne({ _id: postId });
+
+            if (!reportPost) {
+                res.status(403).json({ message: '게시글을 찾을 수 없습니다.' });
+            }
 
             const newReport = new ManagePost({
                 postId: postId,
                 reportReason: reportReason,
                 reportedAt: reportedAt,
                 reportWriter: reportWriter,
-                post: post,
+                post: reportPost,
                 // post: {
                 //     postTitle: post.postTitle,
                 //     postContent: post.postContent,
@@ -71,7 +78,13 @@ router.post('/reportComment', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { commentId, reportReason, reportedAt, reportWriter, post } = req.body;
+            const { postId, commentId, reportReason, reportedAt, reportWriter } = req.body;
+
+            const reportPost = await Post.findOne({ _id: postId });
+
+            if (!reportPost) {
+                res.status(403).json({ message: '게시글을 찾을 수 없습니다.' });
+            }
 
             // 여행 코스에 대한 별점과 리뷰 정보 저장
             const newReport = new ManagePost({
@@ -79,7 +92,7 @@ router.post('/reportComment', async (req, res) => {
                 reportReason: reportReason,
                 reportedAt: reportedAt,
                 reportWriter: reportWriter,
-                post: post,
+                post: reportPost,
                 // post: {
                 //     postTitle: post.postTitle,
                 //     postContent: post.postContent,

@@ -7,7 +7,8 @@ let CommentType = {
     commentContent: String,
     commentedAt: String,
     commentWriter: String,
-    userid: String,
+    commentWriterUserId: String,
+    commentWriterProfile: String,
 };
 
 const postSchema = new Schema({
@@ -35,6 +36,10 @@ const postSchema = new Schema({
     postWriterUserId: {
         type: String,
         required: true,
+    },
+    //게시글 작성자의 ProfileImage
+    postWriterProfileImage: {
+        type: String,
     },
     //게시글 작성 시점
     postedAt: {

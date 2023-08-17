@@ -30,7 +30,6 @@ const managePostSchema = new Schema({
     //게시글 원본 보존
     post: {
         type: Schema.Types.Mixed, // Mixed 타입으로 변경하여 객체 형태 데이터를 저장
-        required: true,
     },
 });
 

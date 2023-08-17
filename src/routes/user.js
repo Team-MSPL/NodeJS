@@ -115,7 +115,7 @@ router.patch('/updateProfile', async (req, res) => {
             //분해 하고, 나온 id로
             // Update the travel functionToken
             User.findOneAndUpdate(
-                { _id: decoded },
+                { _id: decoded._id },
                 { userName: userName, userProfileImage: userProfileImage },
                 { new: true }
             ) // { new: true }로 리턴값 받기

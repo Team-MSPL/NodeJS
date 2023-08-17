@@ -71,7 +71,6 @@ const manageTravelSchema = new Schema({
                 },
             ],
         ],
-        required: true,
     },
 });
 

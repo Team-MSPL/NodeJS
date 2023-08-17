@@ -25,27 +25,31 @@ router.post('/reviewAndPoint', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { userId, travelId, review, point, tendencyPoint, region, day, nDay, tendency, timetable } = req.body;
+            const { travelId, review, point, tendencyPoint } = req.body;
 
             //TravelCourse 스키마에서 리뷰 유무 업데이트
-            TravelCourse.findOneAndUpdate({ _id: travelId }, { reviewCheck: true }).catch((error) => {
+
+            let saveTravelCourse = await TravelCourse.findOneAndUpdate({ _id: travelId }, { reviewCheck: true })
+            .catch((error) => {
                 console.error('TravelCourse.findOneAndUpdate() 함수에 문제 발생 : ', error);
                 res.status(403).json({ message: '잘못된 travelId 입니다.' });
                 return;
             });
 
+            console.log(saveTravelCourse);
+
             // 여행 코스에 대한 별점과 리뷰 정보 저장
             const newReview = new ManageTravel({
-                userId,
-                travelId,
-                review,
-                point,
-                tendencyPoint,
-                region,
-                day,
-                nDay,
-                tendency,
-                timetable,
+                userId: decoded._id,
+                travelId: travelId,
+                review: review,
+                point: point,
+                tendencyPoint: tendencyPoint,
+                region: saveTravelCourse.region,
+                day: saveTravelCourse.day,
+                nDay: saveTravelCourse.nDay,
+                tendency: saveTravelCourse.tendency,
+                timetable: saveTravelCourse.timetable,
             });
 
             //DB에 저장

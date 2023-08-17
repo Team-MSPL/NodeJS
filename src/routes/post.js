@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Post = require('../schemas/post.js');
+const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 
@@ -74,16 +75,23 @@ router.post('/savePost', async (req, res) => {
             }
 
             // JWT 토큰 검증 성공 시 요청 처리
+            //분해 하고, 나온 id로
+            let postWriter = await User.findOne({ _id: decoded._id });
 
-            const { postTitle, postContent, postImage, postWriter, postWriterUserId, postedAt } = req.body;
+            if (!postWriter) {
+                res.status(403).json({ message: '사용자를 찾을 수 없습니다.' });
+            }
+
+            const { postTitle, postContent, postImage, postedAt } = req.body;
 
             const newPost = new Post({
-                postTitle,
-                postContent,
-                postImage,
-                postWriter,
-                postWriterUserId,
-                postedAt,
+                postTitle: postTitle,
+                postContent: postContent,
+                postImage: postImage,
+                postWriter: postWriter.userName,
+                postWriterUserId: postWriter._id.toString(),
+                postWriterProfileImage: postWriter.userProfileImage,
+                postedAt: postedAt,
             });
 
             const savedPost = await newPost.save();
@@ -185,7 +193,7 @@ router.patch('/clickLike', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { postId, userId } = req.body; // 수정할 필드들을 담은 객체
+            const { postId } = req.body; // 수정할 필드들을 담은 객체
 
             //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
             Post.findOne({ _id: postId }) //postId를 저장해둔 것이 아니라, _id를 찾는거임
@@ -196,7 +204,7 @@ router.patch('/clickLike', async (req, res) => {
                     }
 
                     //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
-                    post.liker.push(userId);
+                    post.liker.push(decoded._id);
 
                     await post.save();
 
@@ -226,7 +234,7 @@ router.patch('/unclickLike', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { postId, userId } = req.body; // 수정할 필드들을 담은 객체
+            const { postId } = req.body; // 수정할 필드들을 담은 객체
 
             //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
             Post.findOne({ _id: postId }) //postId를 저장해둔 것이 아니라, _id를 찾는거임
@@ -237,7 +245,7 @@ router.patch('/unclickLike', async (req, res) => {
                     }
 
                     //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
-                    post.liker = post.liker.filter((item) => item != userId);
+                    post.liker = post.liker.filter((item) => item != decoded._id);
 
                     await post.save();
 
@@ -266,6 +274,10 @@ router.patch('/saveComment', async (req, res) => {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
             }
+            let commentWriter = await User.findOne({ _id: decoded._id });
+            if (!commentWriter) {
+                res.status(403).json({ message: '사용자를 찾을 수 없습니다.' });
+            }
 
             const { postId, comment } = req.body; // 수정할 필드들을 담은 객체
 
@@ -277,7 +289,7 @@ router.patch('/saveComment', async (req, res) => {
                         return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
                     }
 
-                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
+                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음. 그래서 push
                     post.comment.push(comment);
 
                     await post.save();
