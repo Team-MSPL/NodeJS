@@ -86,29 +86,40 @@ router.post('/reportComment', async (req, res) => {
                 res.status(403).json({ message: '게시글을 찾을 수 없습니다.' });
             }
 
-            // 여행 코스에 대한 별점과 리뷰 정보 저장
-            const newReport = new ManagePost({
-                commentId: commentId,
-                reportReason: reportReason,
-                reportedAt: reportedAt,
-                reportWriter: reportWriter,
-                post: reportPost,
-                // post: {
-                //     postTitle: post.postTitle,
-                //     postContent: post.postContent,
-                //     postPhoto: post.postPhoto,
-                //     postWriter: post.postWriter,
-                //     createdAt: post.createdAt,
-                //     likeClicker: post.likeClicker,
-                //     comment: post.comment,
-                // },
-            });
+            let commentFlag = false;
 
-            //DB에 저장
-            await newReport.save();
+            for (let i = 0; i < reportPost.comment.length; i++) {
+                if (reportPost.comment[i]._id.toString() === commentId) {
+                    commentFlag = true;
+                    break;
+                }
+            }
 
-            res.status(201).json({ message: '댓글 신고 완료.' });
+            if (commentFlag) {
+                const newReport = new ManagePost({
+                    commentId: commentId,
+                    reportReason: reportReason,
+                    reportedAt: reportedAt,
+                    reportWriter: reportWriter,
+                    post: reportPost,
+                    // post: {
+                    //     postTitle: post.postTitle,
+                    //     postContent: post.postContent,
+                    //     postPhoto: post.postPhoto,
+                    //     postWriter: post.postWriter,
+                    //     createdAt: post.createdAt,
+                    //     likeClicker: post.likeClicker,
+                    //     comment: post.comment,
+                    // },
+                });
 
+                //DB에 저장
+                await newReport.save();
+
+                return res.status(201).json({ message: '댓글 신고 완료.' });
+            } else {
+                res.status(403).json({ message: '댓글을 찾을 수 없습니다.' });
+            }
             //내가 찾아서 하는게 아니라, 클라이언트에서 보내주는 것이 맞다
             // TravelCourse.findOne({ _id: travelId })
         } catch (error) {

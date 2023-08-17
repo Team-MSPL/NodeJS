@@ -205,7 +205,7 @@ router.patch('/clickLike', async (req, res) => {
                     }
 
                     //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
-                    post.liker.push(decoded._id);
+                    post.liker.push(decoded._id.toString());
 
                     await post.save();
 
@@ -246,7 +246,7 @@ router.patch('/unclickLike', async (req, res) => {
                     }
 
                     //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
-                    post.liker = post.liker.filter((item) => item != decoded._id);
+                    post.liker = post.liker.filter((item) => item != decoded._id.toString());
 
                     await post.save();
 
@@ -295,7 +295,7 @@ router.patch('/saveComment', async (req, res) => {
 
                     await post.save();
 
-                    res.status(201).json({ commentId: post.comment.at(-1)._id });
+                    res.status(201).json({ commentId: post.comment.at(-1)._id.toString() });
                 })
                 .catch((error) => {
                     console.error('Post.findOne() 함수에 문제 발생 : ', error);
@@ -332,10 +332,11 @@ router.patch('/deleteComment', async (req, res) => {
                     }
 
                     let beforeLength = post.comment.length;
-                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
-                    post.comment = post.comment.filter((item) => item._id !== commentId);
 
-                    if (beforeLength !== post.comment.length) {
+                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
+                    post.comment = post.comment.filter((item) => item._id.toString() !== commentId);
+
+                    if (beforeLength === post.comment.length) {
                         return res.status(405).json({ message: '삭제할 댓글이 없습니다.' });
                     }
 

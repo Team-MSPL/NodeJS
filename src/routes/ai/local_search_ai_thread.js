@@ -199,7 +199,7 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
 //Step 3-2. 코스 개선 시도를 위한 방법 - 2가지 (관광지 교체, 순서 변경)
 function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList) {
     //숙소, 필수여행지 선택 횟수에 따라 2-opts 시도 횟수 조절
-    let iterations = 5000 - selectedNum * 600; //2-opts 시도 횟수
+    let iterations = 1000 - selectedNum * 120; //2-opts 시도 횟수
 
     let bestPath = _.cloneDeep(path);
 
