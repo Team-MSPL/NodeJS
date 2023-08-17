@@ -9,24 +9,25 @@ const dotenv = require('dotenv');
 router.get('/postList', async (req, res) => {
     // JWT 토큰 필요 X
     try {
-        //const { userId } = req.body;
+        let responseList = [];
+        const postList = await Post.find();
 
-        //여러개를 찾아, List로 묶어서 주는 함수 - find!
+        if (!postList) {
+            return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
+        }
 
-        //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
-        Post.find()
-            .select('postTitle postWriter postedAt liker comment')
-            .then((postList) => {
-                if (!postList || postList.length == 0) {
-                    return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
-                }
-
-                res.status(201).json(postList);
-            })
-            .catch((error) => {
-                console.error('Post.find() 함수에 문제 발생 : ', error);
-                res.status(403).json({ message: '잘못된 요청 입니다.' });
+        postList.map((item, idx) => {
+            responseList.push({
+                postId: item._id.toString(),
+                postTitle: item.postTitle,
+                postWriter: item.postWriter,
+                postedAt: item.postedAt,
+                likerLength: item.liker.length,
+                commentLength: item.comment.length,
             });
+        });
+
+        res.status(201).json(responseList);
     } catch (error) {
         console.error('/Post/postList - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
