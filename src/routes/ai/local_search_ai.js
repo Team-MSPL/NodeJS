@@ -163,7 +163,8 @@ async function localSearchAI({
     if (nDay == 1) {
         timeLimit = timeLimitArray[1] - timeLimitArray[0];
 
-        timeLimit > 6 ? (timeLimit = timeLimit - 5) : (timeLimit = timeLimit - 3);
+        // 당일치기라도, 점심 및 저녁 시간이 있으니, 제외하고 계산하기 위함
+        timeLimit > 6 ? (timeLimit = timeLimit - 2) : (timeLimit = timeLimit - 1);
 
         timeLimit = timeLimit * 60;
         time.push(timeLimit);
@@ -204,6 +205,8 @@ async function localSearchAI({
 
     //AI를 위한 데이터 전처리 종료
 
+    const loadingTime = performance.now() - startTime;
+
     //AI 실행
     await ai_run(accomodationList2, selectList, essentialPlaceList, time, nDay);
 
@@ -234,6 +237,9 @@ async function localSearchAI({
     //console.log(result);
     console.log(`프리셋 개수`, resultData.length);
     console.log('enoughPlace : ', enoughPlace);
+    console.log(`데이터 로딩 및 전처리에 걸리는 시간`);
+
+    console.log(`Elapsed time: ${loadingTime / 1000} seconds`);
     console.log(`AI 돌리는데 걸리는 시간`);
 
     const elapsedTime = endTime - startTime;

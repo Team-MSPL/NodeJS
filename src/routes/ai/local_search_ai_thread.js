@@ -13,6 +13,13 @@ var enoughPlaceInThread = true; //관광지가 부족하여 중단할 경우 fal
 
 var count = [0, 0, 0, 0, 0]; //selectList 선택 개수 저장 배열
 
+let countNum = 0;
+
+//각 성향 카테고리별 가중치, weight[5]는 popular, 인기관광지 점수
+//0:누구와, 1:테마, 2:무엇을, 3:어디 ,4:계절, 5: 인기도
+//threadNum만큼 곱할거라, 원래 값에서 1/5함
+const weight = [40, 200, 200, 200, 20, 0.005];
+
 var placeList = []; //장소 리스트, 전역 변수, 원본
 var placeListCopy = []; //장소 리스트, 전역 변수, n일차 코스를 위함, path에 들어간 Place들은 제거하는 리스트
 var transitInAI = 0;
@@ -50,9 +57,6 @@ function placePoint(selectList, beforePlace, targetPlace) {
     }
 
     let sum = 0;
-    //각 성향 카테고리별 가중치, weight[5]는 popular, 인기관광지 점수
-    //0:누구와, 1:테마, 2:무엇을, 3:어디 ,4:계절, 5: 인기도
-    const weight = [100, 500, 500, 500, 50, 1];
     let listSum = 0;
     let sumForDistance = 0;
 
@@ -85,6 +89,9 @@ function placePoint(selectList, beforePlace, targetPlace) {
         }
     }
 
+    //성향 종류별로 선택한 갯수만큼 나눠줘서, 표준화시키자
+    sum = sum / countNum;
+
     sum += targetPlace.popular * weight[5]; //인기도 지표 포함하기
 
     if (beforePlace.name != '') {
@@ -101,8 +108,8 @@ function placePoint(selectList, beforePlace, targetPlace) {
         //TODO 거리민감도 계산이 확 달라지기에, Math.sqrt를 제거하지 못했음. 추후 제거할 것
         let distance =
             transitInAI === 1
-                ? Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivityInAI * 0.12) * sumForDistance
-                : Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivityInAI * 0.18) * sumForDistance;
+                ? Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivityInAI * 0.1) * sumForDistance
+                : Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivityInAI * 0.2) * sumForDistance;
 
         sum -= distance; // 거리가 커질수록 안좋은 것임. 총점수에 - 연산으로 계산해줘야함. 위와 마찬가지로 Math.round()연산 제거
     }
@@ -579,8 +586,18 @@ function searchFullCourse(unselectPlaceList, selectPlaceList) {
 
 async function routeSearch(accomodationList, selectList, essentialPlaceList, timeLimit, nDay) {
     // await안쓰면 이 함수 따로 돌리고 넘어가서, placeList에 원소 안넣은 상태로 코드돌림
-    //프리셋 갯수 결정
-    //let numPreset = 5;
+    //프리셋 넘버에 따라, 가중치 결정
+    for (let i = 0; i < weight.length - 1; i++) {
+        weight[i] = weight[i] * (15 - threadNum);
+    }
+
+    countNum = 0;
+
+    count.map((item, idx) => {
+        if (item > 0) {
+            countNum += 1;
+        }
+    });
 
     //path의 List,관광지의 List의 List, 날짜별로 한번 더 쪼갠것임
     //pathList[프리셋넘버][n일차넘버][n번째관광지] - 중요!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../schemas/user.js');
+const ManageUser = require('../schemas/manage_user.js');
 const TravelCourse = require('../schemas/travel_course.js');
 const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
@@ -74,12 +75,13 @@ router.post('/signUpAndIn', async (req, res) => {
 
             // JWT 생성
             const userJwtToken = jwt.sign(payload, '${process.env.SECRET_KEY}', { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
-            // TODO 이후에 토큰 유효기간을 1~2시간으로 줄이고, Refresh token으로 대체하자.
+            // TODO 이후에 토큰 유효기간을 1 ~ 2시간으로 줄이고, Refresh token으로 대체하자.
 
-            // JWT 저장
-            // TODO 저장 안하는 방식도 고려할 것. 실제로 재윤이도 저장 안함
-            //savedUser.userJwtToken = userJwtToken;
-            //await savedUser.save(); // 토큰을 저장한 후 데이터베이스 업데이트
+            // manage_user 객체도 생성 ( 회원가입 시에만 )
+            const newManageUser = new ManageUser({
+                userId: savedUser._id.toString(),
+            });
+            await newManageUser.save();
 
             console.log('Generated JWT:', userJwtToken);
 

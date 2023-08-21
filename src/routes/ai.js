@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
+const ManageUser = require('../schemas/manage_user.js');
 var { localSearchAI } = require('./ai/local_search_ai.js');
 
 // 여행 코스 추천
@@ -21,6 +22,23 @@ router.post('/run', async (req, res) => {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });
         }
+
+        //manage_user에 호출 횟수 추가
+        await ManageUser.findOne({ userId: decoded._id.toString() })
+            .then(async (user) => {
+                if (!user) {
+                    console.log(user);
+                    res.status(401).json({ message: 'Unauthorized' });
+                }
+                user.useTokenTime += 1;
+
+                await user.save();
+            })
+            .catch((error) => {
+                console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
+                res.status(401).json({ message: 'Unauthorized' });
+            });
+
         try {
             // 클라이언트로부터 전달된 JSON 데이터
             const {
