@@ -12,6 +12,7 @@ let TimetableType = {
     x: Number,
     y: Number,
     id: String,
+    photo: String,
 };
 
 const travelCourseSchema = new Schema({
@@ -19,12 +20,7 @@ const travelCourseSchema = new Schema({
     userId: {
         type: String, // 자료형
         required: true, // 필수 여부
-        unique: true, // 고유 값
     },
-    //여행 ID - 여행을 저장할때, 기본 제공 되는 _id (ObjectId)
-    // travelId: {
-    //     type: String, // 자료형
-    // },
     //여행 지역 리스트
     region: {
         type: [String], // 자료형

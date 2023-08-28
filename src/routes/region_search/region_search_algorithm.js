@@ -1,4 +1,5 @@
 var { readAllRegion } = require('../firebase/firebase_read_region.js');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 var _ = require('lodash');
 
@@ -65,11 +66,12 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
 
     //sum = sum / countNum; //이거로 몇개를 선택했든 평균낼 수 있음!! - 가중치의 존재로, 이래봤자 평균이 들쭉날쭉함
 
-    if (recentPosition.lat !== 0.0 || recentPosition.lng !== 0.0) {
+    if (recentPosition.lat != 0 || recentPosition.lng != 0) {
         const latDiff = targetregion.lat - recentPosition.lat;
         const longDiff = targetregion.lng - recentPosition.lng;
 
-        let distance = Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivity * 0.15) * sumForDistance;
+        let distance =
+            Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivity) * 0.15) * (sumForDistance + 1);
         sum -= distance; // 거리가 커질수록 안좋은 것임. 총점수에 - 연산으로 계산해줘야함.
         //sum += 1 / distance;
     }
@@ -77,8 +79,13 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
 }
 
 //RegionSearch를 실행시키는 비동기 함수
-async function regionSearch({ selectList, selectPopular, distanceSensitivity, recentPosition }) {
+async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition) {
     console.log('여행 지역 알고리즘 시작!');
+    if (recentPosition.lat !== 0 || recentPosition.lng !== 0) {
+        console.log('현재 위치 좌표', recentPosition);
+    }
+    console.log('인기도', selectPopular);
+    console.log('거리민감도', distanceSensitivity);
 
     //시간 재기
     const startTime = performance.now();
@@ -142,6 +149,22 @@ async function regionSearch({ selectList, selectPopular, distanceSensitivity, re
     console.log(`Elapsed time: ${elapsedTime / 1000} seconds`);
     console.log(`------------------------------------------`);
 
+    //const wakeUpTime = Date.now() + 5000;
+    //while (Date.now() < wakeUpTime) {}
+
+    parentPort.postMessage({ result: result });
     return result;
 }
-module.exports.regionSearch = regionSearch;
+
+if (isMainThread) {
+    console.log('Main Thread');
+} else {
+    regionSearch(
+        workerData.selectList,
+        workerData.selectPopular,
+        workerData.distanceSensitivity,
+        workerData.recentPosition
+    );
+}
+
+//module.exports.regionSearch = regionSearch;

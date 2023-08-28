@@ -12,6 +12,7 @@ let TimetableType = {
     x: Number,
     y: Number,
     id: String,
+    photo: String,
 };
 
 const manageTravelSchema = new Schema({

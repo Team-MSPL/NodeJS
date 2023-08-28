@@ -40,9 +40,13 @@ const userSchema = new Schema({
         type: Date,
         default: Date.now,
     },
+    recentLogin: {
+        type: Date,
+        //default: Date.now,
+    },
     functionToken: {
         type: Number,
-        default: 0,
+        default: 1,
     },
 });
 

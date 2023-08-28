@@ -42,6 +42,7 @@ var dummy = {
     tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
     season: [0, 0, 0, 0],
     category: 8,
+    photo: '',
 };
 
 var corDis = [];
@@ -206,7 +207,7 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
 //Step 3-2. 코스 개선 시도를 위한 방법 - 2가지 (관광지 교체, 순서 변경)
 function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList) {
     //숙소, 필수여행지 선택 횟수에 따라 2-opts 시도 횟수 조절
-    let iterations = 1000 - selectedNum * 120; //2-opts 시도 횟수
+    let iterations = 500 - selectedNum * 60; //2-opts 시도 횟수
 
     let bestPath = _.cloneDeep(path);
 
@@ -629,6 +630,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                         tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
                         season: [0, 0, 0, 0],
                         category: item.category,
+                        photo: item.photo,
                     };
                     todayEssentialPlaceList.push(readData);
                 }
@@ -637,7 +639,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
         if (accomodationList[d].name !== '') {
             firstPlace = _.cloneDeep(accomodationList[d]);
 
-            if (placeListCopy.length < 3) {
+            if (placeListCopy.length < 2) {
                 //이러면, 관광지 부족하다는 뜻!, 중단하고 프리셋에서 안내메세지 띄우자
                 console.log('남은 관광지 수2222');
                 console.log(placeListCopy.length);

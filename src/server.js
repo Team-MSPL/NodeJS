@@ -13,6 +13,7 @@ connect(); //MongoDB 연결
 
 // EJS 뷰 엔진 설정
 app.set('view engine', 'ejs'); // 'ejs'는 설치한 뷰 엔진의 이름
+app.set('views', './views');
 
 app.listen(port, () => {
     console.log(`server is listening`);
@@ -24,8 +25,8 @@ app.listen(port, () => {
 //     console.log(`server is listening`);
 //     //console.log(`server is listening at ${url}:${port}`);
 // });
-
-app.use(express.json()); // JSON 데이터 파싱을 위한 미들웨어
+//app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // JSON 데이터 파싱을 위한 미들웨어
 
 // 라우팅 설정
 app.use('/', indexRouter); // '/' 경로에 대한 라우팅 설정

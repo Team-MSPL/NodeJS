@@ -2,7 +2,6 @@
 
 var { readAllPlace } = require('../firebase/firebase_read_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
-var _ = require('./local_search_ai_thread.js');
 //var _ = require('lodash');
 
 var enoughPlace = true; //관광지가 부족하여 중단할 경우 false가 됨. -> 다이어로그 표시!
@@ -42,67 +41,61 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
         //let primeNum = Math.floor(Math.random() * 1000) + 1;
         //console.time('prime' + primeNum);
 
-        if (isMainThread) {
-            // 우리가 워커가 일을 할수있게 분배하고 직접 짜야 한다. 여간 복잡한게 아니다..
-            //쓰레드 수 10개! - 나중에 중복 처리하면 줄어든다.
-            for (let i = 0; i < 10; i++) {
-                threads.add(
-                    //이거 경로는 root 폴더를 기준으로 설정해야함. worker가 root폴더에 있기 때문에!!
-                    new Worker('./routes/ai/local_search_ai_thread.js', {
-                        workerData: {
-                            accomodationList: accomodationList,
-                            selectList: selectList,
-                            essentialPlaceList: essentialPlaceList,
-                            time: time,
-                            nDay: nDay,
-                            count: count,
-                            placeList: placeList,
-                            placeListCopy: placeListCopy,
-                            transitInAI: transitInAI,
-                            distanceSensitivityInAI: distanceSensitivityInAI,
-                            selectedNum: selectedNum,
-                            threadNum: threads.size,
-                        },
-                    })
-                );
-            }
-            // 워커들 이벤트 등록
-            for (let worker of threads) {
-                worker.on('error', (err) => {
-                    throw err;
-                });
-                worker.on('message', (message) => {
-                    //console.log('Message from worker:', message);
-                    pathList.push(message.path);
+        // 우리가 워커가 일을 할수있게 분배하고 직접 짜야 한다. 여간 복잡한게 아니다..
+        //쓰레드 수 10개! - 나중에 중복 처리하면 줄어든다.
+        for (let i = 0; i < 7; i++) {
+            threads.add(
+                //이거 경로는 root 폴더를 기준으로 설정해야함. worker가 root폴더에 있기 때문에!!
+                new Worker('./routes/ai/local_search_ai_thread.js', {
+                    workerData: {
+                        accomodationList: accomodationList,
+                        selectList: selectList,
+                        essentialPlaceList: essentialPlaceList,
+                        time: time,
+                        nDay: nDay,
+                        count: count,
+                        placeList: placeList,
+                        placeListCopy: placeListCopy,
+                        transitInAI: transitInAI,
+                        distanceSensitivityInAI: distanceSensitivityInAI,
+                        selectedNum: selectedNum,
+                        threadNum: threads.size,
+                    },
+                })
+            );
+        }
+        // 워커들 이벤트 등록
+        for (let worker of threads) {
+            worker.on('error', (err) => {
+                throw err;
+            });
+            worker.on('message', (message) => {
+                //console.log('Message from worker:', message);
+                pathList.push(message.path);
 
-                    //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
-                    if (!message.enoughPlaceInThread) {
-                        enoughPlace = false;
-                    }
-                });
-                //worker.on('exit', resolve);
-                worker.on('exit', () => {
-                    threads.delete(worker);
+                //어떤 스레드에서 enoughPlaceInThread가 false면, enoughPlace도 false!!
+                if (!message.enoughPlaceInThread) {
+                    console.log('message.enoughPlaceInThread');
+                    console.log(message.enoughPlaceInThread);
+                    enoughPlace = false;
+                }
+            });
+            //worker.on('exit', resolve);
+            worker.on('exit', () => {
+                threads.delete(worker);
 
-                    if (threads.size === 0) {
-                        //console.timeEnd('prime' + primeNum);
-                        //primes = 0;
-                        resolve('성공');
-                    }
-                });
-
-                // 워커들이 일한 결과를 메시지 받아서 정리해주는 동작도 직접 구현
-                worker.on('message', (msg) => {
-                    //primes = primes.concat(msg);
-                    //primes += msg;
-                });
-            }
+                if (threads.size === 0) {
+                    //console.timeEnd('prime' + primeNum);
+                    //primes = 0;
+                    resolve('성공');
+                }
+            });
         }
     });
 }
 
 //localSearchAI를 실행시키는 비동기 함수
-async function localSearchAI({
+async function localSearchAI(
     regionList,
     accomodationList,
     selectList,
@@ -110,12 +103,22 @@ async function localSearchAI({
     timeLimitArray,
     nDay,
     transit,
-    distanceSensitivity,
-}) {
+    distanceSensitivity
+) {
     console.log('여행 코스 AI 시작!');
 
     //시간 재기
     const startTime = performance.now();
+
+    //데이터 초기화
+    enoughPlace = true; //관광지가 부족하여 중단할 경우 false가 됨. -> 다이어로그 표시!
+
+    count = [0, 0, 0, 0, 0]; //selectList 선택 개수 저장 배열
+
+    placeList = []; //장소 리스트, 전역 변수, 원본
+    placeListCopy = []; //장소 리스트, 전역 변수, n일차 코스를 위함, path에 들어간 Place들은 제거하는 리스트
+
+    pathList = [];
 
     //데이터 로딩
     await dataLoading(regionList);
@@ -127,9 +130,7 @@ async function localSearchAI({
     transitInAI = transit;
     distanceSensitivityInAI = distanceSensitivity;
 
-    // 1) 숙소, 필수여행지 총 합계 계산 + 총날짜도 고려!! - , 반복 횟수 줄이기에 사용
-    // 1) 총날짜 (nDay)를 3으로 나눈 몫만큼 빼주자 -> 3일이면 -1, 6일이면 -2 -> 날짜가 많으면 선택 많이해도 지장 줄어드니까
-    // 2) ai run 전에 숙소, 필수 여행지를 placeList에서 제거 작업
+    // ai run 전에 숙소, 필수 여행지를 placeList에서 제거 작업
     let accomodationNum = 0;
     accomodationList.map((item, idx) => {
         if (item.name != '') {
@@ -146,6 +147,8 @@ async function localSearchAI({
         placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
     });
 
+    // 숙소, 필수여행지 총 합계 계산 + 총날짜도 고려!! - , 반복 횟수 줄이기에 사용
+    // 총날짜 (nDay)를 3으로 나눈 몫만큼 빼주자 -> 3일이면 -1, 6일이면 -2 -> 날짜가 많으면 선택 많이해도 지장 줄어드니까
     selectedNum = accomodationNum + essentialPlaceList.length - Math.floor(nDay / 3);
 
     //selectList 선순회 - placePoint에서 평균 구할 때 사용 - 내부에서 계산하면 시간 오래 걸리니까
@@ -224,14 +227,14 @@ async function localSearchAI({
     }
 
     for (let i = 0; i < resultData.length; i++) {
-        console.log(`코스`, i + 1);
+        //console.log(`코스`, i + 1);
         for (let j = 0; j < resultData[i].length; j++) {
-            console.log(`날짜 : ${j + 1}`);
+            //console.log(`날짜 : ${j + 1}`);
             for (let k = 0; k < resultData[i][j].length; k++) {
-                console.log(resultData[i][j][k].name);
+                //console.log(resultData[i][j][k].name);
             }
         }
-        console.log(`------------------------------------------`);
+        //console.log(`------------------------------------------`);
     }
 
     //console.log(result);
@@ -247,8 +250,24 @@ async function localSearchAI({
     console.log(`Elapsed time: ${elapsedTime / 1000} seconds`);
     console.log(`------------------------------------------`);
 
+    parentPort.postMessage({ resultData: resultData, enoughPlace: enoughPlace });
     return { resultData: resultData, enoughPlace: enoughPlace };
 }
 
-module.exports.localSearchAI = localSearchAI;
+if (isMainThread) {
+    console.log('Main Thread');
+} else {
+    localSearchAI(
+        workerData.regionList,
+        workerData.accomodationList,
+        workerData.selectList,
+        workerData.essentialPlaceList,
+        workerData.timeLimitArray,
+        workerData.nDay,
+        workerData.transit,
+        workerData.distanceSensitivity
+    );
+}
+
+//module.exports.localSearchAI = localSearchAI;
 //module.exports.enoughPlace = enoughPlace;

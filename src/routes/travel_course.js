@@ -7,7 +7,7 @@ require('dotenv').config();
 // 1. 여행 코스 목록 가져오기 ( 메인 화면 + 내 여행 목록 )
 router.get('/travelList', async (req, res) => {
     // 클라이언트에서 전달한 JWT 토큰 추출
-    console.log(req.header('Authorization'));
+    //console.log(req.header('Authorization'));
 
     const token = req.header('Authorization').split(' ')[1];
 
@@ -203,7 +203,7 @@ router.delete('/deleteTravelCourse', async (req, res) => {
                 console.error('JWT 토큰 검증 에러:', err);
                 return res.status(401).json({ message: 'Unauthorized' });
             }
-            console.log(req.body);
+            // console.log(req.body);
             const { travelId } = req.body;
 
             // Delete the travel course

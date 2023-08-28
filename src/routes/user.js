@@ -5,6 +5,7 @@ const ManageUser = require('../schemas/manage_user.js');
 const TravelCourse = require('../schemas/travel_course.js');
 const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
+var _ = require('lodash');
 require('dotenv').config();
 const serviceAccount = require('../../danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json'); // 서비스 계정 키의 경로
 
@@ -26,13 +27,23 @@ router.post('/signUpAndIn', async (req, res) => {
             // 페이로드 데이터 (토큰에 담을 정보)
             const payload = {
                 userName: existingUser.userName,
-                userProfileImage: existingUser.userProfileImage,
                 userToken: existingUser.userToken,
                 _id: existingUser._id.toString(), // 이 부분은 데이터베이스에서 생성된 고유 ID를 사용해야 합니다.
             };
 
             // JWT 생성
             const userJwtToken = jwt.sign(payload, '${process.env.SECRET_KEY}', { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
+
+            //로그인시, 출석 보상
+            let daliyReward = false;
+            var now = new Date(); // 현재 날짜 및 시간
+            if (existingUser.recentLogin.getDate() != now.getDate()) {
+                existingUser.functionToken += 1;
+                daliyReward = true;
+                //최근접속시간 업데이트
+                existingUser.recentLogin = new Date();
+                await existingUser.save();
+            }
 
             res.status(201).json({
                 userId: existingUser._id.toString(),
@@ -41,6 +52,7 @@ router.post('/signUpAndIn', async (req, res) => {
                 userJwtToken: userJwtToken,
                 functionToken: existingUser.functionToken,
                 loginProvider: existingUser.loginProvider,
+                dailyReward: daliyReward,
             });
             //return res.status(401).json({ message: '이미 회원가입을 한 유저입니다.' });
         }
@@ -51,11 +63,14 @@ router.post('/signUpAndIn', async (req, res) => {
         //회원가입인데, 약관 동의를 한 이후
         else {
             //여기가 객체에 값을 배당하는 부분임!! 여기를 수정 안해서 에러났었음
+            var now = new Date(); // 현재 날짜 및 시간
             const newUser = new User({
                 userName,
                 userProfileImage,
                 userToken,
                 loginProvider,
+                createdAt: now,
+                recentLogin: now,
             });
 
             const savedUser = await newUser.save();
@@ -65,7 +80,6 @@ router.post('/signUpAndIn', async (req, res) => {
             // 페이로드 데이터 (토큰에 담을 정보)
             const payload = {
                 userName: savedUser.userName,
-                userProfileImage: savedUser.userProfileImage,
                 userToken: savedUser.userToken,
                 _id: savedUser._id.toString(), // 이 부분은 데이터베이스에서 생성된 고유 ID를 사용해야 합니다.
             };

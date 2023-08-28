@@ -3,7 +3,8 @@ const router = express.Router();
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
-var { regionSearch } = require('./region_search/region_search_algorithm.js');
+var _ = require('./region_search/region_search_algorithm.js');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 // 여행 지역 추천
 router.post('/run', async (req, res) => {
@@ -44,16 +45,36 @@ router.post('/run', async (req, res) => {
 
             console.log('--- log start ---');
 
-            const resultData = await regionSearch({
-                selectList: selectList,
-                selectPopular: selectPopular,
-                recentPosition: recentPosition,
-                distanceSensitivity: distanceSensitivity,
+            // 요청을 처리할 워커 스레드 생성
+            const worker = new Worker('./routes/region_search/region_search_algorithm.js', {
+                workerData: {
+                    selectList: selectList,
+                    selectPopular: selectPopular,
+                    recentPosition: recentPosition,
+                    distanceSensitivity: distanceSensitivity,
+                },
             });
 
-            console.log('--- log end ---');
+            // 워커 스레드가 완료되면 응답을 클라이언트에 보냅니다.
+            worker.on('message', (message) => {
+                //res.json({ message: 'API 요청 처리 완료', data: message });
 
-            res.json(resultData);
+                console.log('--- log end ---');
+                res.json(message.result);
+            });
+
+            // 에러 처리
+            worker.on('error', (error) => {
+                console.error(error);
+                res.status(500).json({ error: 'Internal server error' });
+            });
+
+            // const resultData = await regionSearch({
+            //     selectList: selectList,
+            //     selectPopular: selectPopular,
+            //     recentPosition: recentPosition,
+            //     distanceSensitivity: distanceSensitivity,
+            // });
         } catch (error) {
             console.error('/regionSearch/run - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'Internal server error' });

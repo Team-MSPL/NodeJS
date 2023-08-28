@@ -51,6 +51,7 @@ async function readAllPlace(region) {
                 tour: tour,
                 season: season,
                 category: 0, // 이태운 추가 - 타임테이블을 위함
+                photo: item.photo, // 이태운 추가 - 타임테이블 위 관광지 사진을 위함
             };
             allPlace.push(placeData);
         });
@@ -112,6 +113,7 @@ async function readOnePlace(region, name) {
             tour: tour,
             season: season,
             category: 0, // 이태운 추가 - 타임테이블을 위함
+            photo: item.photo, // 이태운 추가 - 타임테이블 위 관광지 사진을 위함
         };
     } catch (error) {
         console.log('관광지 데이터를 읽어오는 중에 오류가 발생했습니다:', error);

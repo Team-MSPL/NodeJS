@@ -22,6 +22,7 @@ router.get('/postList', async (req, res) => {
                 postTitle: item.postTitle,
                 postWriter: item.postWriter,
                 postedAt: item.postedAt,
+                postContent: item.postContent,
                 likerLength: item.liker.length,
                 commentLength: item.comment.length,
             });
