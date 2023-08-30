@@ -36,12 +36,15 @@ router.post('/signUpAndIn', async (req, res) => {
 
             //로그인시, 출석 보상
             let daliyReward = false;
-            var now = new Date(); // 현재 날짜 및 시간
-            if (existingUser.recentLogin.getDate() != now.getDate()) {
+            const now = new Date(); // 현재 날짜 및 시간
+            const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+            const koreaTimeDiff = 9 * 60 * 60 * 1000;
+            const korNow = new Date(utc + koreaTimeDiff);
+            if (existingUser.recentLogin.getDate() != korNow.getDate()) {
                 existingUser.functionToken += 1;
                 daliyReward = true;
                 //최근접속시간 업데이트
-                existingUser.recentLogin = new Date();
+                existingUser.recentLogin = korNow;
                 await existingUser.save();
             }
 
@@ -63,14 +66,17 @@ router.post('/signUpAndIn', async (req, res) => {
         //회원가입인데, 약관 동의를 한 이후
         else {
             //여기가 객체에 값을 배당하는 부분임!! 여기를 수정 안해서 에러났었음
-            var now = new Date(); // 현재 날짜 및 시간
+            const now = new Date(); // 현재 날짜 및 시간
+            const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+            const koreaTimeDiff = 9 * 60 * 60 * 1000;
+            const korNow = new Date(utc + koreaTimeDiff);
             const newUser = new User({
                 userName,
                 userProfileImage,
                 userToken,
                 loginProvider,
-                createdAt: now,
-                recentLogin: now,
+                createdAt: korNow,
+                recentLogin: korNow,
             });
 
             const savedUser = await newUser.save();

@@ -53,47 +53,47 @@ router.post('/run', async (req, res) => {
                 distanceSensitivity,
             } = req.body;
 
-            // const requestData = req.query.data;
-            // // JSON 데이터 파싱
-            // const jsonData = JSON.parse(requestData);
-
             // 파싱된 데이터를 이용하여 처리 로직 수행
 
             console.log('--- log start ---');
 
-            // 요청을 처리할 워커 스레드 생성
-            const worker = new Worker('./routes/ai/local_search_ai.js', {
-                workerData: {
-                    regionList: regionList,
-                    accomodationList: accomodationList,
-                    selectList: selectList,
-                    essentialPlaceList: essentialPlaceList,
-                    timeLimitArray: timeLimitArray,
-                    nDay: nDay,
-                    transit: transit,
-                    distanceSensitivity: distanceSensitivity,
-                },
+            // 워커 스레드에서 작업을 비동기로 실행하고 결과를 기다림
+            const result = await runWorkerThread({
+                regionList,
+                accomodationList,
+                selectList,
+                essentialPlaceList,
+                timeLimitArray,
+                nDay,
+                transit,
+                distanceSensitivity,
             });
 
-            // 워커 스레드가 완료되면 응답을 클라이언트에 보냅니다.
-            worker.on('message', (message) => {
-                //res.json({ message: 'API 요청 처리 완료', data: message });
+            console.log('--- log end ---');
 
-                console.log('--- log end ---');
-
-                res.json({ status: 'success', data: message });
-            });
-
-            // 에러 처리
-            worker.on('error', (error) => {
-                console.error(error);
-                res.status(500).json({ error: 'Internal server error' });
-            });
+            // 클라이언트에 응답 전송
+            res.json({ status: 'success', data: result });
         } catch (error) {
             console.error('/ai/run - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'Internal server error' });
         }
     });
 });
+
+// 워커 스레드에서 작업 실행 함수 (비동기)
+async function runWorkerThread(workerData) {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker('./routes/ai/local_search_ai.js', { workerData });
+
+        worker.on('message', (message) => {
+            resolve(message);
+        });
+
+        worker.on('error', (error) => {
+            console.error(error);
+            reject(error);
+        });
+    });
+}
 
 module.exports = router;
