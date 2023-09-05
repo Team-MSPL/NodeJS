@@ -185,7 +185,7 @@ async function localSearchAI(
             time.push(timeLimit);
         }
 
-        timeLimit = timeLimitArray[1] - 9;
+        timeLimit = timeLimitArray[1] - 11;
         // timeLimit = timeLimit * 60;
         time.push(timeLimit * 60);
     }
