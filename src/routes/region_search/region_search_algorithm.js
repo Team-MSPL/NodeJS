@@ -131,7 +131,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
     let result = [];
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
         result.push(regionPointList[i].name);
         console.log(regionPointList[i].point);
     }
@@ -139,7 +139,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     //시간 재기
     const endTime = performance.now();
 
-    console.log(`상위 10개 지역. 성향 선택 개수`, countNum);
+    console.log(`상위 5개 지역. 성향 선택 개수`, countNum);
     console.log(result);
 
     console.log(`알고리즘 돌리는데 걸리는 시간`);

@@ -266,7 +266,78 @@ router.patch('/updateFunctionToken', async (req, res) => {
     }
 });
 
-// 5. 회원 전체 조회
+// 5. 회원 쪽지함 가져오기
+router.get('/noteList', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            let user;
+
+            try {
+                user = await User.findOne({ _id: decoded._id });
+                if (!user) {
+                    return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+                }
+            } catch (err) {
+                return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+            }
+            if (!user.noteList) {
+                user.noteList = [];
+                await user.save();
+            }
+
+            res.status(201).json(user.noteList);
+        });
+    } catch (error) {
+        console.error('/User/noteList - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 6. 회원에게 쪽지 보내기
+router.patch('/sendNote', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { userId, note } = req.body;
+
+            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+            User.findOne({ _id: userId })
+                .then(async (user) => {
+                    if (!user) {
+                        console.log(user);
+                        return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
+                    }
+                    user.noteList.push(note);
+
+                    await user.save();
+
+                    res.status(201).json({ message: '쪽지 전송 완료.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 userId 입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/sendNote - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 7. 회원 전체 조회
 router.get('/all', (req, res, next) => {
     User.find()
         .then((users) => {

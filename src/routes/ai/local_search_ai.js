@@ -227,14 +227,14 @@ async function localSearchAI(
     }
 
     for (let i = 0; i < resultData.length; i++) {
-        //console.log(`코스`, i + 1);
+        console.log(`코스`, i + 1);
         for (let j = 0; j < resultData[i].length; j++) {
-            //console.log(`날짜 : ${j + 1}`);
+            console.log(`날짜 : ${j + 1}`);
             for (let k = 0; k < resultData[i][j].length; k++) {
-                //console.log(resultData[i][j][k].name);
+                console.log(resultData[i][j][k].name);
             }
         }
-        //console.log(`------------------------------------------`);
+        console.log(`------------------------------------------`);
     }
 
     //console.log(result);

@@ -6,10 +6,6 @@ const { Schema } = mongoose;
  */
 const userSchema = new Schema({
     //유저 ID - id는 기본 제공 되는 _id (ObjectId) 사용하자
-    // userId: {
-    //     type: String, // 자료형
-    //     //unique: true, // 고유 값
-    // },
     //닉네임
     userName: {
         type: String, // 자료형
@@ -47,6 +43,11 @@ const userSchema = new Schema({
     functionToken: {
         type: Number,
         default: 1,
+    },
+    //쪽지함
+    noteList: {
+        type: [String], // 자료형
+        default: [],
     },
 });
 

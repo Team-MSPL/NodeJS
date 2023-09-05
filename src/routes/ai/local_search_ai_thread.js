@@ -48,11 +48,12 @@ var dummy = {
 var corDis = [];
 
 // 관광지 점수 계산 프로세스 - 가장 많이 반복되는 함수
-function placePoint(selectList, beforePlace, targetPlace) {
+function placePoint(selectList, beforePlace, targetPlace, timeLimit = 1000, findFirstPlacefromAcm = false) {
     //반려견과, 실내여행지는 예외처리 - selectList에 있고 + 점수가 30점 이하면, sum = 0을 리턴
     if (
         (selectList[0][6] === 1 && targetPlace.partner[6] < 30) ||
-        (selectList[3][5] === 1 && targetPlace.tour[5] < 30)
+        (selectList[3][5] === 1 && targetPlace.tour[5] < 30) ||
+        timeLimit < targetPlace.takenTime
     ) {
         return -10000000;
     }
@@ -104,14 +105,21 @@ function placePoint(selectList, beforePlace, targetPlace) {
         const latDiff = targetPlace.lat - beforePlace.lat;
         const longDiff = targetPlace.lng - beforePlace.lng;
 
+        let distance = 0;
+
         //대중교통, 자차에 따른 거리민감도 계산 - 삼항 연산자로 간단하게 바꿈
         //latDiff * latDiff와 같은 부분도 거듭 제곱 연산자 **로 바꿈
-        //TODO 거리민감도 계산이 확 달라지기에, Math.sqrt를 제거하지 못했음. 추후 제거할 것
-        let distance =
-            transitInAI === 1
-                ? Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivityInAI * 0.1) * sumForDistance
-                : Math.sqrt(latDiff ** 2 + longDiff ** 2) * (distanceSensitivityInAI * 0.2) * sumForDistance;
-
+        if (findFirstPlacefromAcm) {
+            distance =
+                transitInAI === 1
+                    ? Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 15) * sumForDistance
+                    : Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 20) * sumForDistance;
+        } else {
+            distance =
+                transitInAI === 1
+                    ? Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 3) * sumForDistance
+                    : Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 4) * sumForDistance;
+        }
         sum -= distance; // 거리가 커질수록 안좋은 것임. 총점수에 - 연산으로 계산해줘야함. 위와 마찬가지로 Math.round()연산 제거
     }
 
@@ -143,6 +151,8 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
     //거리 민감도에 따라 이동시간 어림을 다르게 함
     let moveTime = 30;
 
+    let lessTime = timeLimit;
+
     if (distanceSensitivityInAI < 6) {
         moveTime = 60;
     }
@@ -153,12 +163,12 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
     // }
 
     // Iteratively connect nearest places - 점수 계산 프로세스(placePoint)를 통해
-    for (let i = path.length; i < numPlace; i++) {
-        if (numPlace < 1) {
+    for (let i = path.length; i < placeListCopy.length; i++) {
+        if (placeListCopy.length < 1) {
             //이러면, 관광지 부족하다는 뜻!, 중단하고 프리셋에서 안내메세지 띄우자
 
             console.log('남은 관광지 수1111');
-            console.log(numPlace);
+            console.log(placeListCopy.length);
             enoughPlaceInThread = false;
             break;
         }
@@ -169,21 +179,30 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
         placeListCopy.map((item, idx) => {
             //path[i - 1]이 맞음. 외부 반복문 확인할것.
             //단순히 indexOf로 찾으면 중복값 처리가 안됨. -> 맨 앞의 값으로 하기 때문에 안좋은 결과가 나옴
-            sum[idx] = { sum: placePoint(selectList, path[i - 1], placeListCopy[idx]), index: idx };
+            sum[idx] = { sum: placePoint(selectList, path[i - 1], placeListCopy[idx], timeLimit), index: idx };
         });
 
         //sort해서 다음 목적지 고르기, sort해서 그 인덱스 번호를 알아와야함. 그래야 Place리스트에서 쓸 수 있음.
         let sumCopy = _.cloneDeep(sum);
         sumCopy = [...sum].sort((a, b) => b.sum - a.sum); // 내림차순!! 밑의 q가 0번 인덱스부터 시도하니깐
 
-        for (let q = 0; q < numPlace; q++) {
+        let noPlaceFlag = false;
+
+        for (let q = 0; q < sumCopy.length; q++) {
             //nextIndex = sum.indexOf(sumCopy[q]);
             nextIndex = sumCopy[q].index; // 다음 목적지의 Index
-
-            // path에 placeListCopy[nextIndex]가 없을 경우 다음 목적지 확정 (sort결과 최고의 목적지)
-            if (path.indexOf(placeListCopy[nextIndex]) === -1) {
+            // path에 placeLisftCopy[nextIndex]가 없을 경우 다음 목적지 확정 (sort결과 최고의 목적지)
+            // ++) 여기서 시간도 고려해줌! 너무 많이 넘치는 관광지는 안됨
+            if (path.indexOf(placeListCopy[nextIndex]) === -1 && placeListCopy[nextIndex].takenTime < lessTime + 31) {
                 break;
             }
+            if (q === numPlace - 1) {
+                noPlaceFlag = true;
+            }
+        }
+
+        if (noPlaceFlag) {
+            break;
         }
 
         // path에 관광지 추가, placeListCopy에서는 제거
@@ -193,9 +212,11 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
         //그리디 종료 시점 계산 - 오늘치 총 소요시간을 계산함
         totalTime += path[i].takenTime; // 관광지에서 소요시간
 
+        lessTime = timeLimit - (path.length - 1) * moveTime - totalTime;
+
         //코스의 길이가 길수록 이동시간도 길어짐
         //길이에 비례하여 timeLimit를 줄임
-        if (totalTime > timeLimit - (path.length - 1) * moveTime) {
+        if (lessTime < 0) {
             //예정된 여행 시간만큼의 일정이 채워졌다면 반복 종료
             break;
         }
@@ -218,9 +239,9 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
     let pathLength = placeListCopy.length;
 
     //판단 기준은 placePoint의 합으로 한다.
-    bestPoint += placePoint(selectList, dummy, bestPath[0]);
+    bestPoint += placePoint(selectList, dummy, bestPath[0], timeLimit);
     for (let i = 1; i < bestPath.length; i++) {
-        bestPoint += placePoint(selectList, bestPath[i - 1], bestPath[i]);
+        bestPoint += placePoint(selectList, bestPath[i - 1], bestPath[i], timeLimit);
     }
 
     for (let i = 0; i < iterations + 1; i++) {
@@ -249,9 +270,9 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
 
             //코스 개선 여부 확인
             let newPoint = 0;
-            newPoint += placePoint(selectList, dummy, newPath[0]);
+            newPoint += placePoint(selectList, dummy, newPath[0], timeLimit);
             for (let n = 1; n < newPath.length; n++) {
-                newPoint += placePoint(selectList, newPath[n - 1], newPath[n]);
+                newPoint += placePoint(selectList, newPath[n - 1], newPath[n], timeLimit);
             }
 
             if (newPoint > bestPoint) {
@@ -307,9 +328,9 @@ function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceLis
 
             //코스 개선 여부 확인
             let newPoint = 0;
-            newPoint += placePoint(selectList, dummy, newPath[0]);
+            newPoint += placePoint(selectList, dummy, newPath[0], timeLimit);
             for (let n = 1; n < newPath.length; n++) {
-                newPoint += placePoint(selectList, newPath[n - 1], newPath[n]);
+                newPoint += placePoint(selectList, newPath[n - 1], newPath[n], timeLimit);
             }
 
             if (newPoint > bestPoint) {
@@ -347,9 +368,9 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
 
     //판단 기준은 시간 제외, placePoint의 합으로 한다.
     //제한 시간은 동일하니, 동선이 좋다면 관광지 수가 많아 점수가 높을 것
-    bestPoint += placePoint(selectList, dummy, bestPath[0]);
+    bestPoint += placePoint(selectList, dummy, bestPath[0], timeLimit);
     for (let i = 1; i < bestPath.length; i++) {
-        bestPoint += placePoint(selectList, bestPath[i - 1], bestPath[i]);
+        bestPoint += placePoint(selectList, bestPath[i - 1], bestPath[i], timeLimit);
     }
     //여기까지 살펴봄!!!!
 
@@ -360,9 +381,9 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
         let newPath = twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList);
 
         let newPoint = 0;
-        newPoint += placePoint(selectList, dummy, newPath[0]);
+        newPoint += placePoint(selectList, dummy, newPath[0], timeLimit);
         for (let i = 1; i < newPath.length; i++) {
-            newPoint += placePoint(selectList, newPath[i - 1], newPath[i]);
+            newPoint += placePoint(selectList, newPath[i - 1], newPath[i], timeLimit);
         }
 
         // 2-opts를 통해 개선이 일어났다면, 기존 path와 교체
@@ -441,7 +462,7 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
         canPopPlaceList.map((item, idx) => {
             //트러블슈팅
             //기존에 canPopPlaceListPointCopy를 활용하여 indexOf를 하다보니까, 같은 점수인 곳이 있으면 똑같은데만 빼려고함
-            canPopPlaceListPoint.push({ point: placePoint(selectList, dummy, item), index: idx });
+            canPopPlaceListPoint.push({ point: placePoint(selectList, dummy, item, timeLimit), index: idx });
         });
 
         let canPopPlaceListPointCopy = [];
@@ -591,6 +612,8 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
     for (let i = 0; i < weight.length - 1; i++) {
         weight[i] = weight[i] * (15 - threadNum);
     }
+    console.log(accomodationList);
+    console.log(essentialPlaceList);
 
     countNum = 0;
 
@@ -656,7 +679,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                     let point = [];
                     //모든 관광지의 시간을 제외한 point를 탐색
                     for (let f = 0; f < placeListCopy.length; f++) {
-                        point.push(placePoint(selectList, accomodationList[d + 1], placeListCopy[f]));
+                        point.push(placePoint(selectList, accomodationList[d + 1], placeListCopy[f], timeLimit));
                     }
                     // 점수를 기준으로 sort해서 시작 관광지를 numPreset * day만큼 추출
                     let pointCopy = _.cloneDeep(point);
@@ -693,7 +716,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                     let point = [];
                     //모든 관광지의 시간을 제외한 point를 탐색
                     for (let f = 0; f < placeListCopy.length; f++) {
-                        point.push(placePoint(selectList, dummy, placeListCopy[f]));
+                        point.push(placePoint(selectList, dummy, placeListCopy[f], timeLimit));
                     }
                     // 점수를 기준으로 sort해서 시작 관광지를 numPreset * day만큼 추출
                     let pointCopy = _.cloneDeep(point);
@@ -728,7 +751,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                 let point = [];
                 //모든 관광지의 시간을 제외한 point를 탐색
                 for (let f = 0; f < placeListCopy.length; f++) {
-                    point.push(placePoint(selectList, tempPath.at(-1).at(-1), placeListCopy[f]));
+                    point.push(placePoint(selectList, tempPath.at(-1).at(-1), placeListCopy[f], timeLimit, true));
                 }
                 // 점수를 기준으로 sort해서 시작 관광지를 numPreset * day만큼 추출
                 let pointCopy = _.cloneDeep(point);
