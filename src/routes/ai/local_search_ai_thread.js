@@ -226,7 +226,7 @@ async function initializeGreedy(selectList, firstPlace, todayEssentialPlaceList,
 }
 
 //Step 3-2. 코스 개선 시도를 위한 방법 - 2가지 (관광지 교체, 순서 변경)
-function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList) {
+function twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList, timeLimit) {
     //숙소, 필수여행지 선택 횟수에 따라 2-opts 시도 횟수 조절
     let iterations = 500 - selectedNum * 60; //2-opts 시도 횟수
 
@@ -378,7 +378,7 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
         //console.log('twoOpt 실행', kOptCheck, kOptCheck2);
         //console.log(bestPoint);
 
-        let newPath = twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList);
+        let newPath = twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList, timeLimit);
 
         let newPoint = 0;
         newPoint += placePoint(selectList, dummy, newPath[0], timeLimit);
