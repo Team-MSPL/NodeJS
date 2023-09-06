@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
 var _ = require('./ai/local_search_ai.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
+const axios = require('axios');
 
 // 여행 코스 추천
 router.post('/run', async (req, res) => {
@@ -40,43 +41,27 @@ router.post('/run', async (req, res) => {
                 res.status(401).json({ message: 'Unauthorized' });
             });
 
+        console.log('--- log start ---');
+
+        let result = null;
         try {
-            // 클라이언트로부터 전달된 JSON 데이터
-            const {
-                regionList,
-                accomodationList,
-                selectList,
-                essentialPlaceList,
-                timeLimitArray,
-                nDay,
-                transit,
-                distanceSensitivity,
-            } = req.body;
-
-            // 파싱된 데이터를 이용하여 처리 로직 수행
-
-            console.log('--- log start ---');
-
-            // 워커 스레드에서 작업을 비동기로 실행하고 결과를 기다림
-            const result = await runWorkerThread({
-                regionList,
-                accomodationList,
-                selectList,
-                essentialPlaceList,
-                timeLimitArray,
-                nDay,
-                transit,
-                distanceSensitivity,
+            // ai 서버에 요청
+            result = await axios({
+                method: 'post',
+                url: 'http://43.201.43.208:8081/ai/run',
+                data: req.body
             });
 
-            console.log('--- log end ---');
-
-            // 클라이언트에 응답 전송
-            res.json({ status: 'success', data: result });
-        } catch (error) {
-            console.error('/ai/run - GET 함수에 문제 발생 : ', error);
-            res.status(500).json({ message: 'Internal server error' });
+            res.json({ status: "success", data: result.data });
+        }catch (e){
+            console.log(e);
+            res.json({ status: "failed", message: "failed" });
         }
+        console.log('--- log end ---');
+
+
+
+
     });
 });
 
