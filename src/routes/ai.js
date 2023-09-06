@@ -3,7 +3,6 @@ const router = express.Router();
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
-var _ = require('./ai/local_search_ai.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const axios = require('axios');
 
@@ -31,6 +30,7 @@ router.post('/run', async (req, res) => {
                 if (!user) {
                     console.log(user);
                     res.status(401).json({ message: 'Unauthorized' });
+                    return
                 }
                 user.useTokenTime += 1;
 
@@ -39,6 +39,7 @@ router.post('/run', async (req, res) => {
             .catch((error) => {
                 console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
                 res.status(401).json({ message: 'Unauthorized' });
+                return
             });
 
         console.log('--- log start ---');
@@ -53,15 +54,14 @@ router.post('/run', async (req, res) => {
             });
 
             res.json({ status: "success", data: result.data });
-        }catch (e){
+            console.log('--- log end ---');
+            return;
+        }catch (e) {
             console.log(e);
-            res.json({ status: "failed", message: "failed" });
+            res.json({status: "failed", message: "failed"});
+            console.log('--- log end ---');
+            return;
         }
-        console.log('--- log end ---');
-
-
-
-
     });
 });
 
