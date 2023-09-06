@@ -15,6 +15,8 @@ var count = [0, 0, 0, 0, 0]; //selectList 선택 개수 저장 배열
 
 let countNum = 0;
 
+const NUM_OF_PATH = 7;
+
 //각 성향 카테고리별 가중치, weight[5]는 popular, 인기관광지 점수
 //0:누구와, 1:테마, 2:무엇을, 3:어디 ,4:계절, 5: 인기도
 //threadNum만큼 곱할거라, 원래 값에서 1/5함
@@ -374,11 +376,34 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
     }
     //여기까지 살펴봄!!!!
 
-    while (kOptContinue) {
-        //console.log('twoOpt 실행', kOptCheck, kOptCheck2);
-        //console.log(bestPoint);
+    //멀티쓰레딩 없이 여러개의 경로 추출
+    let bestPathList = [];
+    let bestPathPointList = [];
 
-        let newPath = twoOpts(path, selectList, todayAccomodationList, todayEssentialPlaceList, timeLimit);
+    bestPathList.push(bestPath);
+    bestPathPointList.push(bestPoint);
+
+    for (let i = 0; i < NUM_OF_PATH - 1; i++) {
+        let newPath = twoOpts(bestPath, selectList, todayAccomodationList, todayEssentialPlaceList, timeLimit);
+        bestPathList.push(newPath);
+
+        let newPoint = 0;
+        newPoint += placePoint(selectList, dummy, newPath[0], timeLimit);
+        for (let i = 1; i < newPath.length; i++) {
+            newPoint += placePoint(selectList, newPath[i - 1], newPath[i], timeLimit);
+        }
+        bestPathPointList.push(newPoint);
+    }
+    //멀티쓰레딩 없이 여러개의 경로 추출
+
+    while (kOptContinue) {
+        let newPath = twoOpts(
+            bestPathList[kOptCheck2 % 5], //이렇게 해야 다양한 경로를 개선 가능
+            selectList,
+            todayAccomodationList,
+            todayEssentialPlaceList,
+            timeLimit
+        );
 
         let newPoint = 0;
         newPoint += placePoint(selectList, dummy, newPath[0], timeLimit);
@@ -386,190 +411,201 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
             newPoint += placePoint(selectList, newPath[i - 1], newPath[i], timeLimit);
         }
 
-        // 2-opts를 통해 개선이 일어났다면, 기존 path와 교체
-        if (newPoint > bestPoint) {
-            bestPath = _.cloneDeep(newPath);
-            bestPoint = newPoint;
-            kOptCheck = 0; //개선이 일어났으면 k_opt_check를 0으로 초기화하여 다시 카운트
-            kOptCheck2 += 1; //k_opt_check2는 그대로 카운트. 최대치(한도) 계산이기 때문에
-        } else {
-            kOptCheck += 1;
-            kOptCheck2 += 1;
+        for (let i = 0; i < bestPathPointList.length; i++) {
+            // 2-opts를 통해 개선이 일어났다면, 기존 path와 교체
+            if (newPoint > bestPathPointList[i]) {
+                bestPathList[i] = _.cloneDeep(newPath);
+                bestPathPointList[i] = newPoint;
+                kOptCheck = 0; //개선이 일어났으면 k_opt_check를 0으로 초기화하여 다시 카운트
+                break;
+            }
+            if (i === bestPathPointList.length - 1) {
+                kOptCheck += 1;
+            }
         }
-        //여기서 중복 처리를 안해서 문제가 계속 발생하였음! - newPath기준으로 placeListCopy가 맞춰져있었는데, placeListCopy가 업데이트가 안됨
-        //ㅅㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄ
-        const bestPathSet = new Set(bestPath.map((item) => JSON.stringify(item.name)));
+
+        //placeListCopy 중복처리 다시 - 모든 bestPath에 대하여
         placeListCopy = _.cloneDeep(placeListCopySaveInThisDay);
-        placeListCopy = placeListCopy.filter((item) => !bestPathSet.has(JSON.stringify(item.name)));
+
+        for (let i = 0; i < bestPathList.length; i++) {
+            const bestPathSet = new Set(bestPathList[i].map((item) => JSON.stringify(item.name)));
+            placeListCopy = placeListCopy.filter((item) => !bestPathSet.has(JSON.stringify(item.name)));
+        }
+
+        kOptCheck2 += 1; //k_opt_check2는 그대로 카운트. 최대치(한도) 계산이기 때문에
 
         //개선이 StopRepeat만큼 일어나지 않으면 반복문 종료
         if (kOptCheck >= StopRepeat || kOptCheck2 >= StopRepeat2) {
             kOptContinue = false;
         }
     }
-    //시간 계산해서 뒷부분 짤라야 함
-    let totalTime = 0;
 
-    bestPath.map((item, idx) => {
-        totalTime += bestPath[idx].takenTime;
-    });
+    //이후 후처리는 모든 bestPathList의 값들에 대하여 따로따로 해줘야 함
+    for (let i = 0; i < bestPathList.length; i++) {
+        //시간 계산해서 뒷부분 짤라야 함
+        let totalTime = 0;
 
-    //거리 민감도에 따라 이동시간 어림을 다르게 함
-    let moveTime = 30;
-
-    if (distanceSensitivityInAI < 6) {
-        moveTime = 60;
-    }
-
-    //코스의 길이가 길수록 이동시간도 길어짐
-    //길이에 비례하여 timeLimit를 줄임
-    if (totalTime > timeLimit - (bestPath.length - 1) * moveTime) {
-        let canPopPlaceList = []; //bestPath에서 빼낼 수 있는 관광지 리스트들 - 숙소, 필수 여행지 제외 장소들!
-
-        // canPopPlaceList를 찾는 과정
-        for (let t = 0; t < bestPath.length; t++) {
-            let checkAcm = false;
-            let checkEssential = false;
-
-            //숙소일경우
-            if (
-                bestPath[t].name === todayAccomodationList[0].name ||
-                bestPath[t].name === todayAccomodationList[1].name
-            ) {
-                checkAcm = true;
-            }
-
-            //필수 여행지가 있을 경우
-            todayEssentialPlaceList.length > 0 &&
-                todayEssentialPlaceList.map((item, idx) => {
-                    //bestPath[t]가 todayEssentialPlaceList 내부에 있을 경우, 필수 여행지라는 뜻
-                    if (bestPath[t].name === item.name) {
-                        checkEssential = true;
-                    }
-                });
-
-            //숙소 or 필수 여행지가 아니라면, bestPath[t]를 canPopPlaceList에 넣음
-            !checkAcm && !checkEssential && canPopPlaceList.push(_.cloneDeep(bestPath[t]));
-            // if (!checkAcm && !checkEssential) {
-            // 	console.log(checkEssential);
-            // 	canPopPlaceList.push(_.cloneDeep(bestPath[t]));
-            // }
-        }
-
-        let canPopPlaceListPoint = [];
-
-        //canPopPlaceList의 시간을 제외한 point를 탐색
-        canPopPlaceList.map((item, idx) => {
-            //트러블슈팅
-            //기존에 canPopPlaceListPointCopy를 활용하여 indexOf를 하다보니까, 같은 점수인 곳이 있으면 똑같은데만 빼려고함
-            canPopPlaceListPoint.push({ point: placePoint(selectList, dummy, item, timeLimit), index: idx });
+        bestPathList[i].map((item, idx) => {
+            totalTime += bestPathList[i][idx].takenTime;
         });
 
-        let canPopPlaceListPointCopy = [];
-        //canPopPlaceListPointCopy = [...canPopPlaceListPoint].sort((a, b) => a - b); //오름차순, 낮은 점수부터 빼야함
-        canPopPlaceListPointCopy = [...canPopPlaceListPoint].sort((a, b) => a.point - b.point); //오름차순, 낮은 점수부터 빼야함
+        //거리 민감도에 따라 이동시간 어림을 다르게 함
+        let moveTime = 30;
 
-        //canPopPlaceList에 속한 값들을 빼보면서, 제한 시간 보다 관광지가 적게 맞추는 작업
-        for (let x = 0; x < canPopPlaceListPointCopy.length; x++) {
-            //let index = canPopPlaceListPoint.indexOf(canPopPlaceListPointCopy[x]); //낮은 점수부터 index에 넣어 빼려는 시도
-            let index = canPopPlaceListPointCopy[x].index;
-            if (bestPath.length === 1) {
-                break;
-            } else {
-                // let index2 = bestPath.indexOf(bestPath.find(item => item.name ==== canPopPlaceList[index].name));
-                // if (index2 !=== -1) {
-                // 	bestPath.splice(index2, 1);
+        if (distanceSensitivityInAI < 6) {
+            moveTime = 60;
+        }
+
+        //코스의 길이가 길수록 이동시간도 길어짐
+        //길이에 비례하여 timeLimit를 줄임
+        if (totalTime > timeLimit - (bestPathList[i].length - 1) * moveTime) {
+            let canPopPlaceList = []; //bestPath에서 빼낼 수 있는 관광지 리스트들 - 숙소, 필수 여행지 제외 장소들!
+
+            // canPopPlaceList를 찾는 과정
+            for (let t = 0; t < bestPathList[i].length; t++) {
+                let checkAcm = false;
+                let checkEssential = false;
+
+                //숙소일경우
+                if (
+                    bestPathList[i][t].name === todayAccomodationList[0].name ||
+                    bestPathList[i][t].name === todayAccomodationList[1].name
+                ) {
+                    checkAcm = true;
+                }
+
+                //필수 여행지가 있을 경우
+                todayEssentialPlaceList.length > 0 &&
+                    todayEssentialPlaceList.map((item, idx) => {
+                        //bestPathList[i][t]가 todayEssentialPlaceList 내부에 있을 경우, 필수 여행지라는 뜻
+                        if (bestPathList[i][t].name === item.name) {
+                            checkEssential = true;
+                        }
+                    });
+
+                //숙소 or 필수 여행지가 아니라면, bestPathList[i][t]를 canPopPlaceList에 넣음
+                !checkAcm && !checkEssential && canPopPlaceList.push(_.cloneDeep(bestPathList[i][t]));
+                // if (!checkAcm && !checkEssential) {
+                // 	console.log(checkEssential);
+                // 	canPopPlaceList.push(_.cloneDeep(bestPathList[i][t]));
                 // }
-
-                bestPath = bestPath.filter((item) => item.name != canPopPlaceList[index].name);
-                //placeListCopy에도 추가
-                placeListCopy.push(_.cloneDeep(canPopPlaceList[index]));
             }
 
-            totalTime = 0;
-            bestPath.map((item, idx) => {
-                totalTime += bestPath[idx].takenTime;
+            let canPopPlaceListPoint = [];
+
+            //canPopPlaceList의 시간을 제외한 point를 탐색
+            canPopPlaceList.map((item, idx) => {
+                //트러블슈팅
+                //기존에 canPopPlaceListPointCopy를 활용하여 indexOf를 하다보니까, 같은 점수인 곳이 있으면 똑같은데만 빼려고함
+                canPopPlaceListPoint.push({ point: placePoint(selectList, dummy, item, timeLimit), index: idx });
             });
-            //제한 시간보다 적게 되었으면 break
-            if (totalTime <= timeLimit - (bestPath.length - 1) * moveTime) {
+
+            let canPopPlaceListPointCopy = [];
+            //canPopPlaceListPointCopy = [...canPopPlaceListPoint].sort((a, b) => a - b); //오름차순, 낮은 점수부터 빼야함
+            canPopPlaceListPointCopy = [...canPopPlaceListPoint].sort((a, b) => a.point - b.point); //오름차순, 낮은 점수부터 빼야함
+
+            //canPopPlaceList에 속한 값들을 빼보면서, 제한 시간 보다 관광지가 적게 맞추는 작업
+            for (let x = 0; x < canPopPlaceListPointCopy.length; x++) {
+                //let index = canPopPlaceListPoint.indexOf(canPopPlaceListPointCopy[x]); //낮은 점수부터 index에 넣어 빼려는 시도
+                let index = canPopPlaceListPointCopy[x].index;
+                if (bestPathList[i].length === 1) {
+                    break;
+                } else {
+                    bestPathList[i] = bestPathList[i].filter((item) => item.name != canPopPlaceList[index].name);
+                    //placeListCopy에도 추가
+                    placeListCopy.push(_.cloneDeep(canPopPlaceList[index]));
+                }
+
+                totalTime = 0;
+                bestPathList[i].map((item, idx) => {
+                    totalTime += bestPathList[i][idx].takenTime;
+                });
+                //제한 시간보다 적게 되었으면 break
+                if (totalTime <= timeLimit - (bestPathList[i].length - 1) * moveTime) {
+                    break;
+                }
+                //canPopPlaceList가 없음. 뺄 수 있는 관광지가 없다는 뜻
+                if (canPopPlaceList.length === 0) {
+                    break;
+                }
+                //반복문이 너무 반복되어버렸을 경우. 에러
+                x === canPopPlaceListPointCopy.length - 1 &&
+                    console.log(
+                        'place pop 에러',
+                        canPopPlaceList.length,
+                        bestPathList[i].length,
+                        todayEssentialPlaceList.length
+                    );
+            }
+        }
+        //관광지 갯수를 제한시간에 맞춰 pop하는 작업 종료
+
+        //경로 최적화 - 완전 탐색(full search) -> 이를 통해 완벽하게 최적 동선을 계산하여 마무리
+
+        //먼저 현재 코스의 거리합을 계산한다
+        let bestSum = 100000000.0;
+
+        //그 후, full search를 통해 최적 경로를 찾는다. 갯수 적어서 ㄱㅊ을듯
+        //시간복잡도 O(n!)일거임 아마?
+        let tempPath = _.cloneDeep(bestPath);
+
+        //시작 숙소(todayAccomodationList[0])가 있을 경우 - 첫 관광지 고정(숙소)
+        if (todayAccomodationList[0].name != '') {
+            let tempPlace = _.cloneDeep(tempPath[0]); // 첫 관광지 고정(숙소)
+
+            tempPath = tempPath.filter((item) => item.name != tempPlace.name);
+            tempPath = tempPath.filter((item) => item.name != todayAccomodationList[1].name); //미리 빼두고, 나중에 넣음(맨 뒤에 와야해서)
+
+            //첫번째 관광지는 고정이니까
+            //console.log('완전탐색 시작');
+            searchFullCourse(tempPath, [tempPlace]);
+        }
+        //시작 숙소(todayAccomodationList[0]가 없을 경우
+        else {
+            tempPath = tempPath.filter((item) => item.name != todayAccomodationList[1].name); //미리 빼두고, 나중에 넣음(맨 뒤에 와야해서)
+            //console.log('완전탐색 시작');
+            searchFullCourse(tempPath, []);
+        }
+
+        //searchFullCourse의 결과로 나온 모든 코스를 검사함 - corDis 검사
+        for (let x = 0; x < corDis.length; x++) {
+            if (corDis[x].length === 0) {
+                console.log('경로최적화 중 알 수 없는 에러 발생');
+                // console.log(bestPathPointList[i]);
+                // for (let q = 0; q < corDis.length; q++) {
+                // 	console.log(corDis[x].length);
+                // }
+                // console.log('-------------------------------------');
                 break;
             }
-            //canPopPlaceList가 없음. 뺄 수 있는 관광지가 없다는 뜻
-            if (canPopPlaceList.length === 0) {
-                break;
+
+            let sum = 0.0;
+
+            let corDisNow = corDis[x]; // 이렇게 해야 x번까지 찾아가는 탐색 시간을 줄일 수 있어서, 빠름!
+
+            // 마지막 숙소가 있을 경우 - 맨 마지막에 넣어줌 - 아까 빼둔거
+            todayAccomodationList[1].name != '' && corDis[x].push(_.cloneDeep(todayAccomodationList[1]));
+
+            for (let y = 0; y < corDisNow.length - 1; y++) {
+                if (corDisNow[y].lat === 0.0) {
+                    continue;
+                }
+                let latDiff = corDisNow[y].lat - corDisNow[y + 1].lat;
+                let longDiff = corDisNow[y].lng - corDisNow[y + 1].lng;
+
+                let dis = Math.sqrt(latDiff ** 2 + longDiff ** 2);
+                sum += dis;
             }
-            //반복문이 너무 반복되어버렸을 경우. 에러
-            x === canPopPlaceListPointCopy.length - 1 &&
-                console.log('place pop 에러', canPopPlaceList.length, bestPath.length, todayEssentialPlaceList.length);
-        }
-    }
-    //관광지 갯수를 제한시간에 맞춰 pop하는 작업 종료
-
-    //경로 최적화 - 완전 탐색(full search) -> 이를 통해 완벽하게 최적 동선을 계산하여 마무리
-
-    //먼저 현재 코스의 거리합을 계산한다
-    let bestSum = 100000000.0;
-
-    //그 후, full search를 통해 최적 경로를 찾는다. 갯수 적어서 ㄱㅊ을듯
-    //시간복잡도 O(n!)일거임 아마?
-    let tempPath = _.cloneDeep(bestPath);
-
-    //시작 숙소(todayAccomodationList[0])가 있을 경우 - 첫 관광지 고정(숙소)
-    if (todayAccomodationList[0].name != '') {
-        let tempPlace = _.cloneDeep(tempPath[0]); // 첫 관광지 고정(숙소)
-
-        tempPath = tempPath.filter((item) => item.name != tempPlace.name);
-        tempPath = tempPath.filter((item) => item.name != todayAccomodationList[1].name); //미리 빼두고, 나중에 넣음(맨 뒤에 와야해서)
-
-        //첫번째 관광지는 고정이니까
-        //console.log('완전탐색 시작');
-        searchFullCourse(tempPath, [tempPlace]);
-    }
-    //시작 숙소(todayAccomodationList[0]가 없을 경우
-    else {
-        tempPath = tempPath.filter((item) => item.name != todayAccomodationList[1].name); //미리 빼두고, 나중에 넣음(맨 뒤에 와야해서)
-        //console.log('완전탐색 시작');
-        searchFullCourse(tempPath, []);
-    }
-
-    //searchFullCourse의 결과로 나온 모든 코스를 검사함 - corDis 검사
-    for (let x = 0; x < corDis.length; x++) {
-        if (corDis[x].length === 0) {
-            console.log('경로최적화 중 알 수 없는 에러 발생');
-            // console.log(bestPoint);
-            // for (let q = 0; q < corDis.length; q++) {
-            // 	console.log(corDis[x].length);
-            // }
-            // console.log('-------------------------------------');
-            break;
-        }
-
-        let sum = 0.0;
-
-        let corDisNow = corDis[x]; // 이렇게 해야 x번까지 찾아가는 탐색 시간을 줄일 수 있어서, 빠름!
-
-        // 마지막 숙소가 있을 경우 - 맨 마지막에 넣어줌 - 아까 빼둔거
-        todayAccomodationList[1].name != '' && corDis[x].push(_.cloneDeep(todayAccomodationList[1]));
-
-        for (let y = 0; y < corDisNow.length - 1; y++) {
-            if (corDisNow[y].lat === 0.0) {
-                continue;
+            // 코스 길이 합이 짧아졌다면 기존 코스와 교체
+            if (sum < bestSum) {
+                bestPath = _.cloneDeep(corDisNow);
+                bestSum = sum;
             }
-            let latDiff = corDisNow[y].lat - corDisNow[y + 1].lat;
-            let longDiff = corDisNow[y].lng - corDisNow[y + 1].lng;
+        }
 
-            let dis = Math.sqrt(latDiff ** 2 + longDiff ** 2);
-            sum += dis;
-        }
-        // 코스 길이 합이 짧아졌다면 기존 코스와 교체
-        if (sum < bestSum) {
-            bestPath = _.cloneDeep(corDisNow);
-            bestSum = sum;
-        }
+        corDis = [];
     }
-
-    corDis = [];
-    return bestPath;
+    return bestPathList;
 }
 
 //Step 4. 마지막으로, 완전탐색(재귀)를 통해 코스 최적화 (조합 최적화)
@@ -631,7 +667,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
 
     //preset 반복문 시작 - 프리셋 개수(5번)만큼 반복 - 멀티스레딩이라 안함
     //for (let i = 0; i < numPreset; i++) {
-    let tempPath = [];
+    let finalPathList = [];
 
     //nDay 반복문 시작 - 날짜만큼 반복
     for (let d = 0; d < nDay; d++) {
@@ -751,7 +787,9 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                 let point = [];
                 //모든 관광지의 시간을 제외한 point를 탐색
                 for (let f = 0; f < placeListCopy.length; f++) {
-                    point.push(placePoint(selectList, tempPath.at(-1).at(-1), placeListCopy[f], timeLimit, true));
+                    point.push(
+                        placePoint(selectList, finalPathList[0].at(-1).at(-1), placeListCopy[f], timeLimit, true)
+                    );
                 }
                 // 점수를 기준으로 sort해서 시작 관광지를 numPreset * day만큼 추출
                 let pointCopy = _.cloneDeep(point);
@@ -800,7 +838,9 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                 todayPath.push(accomodationList[d]);
             }
 
-            tempPath.push(todayPath);
+            for (let i = 0; i < NUM_OF_PATH; i++) {
+                finalPathList.push(todayPath);
+            }
 
             continue;
         }
@@ -816,29 +856,22 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
         let todayAccomodationList = [_.cloneDeep(accomodationList[d]), _.cloneDeep(accomodationList[d + 1])];
 
         //path 개선 - Hill-Climbing으로
-        let improvedPath = hillClimbing(
+        let improvedPathList = hillClimbing(
             initializePath,
             selectList,
             todayAccomodationList,
             todayEssentialPlaceList,
             timeLimit[d]
         );
-        //let improvedPath = initializePath;
-        //console.log(improvedPath);
-        //i번째 프리셋 pathList에 추가
-        tempPath.push(improvedPath);
+        for (let i = 0; i < NUM_OF_PATH; i++) {
+            finalPathList.push(improvedPathList[i]);
+        }
     }
 
-    //pathList.push(tempPath);
-    //placeListCopy = placeList;    //이태운 - 얕은 복사이길래 수정. 객체 배열이니까..
     placeListCopy = _.cloneDeep(placeList);
-    //TODO 이부분에서, placeListCopy = placeList;를 제거하면 프리셋마다 완전 다르게 갈 수 있음.
-    //단, 관광지 수가 훨씬 더 많이 필요하고, 프리셋끼리 겹치는 관광지가 1도 없게 되어버림
-    //개선안 고민해볼 것!!
-    //}
 
-    parentPort.postMessage({ path: tempPath, enoughPlaceInThread: enoughPlaceInThread });
-    return { path: tempPath, enoughPlaceInThread: enoughPlaceInThread };
+    parentPort.postMessage({ path: finalPathList, enoughPlaceInThread: enoughPlaceInThread });
+    return { path: finalPathList, enoughPlaceInThread: enoughPlaceInThread };
     //return pathList;
 }
 
