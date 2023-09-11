@@ -26,7 +26,7 @@ const connect = async () => {
     dotenv.config();
     await mongoose
         //.connect('mongodb://54.180.92.25/danim_database', {
-        .connect('mongodb://danim:danim0504@13.125.225.79:27017/?authSource=admin', {
+        .connect('mongodb://danim:danim0504@15.164.164.164:27017/?authSource=admin', {
             dbName: 'danim_database',
             useNewUrlParser: true,
             useUnifiedTopology: true,

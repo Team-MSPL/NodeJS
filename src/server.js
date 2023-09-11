@@ -16,7 +16,7 @@ app.set('view engine', 'ejs'); // 'ejs'는 설치한 뷰 엔진의 이름
 app.set('views', './views');
 
 app.listen(port, () => {
-    console.log(`server is listening`);
+    console.log(`server is listening on ` + port);
     //console.log(`server is listening at ${url}:${port}`);
 });
 // Error: listen EADDRINUSE: address already in use :::27017 해결?
