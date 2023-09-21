@@ -26,7 +26,6 @@ router.post('/signUpAndIn', async (req, res) => {
 
             // 페이로드 데이터 (토큰에 담을 정보)
             const payload = {
-                userName: existingUser.userName,
                 userToken: existingUser.userToken,
                 _id: existingUser._id.toString(), // 이 부분은 데이터베이스에서 생성된 고유 ID를 사용해야 합니다.
             };
@@ -85,7 +84,6 @@ router.post('/signUpAndIn', async (req, res) => {
 
             // 페이로드 데이터 (토큰에 담을 정보)
             const payload = {
-                userName: savedUser.userName,
                 userToken: savedUser.userToken,
                 _id: savedUser._id.toString(), // 이 부분은 데이터베이스에서 생성된 고유 ID를 사용해야 합니다.
             };

@@ -71,7 +71,7 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
         const longDiff = targetregion.lng - recentPosition.lng;
 
         let distance =
-            Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivity) * 0.15) * (sumForDistance + 1);
+            Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivity) * 0.25) * (sumForDistance + 1);
         sum -= distance; // 거리가 커질수록 안좋은 것임. 총점수에 - 연산으로 계산해줘야함.
         //sum += 1 / distance;
     }

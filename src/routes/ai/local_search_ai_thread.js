@@ -117,8 +117,8 @@ function placePoint(selectList, beforePlace, targetPlace, timeLimit = 1000, find
         } else {
             distance =
                 transitInAI === 1
-                    ? Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 3) * sumForDistance
-                    : Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 4) * sumForDistance;
+                    ? Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 5) * sumForDistance
+                    : Math.sqrt(latDiff ** 2 + longDiff ** 2) * ((10 - distanceSensitivityInAI) * 10) * sumForDistance;
         }
         sum -= distance; // 거리가 커질수록 안좋은 것임. 총점수에 - 연산으로 계산해줘야함. 위와 마찬가지로 Math.round()연산 제거
     }
@@ -507,6 +507,11 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
 
     //경로 최적화 - 완전 탐색(full search) -> 이를 통해 완벽하게 최적 동선을 계산하여 마무리
 
+    //!! 만약 앞 뒤에 숙소가 없다면 DFS 작업을 하지 않는다. -> 어차피 다 끝나고 한 번에 할거니깐
+    if (todayAccomodationList[0].name == '' && todayAccomodationList[1].name == '') {
+        return bestPath;
+    }
+
     //먼저 현재 코스의 거리합을 계산한다
     let bestSum = 100000000.0;
 
@@ -595,14 +600,6 @@ function searchFullCourse(unselectPlaceList, selectPlaceList) {
 
         //idx번째부터 0개 제거, popResult추가
         unselectPlaceList.splice(idx, 0, _.cloneDeep(popResult));
-
-        //2개 이상인 경우는 숙소가 빠지는 경우밖에 없음 - 이거 미리 todayAccomodationList[1]빼놔서 ㄱㅊ
-        // if (
-        // 	temp - selectPlaceList.length > 1 &&
-        // 	(todayAccomodationList[0].name != '' || todayAccomodationList[1].name != '')
-        // ) {
-        // 	selectPlaceList.splice(0, 0, todayAccomodationList[0]);
-        // }
     });
 }
 
@@ -620,10 +617,6 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
             countNum += 1;
         }
     });
-
-    //path의 List,관광지의 List의 List, 날짜별로 한번 더 쪼갠것임
-    //pathList[프리셋넘버][n일차넘버][n번째관광지] - 중요!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    //let pathList = [];
 
     var firstPlace = _.cloneDeep(dummy);
 
@@ -830,14 +823,164 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
     //pathList.push(tempPath);
     //placeListCopy = placeList;    //이태운 - 얕은 복사이길래 수정. 객체 배열이니까..
     placeListCopy = _.cloneDeep(placeList);
-    //TODO 이부분에서, placeListCopy = placeList;를 제거하면 프리셋마다 완전 다르게 갈 수 있음.
-    //단, 관광지 수가 훨씬 더 많이 필요하고, 프리셋끼리 겹치는 관광지가 1도 없게 되어버림
-    //개선안 고민해볼 것!!
-    //}
 
-    parentPort.postMessage({ path: tempPath, enoughPlaceInThread: enoughPlaceInThread });
-    return { path: tempPath, enoughPlaceInThread: enoughPlaceInThread };
-    //return pathList;
+    //전체 여행 코스 DFS 한번 더 하기, 숙소 + 필수여행지 기준으로
+    let completePath = [];
+
+    let checkFullSearchPath = [];
+    let checkFullSearchPathList = []; // [[코스][숙소or필수여행지][코스][숙소or필수여행지][코스]....]
+
+    //checkFullSearchPathList에 코스를 잘라서 넣음
+    tempPath.map((dailyPath, dayIdx) => {
+        dailyPath.map((placeItem, placeIdx) => {
+            //코스에 숙소or필수여행지가 있으면 거기서 자름
+            if (placeItem.category === 4 || placeItem.category === 5) {
+                checkFullSearchPathList.push(_.cloneDeep(checkFullSearchPath));
+                checkFullSearchPathList.push([_.cloneDeep(placeItem)]);
+                checkFullSearchPath = [];
+            } else {
+                checkFullSearchPath.push(_.cloneDeep(placeItem));
+            }
+        });
+    });
+
+    //마지막 한 개도 넣어 줘야함
+    checkFullSearchPathList.push(_.cloneDeep(checkFullSearchPath));
+
+    //잘려있는 checkFullSearchPathList의 홀수 번째 코스들만 DFS하고 최적의 결과를 다시 넣기
+
+    let acmFlag = false;
+    let beforeAcm = { name: '' };
+    checkFullSearchPathList.map((pathItem, idx) => {
+        if (idx % 2 === 0 && pathItem.length > 0) {
+            //DFS 실행
+            //시작 숙소가 있을 경우(acmFlag) - 첫 관광지 고정(숙소)
+            if (acmFlag) {
+                //첫번째 관광지는 고정이니까
+                searchFullCourse(pathItem, [_.cloneDeep(beforeAcm)]);
+            }
+            //시작 숙소가 없을 경우
+            else {
+                searchFullCourse(pathItem, []);
+            }
+
+            //최적의 코스 탐색
+            let shortPath = corDis[0];
+            let shortPathSum = 10000000000;
+
+            //searchFullCourse의 결과로 나온 모든 코스를 검사함 - corDis 검사
+            for (let x = 0; x < corDis.length; x++) {
+                if (corDis[x].length === 0) {
+                    console.log('경로최적화 중 알 수 없는 에러 발생');
+                    break;
+                }
+
+                let sum = 0.0;
+
+                let corDisNow = corDis[x]; // 이렇게 해야 x번까지 찾아가는 탐색 시간을 줄일 수 있어서, 빠름!
+
+                for (let y = 0; y < corDisNow.length - 1; y++) {
+                    if (corDisNow[y].lat === 0.0) {
+                        continue;
+                    }
+                    let latDiff = corDisNow[y].lat - corDisNow[y + 1].lat;
+                    let longDiff = corDisNow[y].lng - corDisNow[y + 1].lng;
+
+                    let dis = Math.sqrt(latDiff ** 2 + longDiff ** 2);
+                    sum += dis;
+                }
+
+                // 코스 길이 합이 짧아졌다면 기존 코스와 교체
+                if (sum < shortPathSum) {
+                    shortPath = _.cloneDeep(corDisNow);
+                    shortPathSum = sum;
+                }
+            }
+
+            //최적의 코스 저장
+
+            shortPath = shortPath.filter((item) => item.name != beforeAcm.name);
+            checkFullSearchPathList.splice(idx, 1, _.cloneDeep(shortPath));
+            corDis = [];
+            acmFlag = false;
+        } else if (pathItem.length > 0 && pathItem[0].category === 4) {
+            acmFlag = true;
+            beforeAcm = _.cloneDeep(pathItem[0]);
+        }
+    });
+
+    // if (threadNum === 2) {
+    //     let resultData = checkFullSearchPathList;
+    //     for (let j = 0; j < resultData.length; j++) {
+    //         console.log(`날짜 : ${j + 1}`);
+    //         for (let k = 0; k < resultData[j].length; k++) {
+    //             console.log(resultData[j][k].name);
+    //         }
+    //     }
+    // }
+
+    //2차원 배열을 1차원 배열로 재배치
+    let oneDimensionPath = [].concat(...checkFullSearchPathList);
+
+    //시간 초과하거나 숙소가 나오면 잘라서 넣음
+    let dailyPath = [];
+
+    let moveTime = 30;
+    if (distanceSensitivityInAI < 6) {
+        moveTime = 60;
+    }
+
+    let day = 0;
+    let totalTime = 0;
+    acmFlag = false;
+
+    oneDimensionPath.map((item, idx) => {
+        //코스에 숙소가 있거나, 시간을 초과하면 거기서 자름
+
+        let lessTime = timeLimit[day] - (dailyPath.length - 1) * moveTime - totalTime;
+
+        //숙소의 경우 - 첫 숙소
+        if (item.category === 4 && !acmFlag) {
+            dailyPath.push(_.cloneDeep(item));
+            completePath.push(_.cloneDeep(dailyPath));
+            dailyPath = [];
+            acmFlag = true;
+        }
+        //숙소의 경우 - 다음날 숙소
+        else if (item.category === 4 && acmFlag) {
+            dailyPath.push(_.cloneDeep(item));
+            totalTime = 0;
+            day += 1;
+            acmFlag = false;
+        }
+        //시간을 초과한 경우
+        //코스의 길이가 길수록 이동시간도 길어짐, 길이에 비례하여 timeLimit를 줄임
+        else if (item.takenTime > lessTime + 31) {
+            completePath.push(_.cloneDeep(dailyPath));
+            dailyPath = [];
+            dailyPath.push(_.cloneDeep(item));
+            totalTime = item.takenTime;
+            day += 1;
+        }
+        //그 외에는 그냥 push
+        else {
+            dailyPath.push(_.cloneDeep(item));
+            totalTime += item.takenTime;
+        }
+    });
+
+    //마지막 한 개도 넣어 줘야함
+    completePath.push(_.cloneDeep(dailyPath));
+
+    //completePath가 예상보다 길거나 짧을 경우 걍 원래거 리턴
+    if (completePath.length !== nDay) {
+        console.log('completePath가 예상보다 길거나 짧을 경우 걍 원래거 리턴');
+        parentPort.postMessage({ path: tempPath, enoughPlaceInThread: enoughPlaceInThread });
+        return { path: tempPath, enoughPlaceInThread: enoughPlaceInThread };
+    } else {
+        parentPort.postMessage({ path: completePath, enoughPlaceInThread: enoughPlaceInThread });
+        return { path: completePath, enoughPlaceInThread: enoughPlaceInThread };
+    }
 }
 
 if (isMainThread) {

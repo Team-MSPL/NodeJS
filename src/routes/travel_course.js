@@ -28,7 +28,7 @@ router.get('/travelList', async (req, res) => {
 
             //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
             TravelCourse.find({ userId })
-                .select('region day nDay')
+                .select('travelName region day nDay')
                 .then((travelCourseList) => {
                     if (!travelCourseList) {
                         return res.status(404).json({ message: '저장된 여행이 없습니다.' });
@@ -57,7 +57,7 @@ router.get('/getOneTravelCourse', async (req, res) => {
 
         //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
         TravelCourse.findOne({ _id: travelId }) //travelId를 저장해둔 것이 아니라, _id를 찾는거임
-            .select('region day nDay transit tendency timetable diary picture reviewCheck')
+            .select('travelName region day nDay transit tendency timetable diary picture reviewCheck')
             .then((travelCourse) => {
                 if (!travelCourse) {
                     console.log(travelCourse);
@@ -93,9 +93,10 @@ router.post('/saveTravelCourse', async (req, res) => {
 
             // JWT 토큰 검증 성공 시 요청 처리
 
-            const { userId, region, day, nDay, transit, tendency, timetable } = req.body;
+            const { travelName, userId, region, day, nDay, transit, tendency, timetable } = req.body;
 
             const newTravelCourse = new TravelCourse({
+                travelName,
                 userId,
                 region,
                 day,
