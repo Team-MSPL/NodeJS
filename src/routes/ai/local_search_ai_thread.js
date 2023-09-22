@@ -628,6 +628,17 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
     //for (let i = 0; i < numPreset; i++) {
     let tempPath = [];
 
+    let partnerDummy = _.cloneDeep(placeList[0].partner);
+    let conceptDummy = _.cloneDeep(placeList[0].concept);
+    let playDummy = _.cloneDeep(placeList[0].play);
+    let tourDummy = _.cloneDeep(placeList[0].tour);
+    let seasonDummy = _.cloneDeep(placeList[0].season);
+    partnerDummy.fill(0);
+    conceptDummy.fill(0);
+    playDummy.fill(0);
+    tourDummy.fill(0);
+    seasonDummy.fill(0);
+
     //nDay 반복문 시작 - 날짜만큼 반복
     for (let d = 0; d < nDay; d++) {
         //필수여행지 추가 - map형식임
@@ -642,11 +653,11 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                         lng: item.lng,
                         takenTime: item.takenTime,
                         popular: 0,
-                        partner: [0, 0, 0, 0, 0, 0, 0],
-                        concept: [0, 0, 0, 0],
-                        play: [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                        tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                        season: [0, 0, 0, 0],
+                        partner: partnerDummy,
+                        concept: conceptDummy,
+                        play: playDummy,
+                        tour: tourDummy,
+                        season: seasonDummy,
                         category: item.category,
                         photo: item.photo,
                     };

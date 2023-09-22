@@ -2,7 +2,7 @@
 
 var { readAllPlace } = require('../firebase/firebase_read_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
-//var _ = require('lodash');
+var _ = require('lodash');
 
 var enoughPlace = true; //관광지가 부족하여 중단할 경우 false가 됨. -> 다이어로그 표시!
 
@@ -192,13 +192,23 @@ async function localSearchAI(
     //timeLimit 계산 종료
 
     //숙소에 성향값 넣어주기
+    let partnerDummy = _.cloneDeep(placeList[0].partner);
+    let conceptDummy = _.cloneDeep(placeList[0].concept);
+    let playDummy = _.cloneDeep(placeList[0].play);
+    let tourDummy = _.cloneDeep(placeList[0].tour);
+    let seasonDummy = _.cloneDeep(placeList[0].season);
+    partnerDummy.fill(0);
+    conceptDummy.fill(0);
+    playDummy.fill(0);
+    tourDummy.fill(0);
+    seasonDummy.fill(0);
     let a = {
         popular: 0,
-        partner: [0, 0, 0, 0, 0, 0, 0],
-        concept: [0, 0, 0, 0],
-        play: [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        tour: [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        season: [0, 0, 0, 0],
+        partner: partnerDummy,
+        concept: conceptDummy,
+        play: playDummy,
+        tour: tourDummy,
+        season: seasonDummy,
     };
     const accomodationList2 = accomodationList.map((item, idx) => {
         return Object.assign({}, item, a);
