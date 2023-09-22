@@ -187,6 +187,26 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
             }
         }
 
+        if (topRankTendency.length < 5) {
+            for (let x = 0; x < tendencyList.length; x++) {
+                for (let y = 0; y < tendencyList[x].length; y++) {
+                    if (tendencyList[x][y] > 50 && tendencyList[x][y] <= 69 && topRankTendency.length < 5) {
+                        topRankTendency.push(tendencyData[x][y]);
+                    }
+                }
+            }
+        }
+
+        if (topRankTendency.length < 5) {
+            for (let x = 0; x < tendencyList.length; x++) {
+                for (let y = 0; y < tendencyList[x].length; y++) {
+                    if (tendencyList[x][y] > 30 && tendencyList[x][y] <= 49 && topRankTendency.length < 5) {
+                        topRankTendency.push(tendencyData[x][y]);
+                    }
+                }
+            }
+        }
+
         //지역의 인기 관광지 저장
         let cityList = [];
         if (topPankRegion.name.length === 2) {
