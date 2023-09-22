@@ -1,4 +1,5 @@
 var { readAllRegion } = require('../firebase/firebase_read_region.js');
+var { readAllPlace } = require('../firebase/firebase_read_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 var _ = require('lodash');
@@ -117,11 +118,25 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
         if (item.popular >= selectPopular[0] && item.popular <= selectPopular[1]) {
             regionPointList.push({
                 name: item.name,
+                photo: item.photo,
+                takenDay: item.takenDay,
+                concept: item.concept,
+                play: item.play,
+                tour: item.tour,
+                season: item.season,
                 point: regionPoint(item, selectList, distanceSensitivity, recentPosition),
             });
-        } else {
+        }
+        //아무것도 선택 안해도 결과를 보여줘야하니까
+        else {
             regionPointList.push({
                 name: item.name,
+                photo: item.photo,
+                takenDay: item.takenDay,
+                concept: item.concept,
+                play: item.play,
+                tour: item.tour,
+                season: item.season,
                 point: -100000000,
             });
         }
@@ -131,9 +146,103 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
     let result = [];
 
+    const tendencyData = [
+        ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
+        ['힐링', '액티비티', '배움이 있는', '맛있는'],
+        ['레저 스포츠', '문화시설', '사진 명소', '이색체험', '역사 여행'],
+        ['바다', '산', '드라이브코스', '산책', '쇼핑', '자연경관', '시티투어', '지역축제', '전통한옥'],
+        ['봄꽃', '여름피서', '가을단풍', '겨울스포츠.설경', '온천'],
+    ];
+
+    //상위 5개 지역의 정보를 객체 배열에 저장
     for (let i = 0; i < 5; i++) {
-        result.push(regionPointList[i].name);
-        console.log(regionPointList[i].point);
+        const topPankRegion = regionPointList[i];
+
+        let topRankTendency = [];
+
+        const tendencyList = [
+            [0, 0],
+            topPankRegion.concept,
+            topPankRegion.play,
+            topPankRegion.tour,
+            topPankRegion.season,
+        ];
+
+        //지역의 성향 중 점수가 높은 것들은 배열에 저장
+        for (let x = 0; x < tendencyList.length; x++) {
+            for (let y = 0; y < tendencyList[x].length; y++) {
+                if (tendencyList[x][y] > 90) {
+                    topRankTendency.push(tendencyData[x][y]);
+                }
+            }
+        }
+
+        if (topRankTendency.length < 5) {
+            for (let x = 0; x < tendencyList.length; x++) {
+                for (let y = 0; y < tendencyList[x].length; y++) {
+                    if (tendencyList[x][y] > 70 && tendencyList[x][y] <= 89 && topRankTendency.length < 5) {
+                        topRankTendency.push(tendencyData[x][y]);
+                    }
+                }
+            }
+        }
+
+        //지역의 인기 관광지 저장
+        let cityList = [];
+        if (topPankRegion.name.length === 2) {
+            if (topPankRegion.name === '제주') {
+                cityList = [topPankRegion.name + ' 제주시', topPankRegion.name + ' 서귀포시'];
+            } else {
+                cityList = [topPankRegion.name + ' 전체'];
+            }
+        } else if (topPankRegion.name === '제주도') {
+            cityList = [topPankRegion.name + ' 제주시', topPankRegion.name + ' 서귀포시'];
+        } else {
+            cityList = [topPankRegion.name];
+        }
+
+        let placeListInTopRankRegion = [];
+
+        //지역 내 관광지 읽어오기
+        for (let j = 0; j < cityList.length; j++) {
+            await readAllPlace(cityList[j])
+                .then((res) => {
+                    placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
+                })
+                .catch((err) => {
+                    console.log(err);
+                });
+        }
+
+        //popular 순으로 재배열 ( 내림차순? - 확인 필요 )
+        placeListInTopRankRegion = placeListInTopRankRegion.sort((a, b) => b.popular - a.popular);
+
+        //popular 상위 5개 관광지 골라내서 배열에 넣기
+        let topPopularPlaceList = [];
+
+        if (placeListInTopRankRegion.length >= 5) {
+            for (let j = 0; j < 5; j++) {
+                topPopularPlaceList.push({
+                    name: placeListInTopRankRegion[j].name,
+                    photo: placeListInTopRankRegion[j].photo,
+                });
+            }
+        }
+        //지역 내 관광지 5개가 안될경우 - 예) 충남 계룡시
+        else {
+            placeListInTopRankRegion.map((item, idx) => {
+                topPopularPlaceList.push({ name: item.name, photo: item.photo });
+            });
+        }
+
+        result.push({
+            name: topPankRegion.name,
+            takenDay: topPankRegion.takenDay,
+            photo: topPankRegion.photo,
+            tendency: topRankTendency,
+            topPopularPlaceList: topPopularPlaceList,
+        });
+        console.log(topPankRegion.point);
     }
 
     //시간 재기

@@ -30,7 +30,7 @@ router.post('/run', async (req, res) => {
                 if (!user) {
                     console.log(user);
                     res.status(401).json({ message: 'Unauthorized' });
-                    return
+                    return;
                 }
                 user.useTokenTime += 1;
 
@@ -39,7 +39,7 @@ router.post('/run', async (req, res) => {
             .catch((error) => {
                 console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
                 res.status(401).json({ message: 'Unauthorized' });
-                return
+                return;
             });
 
         console.log('--- log start ---');
@@ -49,16 +49,16 @@ router.post('/run', async (req, res) => {
             // ai 서버에 요청
             result = await axios({
                 method: 'post',
-                url: 'http://43.201.43.208:8081/ai/run',
-                data: req.body
+                url: 'http://3.37.31.82:8081/ai/run',
+                data: req.body,
             });
 
-            res.json({ status: "success", data: result.data });
+            res.json({ status: 'success', data: result.data });
             console.log('--- log end ---');
             return;
-        }catch (e) {
+        } catch (e) {
             console.log(e);
-            res.json({status: "failed", message: "failed"});
+            res.json({ status: 'failed', message: 'failed' });
             console.log('--- log end ---');
             return;
         }

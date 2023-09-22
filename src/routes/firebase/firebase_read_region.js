@@ -22,6 +22,7 @@ async function readAllRegion() {
             let play = item.play;
             let tour = item.tour;
             let season = item.season;
+            let photo = item.photo;
             let regionData = {
                 name: name,
                 lat: latitude,
@@ -32,6 +33,7 @@ async function readAllRegion() {
                 play: play,
                 tour: tour,
                 season: season,
+                photo: photo,
             };
             allregion.push(regionData);
         });
@@ -80,6 +82,7 @@ async function readOneRegion(name) {
         let play = item.play;
         let tour = item.tour;
         let season = item.season;
+        let photo = item.photo;
         regionData = {
             name: name,
             lat: latitude,
@@ -90,6 +93,7 @@ async function readOneRegion(name) {
             play: play,
             tour: tour,
             season: season,
+            photo: photo,
         };
     } catch (error) {
         console.log('관광 지역 데이터를 읽어오는 중에 오류가 발생했습니다:', error);

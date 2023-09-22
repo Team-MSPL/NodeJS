@@ -507,8 +507,12 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
 
     //경로 최적화 - 완전 탐색(full search) -> 이를 통해 완벽하게 최적 동선을 계산하여 마무리
 
-    //!! 만약 앞 뒤에 숙소가 없다면 DFS 작업을 하지 않는다. -> 어차피 다 끝나고 한 번에 할거니깐
-    if (todayAccomodationList[0].name == '' && todayAccomodationList[1].name == '') {
+    //!! 만약 앞 뒤에 숙소가 없고, 필수 여행지도 없면 DFS 작업을 하지 않는다. -> 어차피 다 끝나고 한 번에 할거니깐
+    if (
+        todayAccomodationList[0].name == '' &&
+        todayAccomodationList[1].name == '' &&
+        todayEssentialPlaceList.length == 0
+    ) {
         return bestPath;
     }
 
