@@ -43,7 +43,7 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
 
         // 우리가 워커가 일을 할수있게 분배하고 직접 짜야 한다. 여간 복잡한게 아니다..
         //쓰레드 수 10개! - 나중에 중복 처리하면 줄어든다.
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 10; i++) {
             threads.add(
                 //이거 경로는 root 폴더를 기준으로 설정해야함. worker가 root폴더에 있기 때문에!!
                 new Worker('./ai/local_search_ai_thread.js', {

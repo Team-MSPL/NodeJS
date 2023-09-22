@@ -46,7 +46,7 @@ router.post('/run', async (req, res) => {
             console.log('--- log start ---');
 
             // 요청을 처리할 워커 스레드 생성
-            const worker = new Worker('./routes/region_search/region_search_algorithm.js', {
+            const worker = new Worker('./src/routes/region_search/region_search_algorithm.js', {
                 workerData: {
                     selectList: selectList,
                     selectPopular: selectPopular,
