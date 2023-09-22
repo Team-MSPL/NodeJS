@@ -853,6 +853,11 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                 checkFullSearchPathList.push(_.cloneDeep(checkFullSearchPath));
                 checkFullSearchPathList.push([_.cloneDeep(placeItem)]);
                 checkFullSearchPath = [];
+            } else if (checkFullSearchPath.length > 5) {
+                checkFullSearchPathList.push(_.cloneDeep(checkFullSearchPath));
+                checkFullSearchPathList.push([]);
+                checkFullSearchPath = [];
+                checkFullSearchPath.push(_.cloneDeep(placeItem));
             } else {
                 checkFullSearchPath.push(_.cloneDeep(placeItem));
             }
