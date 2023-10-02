@@ -28,6 +28,11 @@ router.get('/postList', async (req, res) => {
             });
         });
 
+        //내림차순 정렬
+        responseList = [...responseList].sort(
+            (a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()
+        );
+
         res.status(201).json(responseList);
     } catch (error) {
         console.error('/Post/postList - GET 함수에 문제 발생 : ', error);
