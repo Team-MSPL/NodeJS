@@ -5,35 +5,107 @@ const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 
-// 1. 게시글 목록 가져오기
+// 1. 게시글 목록 가져오기 ( 20개씩 )
 router.get('/postList', async (req, res) => {
     // JWT 토큰 필요 X
     try {
-        let responseList = [];
-        const postList = await Post.find();
+        const page = req.query.page || 1; // 페이지 번호를 쿼리 매개변수로 받아옵니다.
+        const perPage = 20; // 페이지당 게시물 수
 
-        if (!postList) {
+        const sortMode = req.query.sort || 1; // 정렬방법을 쿼리 매개변수로 받아옵니다.
+
+        const searchQuery = req.query.search || ''; // 검색어를 쿼리 매개변수로 받아옵니다.
+
+        const startIndex = (page - 1) * perPage;
+        const endIndex = startIndex + perPage;
+
+        let filter = {}; // 검색 필터 초기화
+
+        let postList = [];
+
+        // 검색어가 제공된 경우, postTitle 또는 postContent에 검색어가 포함된 게시물 필터링
+        if (searchQuery || searchQuery == '') {
+            filter = {
+                $or: [
+                    { postTitle: { $regex: searchQuery, $options: 'i' } }, // 대소문자 무시
+                    { postContent: { $regex: searchQuery, $options: 'i' } },
+                ],
+            };
+        }
+
+        //좋아요순
+        if (sortMode == 2) {
+            console.log(sortMode);
+            //이 부분은 선택적으로 포함할 필드를 지정하는 부분입니다.
+            //1은 해당 필드를 포함하겠다는 의미이며, 0을 사용하면 해당 필드를 제외하겠다는 의미
+            postList = await Post.aggregate([
+                {
+                    $project: {
+                        postId: { $toString: '$_id' },
+                        postTitle: 1,
+                        postWriter: 1,
+                        postedAt: 1,
+                        postContent: 1,
+                        likerLength: { $size: '$liker' }, // liker 배열의 길이를 계산
+                        commentLength: { $size: '$comment' }, // comment 배열의 길이를 계산
+                    },
+                },
+                { $match: filter }, // 검색 필터 적용
+                { $sort: { likerLength: -1 } }, // likerLength 필드를 큰 순으로 정렬
+                { $skip: startIndex },
+                { $limit: perPage },
+            ]);
+        }
+        //댓글순
+        else if (sortMode == 3) {
+            console.log(sortMode);
+            postList = await Post.aggregate([
+                {
+                    $project: {
+                        postId: { $toString: '$_id' },
+                        postTitle: 1,
+                        postWriter: 1,
+                        postedAt: 1,
+                        postContent: 1,
+                        likerLength: { $size: '$liker' }, // liker 배열의 길이를 계산
+                        commentLength: { $size: '$comment' }, // comment 배열의 길이를 계산
+                    },
+                },
+                { $match: filter }, // 검색 필터 적용
+                { $sort: { commentLength: -1 } }, // commentLength 필드를 큰 순으로 정렬
+                { $skip: startIndex },
+                { $limit: perPage },
+            ]);
+        }
+        //디폴트, 최신순
+        else {
+            let responseList = [];
+
+            responseList = await Post.find(filter) // filter를 find 메서드로 전달
+                .sort({ postedAt: -1 }) // String 형태의 날짜를 Date 타입으로 변환하여 최신순으로 정렬
+                .skip(startIndex)
+                .limit(perPage);
+
+            responseList.map((item, idx) => {
+                postList.push({
+                    postId: item._id.toString(),
+                    postTitle: item.postTitle,
+                    postWriter: item.postWriter,
+                    postedAt: item.postedAt,
+                    postContent: item.postContent,
+                    likerLength: item.liker.length,
+                    commentLength: item.comment.length,
+                });
+            });
+        }
+
+        //const postList = await Post.find();
+
+        if (!postList || postList.length === 0) {
             return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
         }
 
-        postList.map((item, idx) => {
-            responseList.push({
-                postId: item._id.toString(),
-                postTitle: item.postTitle,
-                postWriter: item.postWriter,
-                postedAt: item.postedAt,
-                postContent: item.postContent,
-                likerLength: item.liker.length,
-                commentLength: item.comment.length,
-            });
-        });
-
-        //내림차순 정렬
-        responseList = [...responseList].sort(
-            (a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()
-        );
-
-        res.status(201).json(responseList);
+        res.status(201).json(postList);
     } catch (error) {
         console.error('/Post/postList - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
