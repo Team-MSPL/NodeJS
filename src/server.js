@@ -1,10 +1,12 @@
 const express = require('express');
 const app = express();
 const dotenv = require('dotenv');
+const https = require('https');
+const fs = require('fs');
 dotenv.config();
 console.log(process.env.PORT);
 const port = 3000;
-const url = process.env.URL || 'localhost';
+//const url = process.env.URL || 'localhost';
 const mongoose = require('mongoose');
 var connect = require('./schemas/index.js'); //이러면, 이 폴더 내부에 있는 index.js가 자동으로 import됨. 그래서 파일 이름이 중요!
 
@@ -15,9 +17,18 @@ connect(); //MongoDB 연결
 app.set('view engine', 'ejs'); // 'ejs'는 설치한 뷰 엔진의 이름
 app.set('views', './views');
 
+const options = {
+    ca: fs.readFileSync('/etc/letsencrypt/live/danimdatabase.com/fullchain.pem'),
+    key: fs.readFileSync('/etc/letsencrypt/live/danimdatabase.com/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/danimdatabase.com/cert.pem'),
+};
+
+https.createServer(options, app).listen(443, () => {
+    console.log(`server is listening on ` + 443);
+    //console.log(`server is listening at ${url}:${port}`);
+});
 app.listen(port, () => {
     console.log(`server is listening on ` + port);
-    //console.log(`server is listening at ${url}:${port}`);
 });
 // Error: listen EADDRINUSE: address already in use :::27017 해결?
 //아래는 포트 번호가 없어서 Error: connect ECONNREFUSED 54.180.92.25:80 뜨는듯?

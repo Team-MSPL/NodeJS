@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-
+const path = require('path');
+const dotenv = require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const connect = async () => {
     if (process.env.NODE_ENV !== 'production') {
         mongoose.set('debug', true);
@@ -23,7 +23,6 @@ const connect = async () => {
     //     }
     // );
     // 수정된 코드 (프로미스 사용)
-    dotenv.config();
     await mongoose
         //.connect('mongodb://54.180.92.25/danim_database', {
         .connect(process.env.DB_HOST, {
@@ -41,6 +40,7 @@ const connect = async () => {
 };
 
 mongoose.connection.on('error', (error) => {
+    ``;
     console.error('몽고디비 연결 에러', error);
 });
 
