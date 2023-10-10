@@ -29,6 +29,7 @@ const connect = async () => {
             dbName: process.env.DB_NAME,
             useNewUrlParser: true,
             useUnifiedTopology: true,
+            //ssl: true,
             //bufferCommands: false,
         })
         .then(() => {
