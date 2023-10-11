@@ -146,6 +146,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
     let result = [];
 
+    //여행 지역 성향
     const tendencyData = [
         ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
         ['힐링', '액티비티', '배움이 있는', '맛있는'],

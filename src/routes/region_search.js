@@ -46,14 +46,18 @@ router.post('/run', async (req, res) => {
             console.log('--- log start ---');
 
             // 요청을 처리할 워커 스레드 생성
-            const worker = new Worker('./src/routes/region_search/region_search_algorithm.js', {
-                workerData: {
-                    selectList: selectList,
-                    selectPopular: selectPopular,
-                    recentPosition: recentPosition,
-                    distanceSensitivity: distanceSensitivity,
-                },
-            });
+            //./region_search/region_search_algorithm.js
+            const worker = new Worker(
+                '/home/ubuntu/danim_database/src/routes/region_search/region_search_algorithm.js',
+                {
+                    workerData: {
+                        selectList: selectList,
+                        selectPopular: selectPopular,
+                        recentPosition: recentPosition,
+                        distanceSensitivity: distanceSensitivity,
+                    },
+                }
+            );
 
             // 워커 스레드가 완료되면 응답을 클라이언트에 보냅니다.
             worker.on('message', (message) => {

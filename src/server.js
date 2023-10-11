@@ -15,7 +15,7 @@ connect(); //MongoDB 연결
 
 // EJS 뷰 엔진 설정
 app.set('view engine', 'ejs'); // 'ejs'는 설치한 뷰 엔진의 이름
-app.set('views', './views');
+app.set('views', '/home/ubuntu/danim_database/src/views');
 
 const options = {
     ca: fs.readFileSync('/etc/letsencrypt/live/danimdatabase.com/fullchain.pem'),

@@ -15,6 +15,8 @@ var count = [0, 0, 0, 0, 0]; //selectList 선택 개수 저장 배열
 
 let countNum = 0;
 
+const MAX_PART_LENGTH = 6;
+
 //각 성향 카테고리별 가중치, weight[5]는 popular, 인기관광지 점수
 //0:누구와, 1:테마, 2:무엇을, 3:어디 ,4:계절, 5: 인기도
 //threadNum만큼 곱할거라, 원래 값에서 1/5함
@@ -853,7 +855,9 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
                 checkFullSearchPathList.push(_.cloneDeep(checkFullSearchPath));
                 checkFullSearchPathList.push([_.cloneDeep(placeItem)]);
                 checkFullSearchPath = [];
-            } else if (checkFullSearchPath.length > 5) {
+            }
+            //만약 MAX_PART_LENGTH보다 길면 자르고 감. -> TC가 너무 커지는 것 방지
+            else if (checkFullSearchPath.length > MAX_PART_LENGTH) {
                 checkFullSearchPathList.push(_.cloneDeep(checkFullSearchPath));
                 checkFullSearchPathList.push([]);
                 checkFullSearchPath = [];
