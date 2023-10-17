@@ -176,16 +176,16 @@ async function localSearchAI(
     //timeLimitArray[1] = 마지막 날 끝나는 시간
     //3시간 이동시간으로 빼주기
     else {
-        timeLimit = 20 - timeLimitArray[0];
+        timeLimit = 19 - timeLimitArray[0];
         timeLimit = timeLimit * 60;
         time.push(timeLimit);
 
         for (let d = 0; d < nDay - 2; d++) {
-            timeLimit = 9 * 60;
+            timeLimit = 8 * 60;
             time.push(timeLimit);
         }
 
-        timeLimit = timeLimitArray[1] - 11;
+        timeLimit = timeLimitArray[1] - 12;
         // timeLimit = timeLimit * 60;
         time.push(timeLimit * 60);
     }

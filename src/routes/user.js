@@ -46,6 +46,10 @@ router.post('/signUpAndIn', async (req, res) => {
                 existingUser.recentLogin = korNow;
                 await existingUser.save();
             }
+            if (!existingUser.blockUserList) {
+                existingUser.blockUserList = [];
+                await existingUser.save();
+            }
 
             res.status(201).json({
                 userId: existingUser._id.toString(),
@@ -55,6 +59,7 @@ router.post('/signUpAndIn', async (req, res) => {
                 functionToken: existingUser.functionToken,
                 loginProvider: existingUser.loginProvider,
                 dailyReward: daliyReward,
+                blockUserList: existingUser.blockUserList,
             });
             //return res.status(401).json({ message: '이미 회원가입을 한 유저입니다.' });
         }
@@ -110,6 +115,7 @@ router.post('/signUpAndIn', async (req, res) => {
                 userJwtToken: userJwtToken,
                 functionToken: savedUser.functionToken,
                 loginProvider: savedUser.loginProvider,
+                blockUserList: savedUser.blockUserList,
             });
         }
     } catch (error) {
@@ -335,7 +341,46 @@ router.patch('/sendNote', async (req, res) => {
     }
 });
 
-// 7. 회원 전체 조회
+// 7. 회원 차단하기
+router.patch('/blockUser', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { blockUserId } = req.body;
+
+            //분해 하고, 나온 id로
+            // Update the travel functionToken
+            User.findOne({ _id: decoded._id })
+                .then(async (profile) => {
+                    if (!profile) {
+                        console.log(profile);
+                        return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+                    }
+
+                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음. 그래서 push
+                    profile.blockUserList.push(blockUserId);
+
+                    await profile.save();
+                    res.status(201).json({ message: '사용자 차단 완료.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 입력입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/blockUser - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 8. 회원 전체 조회
 router.get('/all', (req, res, next) => {
     User.find()
         .then((users) => {

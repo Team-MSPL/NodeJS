@@ -49,6 +49,11 @@ const userSchema = new Schema({
         type: [String], // 자료형
         default: [],
     },
+    //차단리스트
+    blockUserList: {
+        type: [String], // 자료형
+        default: [],
+    },
 });
 
 module.exports = mongoose.model('User', userSchema);

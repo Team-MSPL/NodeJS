@@ -16,6 +16,8 @@ router.get('/postList', async (req, res) => {
 
         const searchQuery = req.query.search || ''; // 검색어를 쿼리 매개변수로 받아옵니다.
 
+        const blockedUserIDs = req.query.blockedUserIDs || []; // 차단할 여러 명의 유저의 userID를 배열로 받아옵니다.
+
         const startIndex = (page - 1) * perPage;
         const endIndex = startIndex + perPage;
 
@@ -31,6 +33,11 @@ router.get('/postList', async (req, res) => {
                     { postContent: { $regex: searchQuery, $options: 'i' } },
                 ],
             };
+        }
+
+        // 차단할 유저들의 userID가 제공된 경우, 해당 유저들이 작성한 글은 제외하고 나머지 글만 보이게 필터링
+        if (blockedUserIDs.length > 0) {
+            filter.postWriterUserId = { $nin: blockedUserIDs }; // $nin은 해당 값들을 제외하라는 조건입니다.
         }
 
         //좋아요순
