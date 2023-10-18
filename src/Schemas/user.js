@@ -42,7 +42,7 @@ const userSchema = new Schema({
     },
     functionToken: {
         type: Number,
-        default: 1,
+        default: 5,
     },
     //쪽지함
     noteList: {

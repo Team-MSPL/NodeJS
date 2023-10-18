@@ -176,7 +176,7 @@ async function localSearchAI(
     //timeLimitArray[1] = 마지막 날 끝나는 시간
     //3시간 이동시간으로 빼주기
     else {
-        timeLimit = 19 - timeLimitArray[0];
+        timeLimit = 17 - timeLimitArray[0];
         timeLimit = timeLimit * 60;
         time.push(timeLimit);
 
@@ -185,7 +185,7 @@ async function localSearchAI(
             time.push(timeLimit);
         }
 
-        timeLimit = timeLimitArray[1] - 12;
+        timeLimit = timeLimitArray[1] - 14;
         // timeLimit = timeLimit * 60;
         time.push(timeLimit * 60);
     }
