@@ -17,6 +17,7 @@ connect(); //MongoDB 연결
 app.set('view engine', 'ejs'); // 'ejs'는 설치한 뷰 엔진의 이름
 app.set('views', '/home/ubuntu/danim_database/src/views');
 
+// ssl 인증서 관련
 const options = {
     ca: fs.readFileSync('/etc/letsencrypt/live/danimdatabase.com/fullchain.pem'),
     key: fs.readFileSync('/etc/letsencrypt/live/danimdatabase.com/privkey.pem'),

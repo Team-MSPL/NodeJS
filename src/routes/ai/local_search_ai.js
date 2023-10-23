@@ -130,27 +130,6 @@ async function localSearchAI(
     transitInAI = transit;
     distanceSensitivityInAI = distanceSensitivity;
 
-    // ai run 전에 숙소, 필수 여행지를 placeList에서 제거 작업
-    let accomodationNum = 0;
-    accomodationList.map((item, idx) => {
-        if (item.name != '') {
-            accomodationNum += 1;
-            //placeList에서도 제거해서, 중복 피하기!
-            placeList = placeList.filter((itemP) => itemP.name !== item.name);
-            placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
-        }
-    });
-
-    essentialPlaceList.map((item, idx) => {
-        //placeList에도 제거해서, 중복 피하기!
-        placeList = placeList.filter((itemP) => itemP.name !== item.name);
-        placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
-    });
-
-    // 숙소, 필수여행지 총 합계 계산 + 총날짜도 고려!! - , 반복 횟수 줄이기에 사용
-    // 총날짜 (nDay)를 3으로 나눈 몫만큼 빼주자 -> 3일이면 -1, 6일이면 -2 -> 날짜가 많으면 선택 많이해도 지장 줄어드니까
-    selectedNum = accomodationNum + essentialPlaceList.length - Math.floor(nDay / 3);
-
     //selectList 선순회 - placePoint에서 평균 구할 때 사용 - 내부에서 계산하면 시간 오래 걸리니까
     count = [0, 0, 0, 0, 0]; //초기화
     for (let x = 0; x < 5; x++) {
@@ -170,26 +149,51 @@ async function localSearchAI(
         timeLimit > 6 ? (timeLimit = timeLimit - 2) : (timeLimit = timeLimit - 1);
 
         timeLimit = timeLimit * 60;
-        time.push(timeLimit);
+        time.push(_.cloneDeep(timeLimit));
     }
     //timeLimit 계산해주기 - timeLimitArray[0] = 첫날 시작시간
     //timeLimitArray[1] = 마지막 날 끝나는 시간
     //3시간 이동시간으로 빼주기
     else {
-        timeLimit = 17 - timeLimitArray[0];
-        timeLimit = timeLimit * 60;
-        time.push(timeLimit);
+        timeLimit = (18 - timeLimitArray[0]) * 60;
+        time.push(_.cloneDeep(timeLimit));
 
         for (let d = 0; d < nDay - 2; d++) {
-            timeLimit = 8 * 60;
-            time.push(timeLimit);
+            timeLimit = 9 * 60;
+            time.push(_.cloneDeep(timeLimit));
         }
 
-        timeLimit = timeLimitArray[1] - 14;
-        // timeLimit = timeLimit * 60;
-        time.push(timeLimit * 60);
+        timeLimit = (timeLimitArray[1] - 10) * 60;
+        time.push(_.cloneDeep(timeLimit));
     }
     //timeLimit 계산 종료
+
+    // ai run 전에 숙소, 필수 여행지를 placeList에서 제거 작업
+    let accomodationNum = 0;
+    accomodationList.map((item, idx) => {
+        if (item.name != '') {
+            accomodationNum += 1;
+            //placeList에서도 제거해서, 중복 피하기!
+            placeList = placeList.filter((itemP) => itemP.name !== item.name);
+            placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
+
+            //time 리스트 내 값들(timeLimit) 조정해주기 - 이제 숙소가 시간에 영향을 끼치지 않으므로
+            time[idx] += 60;
+            if (idx > 0) {
+                time[idx - 1] += 60;
+            }
+        }
+    });
+
+    essentialPlaceList.map((item, idx) => {
+        //placeList에도 제거해서, 중복 피하기!
+        placeList = placeList.filter((itemP) => itemP.name !== item.name);
+        placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
+    });
+
+    // 숙소, 필수여행지 총 합계 계산 + 총날짜도 고려!! - , 반복 횟수 줄이기에 사용
+    // 총날짜 (nDay)를 3으로 나눈 몫만큼 빼주자 -> 3일이면 -1, 6일이면 -2 -> 날짜가 많으면 선택 많이해도 지장 줄어드니까
+    selectedNum = accomodationNum + essentialPlaceList.length - Math.floor(nDay / 3);
 
     //숙소에 성향값 넣어주기
     let partnerDummy = _.cloneDeep(placeList[0].partner);

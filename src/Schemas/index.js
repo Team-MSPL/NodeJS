@@ -25,7 +25,7 @@ const connect = async () => {
     // 수정된 코드 (프로미스 사용)
     await mongoose
         //.connect('mongodb://54.180.92.25/danim_database', {
-        .connect(process.env.DB_HOST, {
+        .connect(process.env.DB_HOST_DEVELOP, {
             dbName: process.env.DB_NAME,
             useNewUrlParser: true,
             useUnifiedTopology: true,

@@ -998,7 +998,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
 
     //completePath가 예상보다 길거나 짧을 경우 걍 원래거 리턴
     if (completePath.length !== nDay) {
-        console.log('completePath가 예상보다 길거나 짧을 경우 걍 원래거 리턴');
+        //console.log('completePath가 예상보다 길거나 짧을 경우 걍 원래거 리턴');
         parentPort.postMessage({ path: tempPath, enoughPlaceInThread: enoughPlaceInThread });
         return { path: tempPath, enoughPlaceInThread: enoughPlaceInThread };
     } else {
