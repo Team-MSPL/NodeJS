@@ -40,8 +40,8 @@ router.post('/signUpAndIn', async (req, res) => {
             const koreaTimeDiff = 9 * 60 * 60 * 1000;
             const korNow = new Date(utc + koreaTimeDiff);
             if (existingUser.recentLogin.getDate() != korNow.getDate()) {
-                existingUser.functionToken += 1;
-                daliyReward = true;
+                //existingUser.functionToken += 1;
+                //daliyReward = true;
                 //최근접속시간 업데이트
                 existingUser.recentLogin = korNow;
                 await existingUser.save();
@@ -247,7 +247,7 @@ router.patch('/updateFunctionToken', async (req, res) => {
 
             //분해 하고, 나온 id로
             // Update the travel functionToken
-            User.findOneAndUpdate({ _id: decoded }, { functionToken: functionToken }, { new: true }) // { new: true }로 리턴값 받기
+            User.findOneAndUpdate({ _id: decoded._id }, { functionToken: functionToken }, { new: true }) // { new: true }로 리턴값 받기
                 .then((updatedfunctionToken) => {
                     if (!updatedfunctionToken) {
                         console.log(updatedfunctionToken);
