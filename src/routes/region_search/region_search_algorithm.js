@@ -8,10 +8,18 @@ var count = [0, 0, 0, 0, 0]; //selectList 선택 개수 저장 배열
 var countNum = 0; // 한 줄당 count 총 갯수
 
 //Step 1. Data Loading
-async function dataLoading() {
+async function dataLoading(version) {
     let regionList = []; // reset the list
 
-    await readAllRegion()
+    let collectionName;
+
+    if (version === 1) {
+        collectionName = '전국 여행 지역';
+    } else {
+        collectionName = '전국 여행 지역 ver2';
+    }
+
+    await readAllRegion(collectionName)
         .then((res) => {
             regionList = [...regionList, ...res];
             //regionListCopy = [...regionListCopy, ...res];
@@ -80,19 +88,19 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
 }
 
 //RegionSearch를 실행시키는 비동기 함수
-async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition) {
+async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition, version) {
     console.log('여행 지역 알고리즘 시작!');
     if (recentPosition.lat !== 0 || recentPosition.lng !== 0) {
         console.log('현재 위치 좌표', recentPosition);
     }
-    console.log('인기도', selectPopular);
+    console.log('인기도', selectPopular[0], selectPopular[1]);
     console.log('거리민감도', distanceSensitivity);
 
     //시간 재기
     const startTime = performance.now();
 
     //데이터 로딩
-    let regionList = await dataLoading();
+    let regionList = await dataLoading(version);
     console.log('전체 지역 수', regionList.length);
 
     //selectList 선순회 - placePoint에서 평균 구할 때 사용 - 내부에서 계산하면 시간 오래 걸리니까
@@ -147,13 +155,24 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     let result = [];
 
     //여행 지역 성향
-    const tendencyData = [
-        ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
-        ['힐링', '액티비티', '배움이 있는', '맛있는'],
-        ['레저 스포츠', '문화시설', '사진 명소', '이색체험', '역사 여행'],
-        ['바다', '산', '드라이브코스', '산책', '쇼핑', '자연경관', '시티투어', '지역축제', '전통한옥'],
-        ['봄꽃', '여름피서', '가을단풍', '겨울스포츠.설경', '온천'],
-    ];
+    let tendencyData;
+    if (version == 1) {
+        tendencyData = [
+            ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
+            ['힐링', '액티비티', '배움이 있는', '맛있는'],
+            ['레저스포츠', '문화시설', '사진 명소', '이색체험', '역사 여행'],
+            ['바다', '산', '드라이브코스', '산책', '쇼핑', '자연경관', '시티투어', '지역축제', '전통한옥'],
+            ['봄꽃', '여름피서', '가을단풍', '겨울스포츠.설경', '온천'],
+        ];
+    } else {
+        tendencyData = [
+            ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
+            ['힐링', '액티비티', '배움이 있는', '맛있는', '교통이편한', '알뜰한'],
+            ['레저스포츠', '문화시설', '사진 명소', '이색체험', '역사 여행'],
+            ['바다', '산', '드라이브코스', '산책', '쇼핑', '자연경관', '시티투어', '전통한옥'],
+            ['봄', '여름', '가을', '겨울'],
+        ];
+    }
 
     //상위 5개 지역의 정보를 객체 배열에 저장
     for (let i = 0; i < 5; i++) {
@@ -246,6 +265,8 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
                 topPopularPlaceList.push({
                     name: placeListInTopRankRegion[j].name,
                     photo: placeListInTopRankRegion[j].photo,
+                    lat: placeListInTopRankRegion[j].lat,
+                    lng: placeListInTopRankRegion[j].lng,
                 });
             }
         }
@@ -270,7 +291,9 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     const endTime = performance.now();
 
     console.log(`상위 5개 지역. 성향 선택 개수`, countNum);
-    console.log(result);
+    for (let i = 0; i < 5; i++) {
+        console.log(result[i].name);
+    }
 
     console.log(`알고리즘 돌리는데 걸리는 시간`);
 
@@ -293,7 +316,8 @@ if (isMainThread) {
         workerData.selectList,
         workerData.selectPopular,
         workerData.distanceSensitivity,
-        workerData.recentPosition
+        workerData.recentPosition,
+        workerData.version
     );
 }
 

@@ -125,7 +125,7 @@ router.patch('/useCoupon', async (req, res) => {
                     couponInfo.CouponUsedList.push(decoded._id.toString());
                     await couponInfo.save();
 
-                    res.status(200).json({ message: '쿠폰 사용 완료.' });
+                    res.status(200).json({ functionToken: functionToken + couponToken });
                 } else {
                     res.status(400).json({ message: '이미 쿠폰을 사용했습니다.' });
                 }

@@ -49,7 +49,7 @@ router.post('/run', async (req, res) => {
             // ai 서버에 요청
             result = await axios({
                 method: 'post',
-                url: 'http://3.37.31.82:8081/ai/run',
+                url: 'http://3.39.14.168:8081/ai/run',
                 data: req.body,
             });
 

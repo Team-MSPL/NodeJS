@@ -15,5 +15,6 @@ router.use('/manageTravel', require('./manage_travel'));
 router.use('/managePost', require('./manage_post'));
 router.use('/manageNetwork', require('./manage_network'));
 router.use('/marketing', require('./marketing'));
+router.use('/inquiry', require('./inquiry'));
 
 module.exports = router;

@@ -1,10 +1,10 @@
 const { database } = require('./firebase_options.js');
 
-async function readAllRegion() {
+async function readAllRegion(collectionName) {
     let allregion = [];
     try {
         //"관광지 목록" 문서는 제거
-        const regionSnapshot = await database.collection('전국 여행 지역').where('name', '!=', '여행 지역 목록').get();
+        const regionSnapshot = await database.collection(collectionName).where('name', '!=', '여행 지역 목록').get();
         let data = [];
         regionSnapshot.forEach((doc) => {
             const docData = doc.data();

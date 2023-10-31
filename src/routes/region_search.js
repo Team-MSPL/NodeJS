@@ -38,12 +38,22 @@ router.post('/run', async (req, res) => {
 
         try {
             const { selectList, selectPopular, recentPosition, distanceSensitivity } = req.body;
-            // JSON 데이터 파싱
-            //const jsonData = JSON.parse(requestData);
-
-            // 파싱된 데이터를 이용하여 처리 로직 수행
 
             console.log('--- log start ---');
+
+            let version;
+
+            if (req.body.hasOwnProperty('version')) {
+                // 특정 변수가 존재하면 해당 값을 사용
+                version = req.body.version;
+                console.log('version ', version);
+            } else {
+                // 특정 변수가 존재하지 않으면 기본값 사용 : version = 1
+                version = 1;
+                console.log('version ', version);
+            }
+
+            // 파싱된 데이터를 이용하여 처리 로직 수행
 
             // 요청을 처리할 워커 스레드 생성
             //./region_search/region_search_algorithm.js
@@ -55,6 +65,7 @@ router.post('/run', async (req, res) => {
                         selectPopular: selectPopular,
                         recentPosition: recentPosition,
                         distanceSensitivity: distanceSensitivity,
+                        version: version,
                     },
                 }
             );
