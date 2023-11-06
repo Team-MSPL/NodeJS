@@ -99,4 +99,39 @@ router.post('/reportComment', async (req, res) => {
     });
 });
 
+// 6. 회원에게 쪽지 보내기
+router.patch('/sendNote', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        const { userId, note } = req.body;
+
+        //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+        User.findOne({ _id: userId })
+            .then(async (user) => {
+                if (!user) {
+                    console.log(user);
+                    return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
+                }
+                user.noteList.push(note);
+
+                await user.save();
+
+                res.status(201).json({ message: '쪽지 전송 완료.' });
+            })
+            .catch((error) => {
+                console.error('User.findOne() 함수에 문제 발생 : ', error);
+                res.status(403).json({ message: '잘못된 userId 입니다.' });
+            });
+    } catch (error) {
+        console.error('/users/sendNote - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 module.exports = router;
