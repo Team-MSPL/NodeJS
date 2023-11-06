@@ -7,35 +7,27 @@ require('dotenv').config();
 var _ = require('lodash');
 
 // 총 기능 사용 횟수
-router.get('/sum', async (req, res) => {
+router.get('/sumUseTokenTime', async (req, res) => {
     const password = req.query.password || 'wrong';
 
-    if (password !== '${process.env.SECRET_KEY}') {
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
     }
 
     try {
-        const { postId, reportReason, reportedAt, reportWriter } = req.body;
+        // manageUser 모델에서 모든 데이터를 가져옴
+        const manageUserList = await ManageUser.find();
 
-        const reportPost = await Post.findOne({ _id: postId });
+        // UseTokenTime 필드의 값을 합산
+        const totalSum = manageUserList.reduce((accumulator, currentValue) => {
+            return accumulator + currentValue.useTokenTime;
+        }, 0);
 
-        if (!reportPost) {
-            res.status(403).json({ message: '게시글을 찾을 수 없습니다.' });
-        }
-
-        const newReport = new ManagePost({
-            postId: postId,
-            reportReason: reportReason,
-            reportedAt: reportedAt,
-            reportWriter: reportWriter,
-            post: reportPost,
-        });
-
-        //DB에 저장
-        await newReport.save();
-
-        res.status(201).json({ message: '게시글 신고 완료.' });
+        // 합산된 값을 클라이언트에 반환
+        res.status(201).json({ result: totalSum });
     } catch (error) {
-        console.error('/manageUser/reportPost - POST 함수에 문제 발생 : ', error);
+        console.error('/manageUser/sumUseTokenTime - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'leternal server error' });
     }
 });
