@@ -14,6 +14,7 @@ router.use('/post', require('./post'));
 router.use('/manageTravel', require('./manage_travel'));
 router.use('/managePost', require('./manage_post'));
 router.use('/manageNetwork', require('./manage_network'));
+router.use('/manageUser', require('./manage_user'));
 router.use('/marketing', require('./marketing'));
 router.use('/inquiry', require('./inquiry'));
 

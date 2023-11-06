@@ -191,6 +191,22 @@ async function localSearchAI(
         placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
     });
 
+    //반려견과 선택시 placeList에서 먼저 제거
+
+    if (selectList[0][6] === 1) {
+        const placeListLength = placeList.length;
+        let iter = 0;
+
+        for (let i = 0; i < placeListLength; i++) {
+            if (placeList[iter].partner[6] < 30) {
+                placeList.splice(iter, 1);
+                placeListCopy.splice(iter, 1);
+                iter -= 1;
+            }
+            iter += 1;
+        }
+    }
+
     // 숙소, 필수여행지 총 합계 계산 + 총날짜도 고려!! - , 반복 횟수 줄이기에 사용
     // 총날짜 (nDay)를 3으로 나눈 몫만큼 빼주자 -> 3일이면 -1, 6일이면 -2 -> 날짜가 많으면 선택 많이해도 지장 줄어드니까
     selectedNum = accomodationNum + essentialPlaceList.length - Math.floor(nDay / 3);

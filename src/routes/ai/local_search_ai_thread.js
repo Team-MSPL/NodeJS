@@ -51,12 +51,8 @@ var corDis = [];
 
 // 관광지 점수 계산 프로세스 - 가장 많이 반복되는 함수
 function placePoint(selectList, beforePlace, targetPlace, timeLimit = 1000, findFirstPlacefromAcm = false) {
-    //반려견과, 실내여행지는 예외처리 - selectList에 있고 + 점수가 30점 이하면, sum = 0을 리턴
-    if (
-        (selectList[0][6] === 1 && targetPlace.partner[6] < 30) ||
-        (selectList[3][5] === 1 && targetPlace.tour[5] < 30) ||
-        timeLimit < targetPlace.takenTime
-    ) {
+    //실내여행지는 예외처리 - selectList에 있고 + 점수가 30점 이하면, sum = -10000000을 리턴
+    if ((selectList[3][5] === 1 && targetPlace.tour[5] < 30) || timeLimit < targetPlace.takenTime) {
         return -10000000;
     }
 
