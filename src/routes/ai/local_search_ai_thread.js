@@ -477,15 +477,22 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
                     console.log('bestPath가 1임');
                 }
                 break;
-            } else {
-                if (bestPath.length === 2) {
-                    try {
-                        console.log('bestPath가 2임', bestPath[0].name);
-                    } catch (e) {
-                        console.log('bestPath가 2임');
-                    }
-                    break;
+            } else if (
+                bestPath.length === 2 &&
+                (todayAccomodationList[0].name !== '' || todayAccomodationList[1].name !== '')
+            ) {
+                try {
+                    console.log(
+                        'bestPath가 2임',
+                        bestPath[0].name,
+                        todayAccomodationList[0].name,
+                        todayAccomodationList[1].name
+                    );
+                } catch (e) {
+                    console.log('bestPath가 2임');
                 }
+                break;
+            } else {
                 // let index2 = bestPath.indexOf(bestPath.find(item => item.name ==== canPopPlaceList[index].name));
                 // if (index2 !=== -1) {
                 // 	bestPath.splice(index2, 1);
@@ -800,7 +807,7 @@ async function routeSearch(accomodationList, selectList, essentialPlaceList, tim
 
         // 오늘 시간 제한이 너무 짧을 경우...
         if (
-            timeLimit[d] <= 1 &&
+            timeLimit[d] <= 60 &&
             (todayEssentialPlaceList.length >= 1 ||
                 accomodationList[d].name !== '' ||
                 accomodationList[d + 1].name !== '')
