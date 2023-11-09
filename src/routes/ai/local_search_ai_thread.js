@@ -395,7 +395,6 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
             kOptCheck2 += 1;
         }
         //여기서 중복 처리를 안해서 문제가 계속 발생하였음! - newPath기준으로 placeListCopy가 맞춰져있었는데, placeListCopy가 업데이트가 안됨
-        //ㅅㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄㅄ
         const bestPathSet = new Set(bestPath.map((item) => JSON.stringify(item.name)));
         placeListCopy = _.cloneDeep(placeListCopySaveInThisDay);
         placeListCopy = placeListCopy.filter((item) => !bestPathSet.has(JSON.stringify(item.name)));
@@ -472,8 +471,21 @@ function hillClimbing(path, selectList, todayAccomodationList, todayEssentialPla
             //let index = canPopPlaceListPoint.indexOf(canPopPlaceListPointCopy[x]); //낮은 점수부터 index에 넣어 빼려는 시도
             let index = canPopPlaceListPointCopy[x].index;
             if (bestPath.length === 1) {
+                try {
+                    console.log('bestPath가 1임', bestPath[0].name);
+                } catch (e) {
+                    console.log('bestPath가 1임');
+                }
                 break;
             } else {
+                if (bestPath.length === 2) {
+                    try {
+                        console.log('bestPath가 2임', bestPath[0].name);
+                    } catch (e) {
+                        console.log('bestPath가 2임');
+                    }
+                    break;
+                }
                 // let index2 = bestPath.indexOf(bestPath.find(item => item.name ==== canPopPlaceList[index].name));
                 // if (index2 !=== -1) {
                 // 	bestPath.splice(index2, 1);

@@ -16,7 +16,7 @@ const { database } = require('./firebase_options.js');
 //});
 //const db = getFirestore();
 
-async function readAllPlace(region) {
+async function readAllPlace(region, bandwidth) {
     let allPlace = [];
     try {
         //"관광지 목록" 문서는 제거
@@ -53,6 +53,11 @@ async function readAllPlace(region) {
                 category: 0, // 이태운 추가 - 타임테이블을 위함
                 photo: item.photo, // 이태운 추가 - 타임테이블 위 관광지 사진을 위함
             };
+
+            //여유로운 여행이면 takenTime 30분 추가
+            if (bandwidth) {
+                placeData.takenTime += 30;
+            }
             allPlace.push(placeData);
         });
 

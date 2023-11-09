@@ -19,12 +19,12 @@ var selectedNum = 0;
 var pathList = [];
 
 //Step 1. Data Loading
-async function dataLoading(cityList) {
+async function dataLoading(cityList, bandwidth) {
     placeList = []; // reset the list
     placeListCopy = []; // reset the list
 
     for (let i = 0; i < cityList.length; i++) {
-        await readAllPlace(cityList[i])
+        await readAllPlace(cityList[i], bandwidth)
             .then((res) => {
                 placeList = [...placeList, ...res];
                 placeListCopy = [...placeListCopy, ...res];
@@ -42,7 +42,7 @@ function ai_run(accomodationList, selectList, essentialPlaceList, time, nDay) {
         //console.time('prime' + primeNum);
 
         // 우리가 워커가 일을 할수있게 분배하고 직접 짜야 한다. 여간 복잡한게 아니다..
-        //쓰레드 수 10개! - 나중에 중복 처리하면 줄어든다.
+        //쓰레드 수 7개! - 나중에 중복 처리하면 줄어든다.
         for (let i = 0; i < 7; i++) {
             threads.add(
                 //이거 경로는 root 폴더를 기준으로 설정해야함. worker가 root폴더에 있기 때문에!!
@@ -103,7 +103,8 @@ async function localSearchAI(
     timeLimitArray,
     nDay,
     transit,
-    distanceSensitivity
+    distanceSensitivity,
+    bandwidth
 ) {
     console.log('여행 코스 AI 시작!');
 
@@ -121,7 +122,7 @@ async function localSearchAI(
     pathList = [];
 
     //데이터 로딩
-    await dataLoading(regionList);
+    await dataLoading(regionList, bandwidth);
     console.log('전체 관광지 수', placeList.length);
 
     //AI를 위한 데이터 전처리 시작
@@ -236,6 +237,13 @@ async function localSearchAI(
 
     pathList = []; // 초기화
 
+    //만약 여유로운 여행이면 time 배열 내 값들 - 해주기
+    if (bandwidth) {
+        time.map((item, idx) => {
+            item -= 60;
+        });
+    }
+
     //AI를 위한 데이터 전처리 종료
 
     const loadingTime = performance.now() - startTime;
@@ -295,7 +303,8 @@ if (isMainThread) {
         workerData.timeLimitArray,
         workerData.nDay,
         workerData.transit,
-        workerData.distanceSensitivity
+        workerData.distanceSensitivity,
+        workerData.bandwidth
     );
 }
 
