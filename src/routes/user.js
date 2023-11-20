@@ -103,6 +103,8 @@ router.post('/signUpAndIn', async (req, res) => {
             // manage_user 객체도 생성 ( 회원가입 시에만 )
             const newManageUser = new ManageUser({
                 userId: savedUser._id.toString(),
+                //
+                tokenLog: [{ tokenLogContent: '회원가입 축하 보상', tokenLogNumber: 5, tokenLogDate: now.getTime() }],
             });
             await newManageUser.save();
 
@@ -245,24 +247,55 @@ router.patch('/updateFunctionToken', async (req, res) => {
 
             const { functionToken } = req.body;
 
+            let diffToken = 0;
+
             //분해 하고, 나온 id로
             // Update the travel functionToken
-            User.findOneAndUpdate({ _id: decoded._id }, { functionToken: functionToken }, { new: true }) // { new: true }로 리턴값 받기
-                .then((updatedfunctionToken) => {
-                    if (!updatedfunctionToken) {
-                        console.log(updatedfunctionToken);
-                        return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+            let user = await User.findOne({ _id: decoded._id }).catch((error) => {
+                console.error('User.findOne() 함수에 문제 발생 : ', error);
+                res.status(403).json({ message: '잘못된 userId 입니다.' });
+            });
+
+            //manage_user에 로그 추가
+            await ManageUser.findOne({ userId: decoded._id.toString() })
+                .then(async (manageUser) => {
+                    if (!manageUser) {
+                        console.log(manageUser);
+                        res.status(401).json({ message: 'Unauthorized' });
+                        return;
+                    }
+                    const now = new Date(); // 현재 날짜 및 시간
+                    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+                    const koreaTimeDiff = 9 * 60 * 60 * 1000;
+                    const korNow = new Date(utc + koreaTimeDiff);
+
+                    if (!manageUser.tokenLog) {
+                        manageUser.tokenLog = [];
                     }
 
-                    //res.status(201).json(travelCourse);
-                    res.status(201).json({ message: '회원이 보유한 기능 토큰 갯수 수정 완료.' });
+                    //토큰 갯수가 늘어나야만, 이용권 충전임
+                    if (functionToken - user.functionToken > 0) {
+                        manageUser.tokenLog.push({
+                            tokenLogContent: '이용권 충전',
+                            tokenLogNumber: functionToken - user.functionToken,
+                            tokenLogDate: now.getTime(),
+                        });
+                    }
+
+                    await manageUser.save();
                 })
                 .catch((error) => {
-                    console.error('User.findOneAndUpdate() 함수에 문제 발생 : ', error);
-                    res.status(403).json({ message: '잘못된 functionToken 입니다.' });
+                    console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
+                    res.status(401).json({ message: 'Unauthorized' });
+                    return;
                 });
 
-            //res.status(201).json({ message: '회원이 보유한 기능 토큰 갯수 수정 완료.' });
+            //update user functionToken
+            user.functionToken = functionToken;
+
+            await user.save();
+
+            res.status(201).json({ message: '회원이 보유한 기능 토큰 갯수 수정 완료.' });
         });
     } catch (error) {
         console.error('/users/updateFunctionToken - PATCH 함수에 문제 발생 : ', error);

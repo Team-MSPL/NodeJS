@@ -155,6 +155,43 @@ router.patch('/updateTravelCourse', async (req, res) => {
     }
 });
 
+// 4-2. 여행 코스 제목 수정하기
+router.patch('/updateTravelCourseName', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        //dotenv.config();
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { travelId, updateTravelName } = req.body; // 수정할 필드들을 담은 객체
+
+            // Update the travel course
+            TravelCourse.findOneAndUpdate({ _id: travelId }, { travelName: updateTravelName }, { new: true }) // { new: true }로 리턴값 받기
+                .then((updatedTravelCourse) => {
+                    if (!updatedTravelCourse) {
+                        console.log(updatedTravelCourse);
+                        return res.status(404).json({ message: '수정할 여행 코스를 찾을 수 없습니다.' });
+                    }
+
+                    //res.status(201).json(travelCourse);
+                    res.status(201).json({ message: '여행 코스 제목 수정 완료.' });
+                })
+                .catch((error) => {
+                    console.error('TravelCourse.findOneAndUpdate() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 travelId 입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/travelCourse - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 // 5. 여행 일기 저장, 수정하기 (PATCH)
 router.patch('/updateDiary', async (req, res) => {
     try {

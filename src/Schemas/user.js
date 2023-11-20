@@ -42,7 +42,7 @@ const userSchema = new Schema({
     },
     functionToken: {
         type: Number,
-        default: 5,
+        default: 5, //회원가입시 디폴트 보상
     },
     //쪽지함
     noteList: {

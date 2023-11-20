@@ -34,6 +34,20 @@ router.post('/run', async (req, res) => {
                 }
                 user.useTokenTime += 1;
 
+                const now = new Date(); // 현재 날짜 및 시간
+                const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+                const koreaTimeDiff = 9 * 60 * 60 * 1000;
+                const korNow = new Date(utc + koreaTimeDiff);
+
+                if (!user.tokenLog) {
+                    user.tokenLog = [];
+                }
+                user.tokenLog.push({
+                    tokenLogContent: '여행 코스 추천 기능 사용',
+                    tokenLogNumber: -1,
+                    tokenLogDate: now.getTime(),
+                });
+
                 await user.save();
             })
             .catch((error) => {

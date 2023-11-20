@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ManageUser = require('../schemas/manage_user.js');
 const User = require('../schemas/user.js');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 var _ = require('lodash');
@@ -94,6 +95,40 @@ router.post('/reportComment', async (req, res) => {
             // TravelCourse.findOne({ _id: travelId })
         } catch (error) {
             console.error('/manage/reportPost - POST 함수에 문제 발생 : ', error);
+            res.status(500).json({ message: 'leternal server error' });
+        }
+    });
+});
+
+// 토큰 사용 로그 찾기
+router.get('/tokenLog', async (req, res) => {
+    // 클라이언트에서 전달한 JWT 토큰 추출
+    const token = req.header('Authorization').split(' ')[1];
+
+    // JWT 토큰 검증
+    //dotenv.config(); // .env 파일의 환경 변수 로드
+
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+        if (err) {
+            console.error('JWT 토큰 검증 에러:', err);
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // JWT 토큰 검증 성공 시 요청 처리
+        try {
+            const manageUser = await ManageUser.findOne({ userId: decoded._id.toString() });
+
+            if (!manageUser) {
+                res.status(403).json({ message: '사용자를 찾을 수 없습니다.' });
+            }
+            if (!manageUser.tokenLog || manageUser.tokenLog.length === 0) {
+                manageUser.tokenLog = [];
+                await manageUser.save();
+            }
+
+            return res.status(201).json({ tokenLog: manageUser.tokenLog });
+        } catch (error) {
+            console.error('/manage/tokenLog - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'leternal server error' });
         }
     });
