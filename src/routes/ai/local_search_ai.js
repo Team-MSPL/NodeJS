@@ -169,14 +169,29 @@ async function localSearchAI(
     }
     //timeLimit 계산 종료
 
-    // ai run 전에 숙소, 필수 여행지를 placeList에서 제거 작업
+    // ai run 전에 숙소, 필수 여행지를 placeList에서 제거 작업 - 231121 이름 기반 제거 -> 좌표 기반 제거
     let accomodationNum = 0;
     accomodationList.map((item, idx) => {
         if (item.name != '') {
             accomodationNum += 1;
             //placeList에서도 제거해서, 중복 피하기!
-            placeList = placeList.filter((itemP) => itemP.name !== item.name);
-            placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
+            //placeList = placeList.filter((itemP) => itemP.name !== item.name);
+            //placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
+            placeList = placeList.filter((itemP) => {
+                // 이름이 같은 경우와 좌표의 차이가 일정 값 이하인 경우 필터링
+                return (
+                    //itemP.name !== item.name ||
+                    Math.abs(itemP.lat - item.lat) >= 0.002 && Math.abs(itemP.lng - item.lng) >= 0.002
+                );
+            });
+
+            placeListCopy = placeListCopy.filter((itemP) => {
+                // 이름이 같은 경우와 좌표의 차이가 일정 값 이하인 경우 필터링
+                return (
+                    //itemP.name !== item.name ||
+                    Math.abs(itemP.lat - item.lat) >= 0.002 && Math.abs(itemP.lng - item.lng) >= 0.002
+                );
+            });
 
             //time 리스트 내 값들(timeLimit) 조정해주기 - 이제 숙소가 시간에 영향을 끼치지 않으므로
             time[idx] += 60;
@@ -188,8 +203,23 @@ async function localSearchAI(
 
     essentialPlaceList.map((item, idx) => {
         //placeList에도 제거해서, 중복 피하기!
-        placeList = placeList.filter((itemP) => itemP.name !== item.name);
-        placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
+        //placeList = placeList.filter((itemP) => itemP.name !== item.name);
+        //placeListCopy = placeListCopy.filter((itemP) => itemP.name !== item.name);
+        placeList = placeList.filter((itemP) => {
+            // 이름이 같은 경우와 좌표의 차이가 일정 값 이하인 경우 필터링
+            return (
+                //itemP.name !== item.name ||
+                Math.abs(itemP.lat - item.lat) >= 0.002 && Math.abs(itemP.lng - item.lng) >= 0.002
+            );
+        });
+
+        placeListCopy = placeListCopy.filter((itemP) => {
+            // 이름이 같은 경우와 좌표의 차이가 일정 값 이하인 경우 필터링
+            return (
+                //itemP.name !== item.name ||
+                Math.abs(itemP.lat - item.lat) >= 0.002 && Math.abs(itemP.lng - item.lng) >= 0.002
+            );
+        });
     });
 
     //반려견과 선택시 placeList에서 먼저 제거

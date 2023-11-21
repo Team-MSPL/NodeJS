@@ -89,7 +89,14 @@ router.post('/run', async (req, res) => {
                 //res.json({ message: 'API 요청 처리 완료', data: message });
 
                 console.log('--- log end ---');
-                res.json(message.result);
+
+                if (message.result.length === 0) {
+                    res.status(405).json({
+                        error: '추천드릴 수 있는 지역이 없습니다. 지역의 인기도와 여행 반경을 재설정 후, 다시 시도해주세요.',
+                    });
+                } else {
+                    res.json(message.result);
+                }
             });
 
             // 에러 처리

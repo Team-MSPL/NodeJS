@@ -87,6 +87,22 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
     return sum;
 }
 
+// 두 좌표 사이 거리 구하기 함수
+function distance(departure, arrival) {
+    const dLat = (departure.lat - arrival.lat) * (Math.PI / 180);
+    const dLon = (departure.lng - arrival.lng) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(departure.lat * (Math.PI / 180)) *
+            Math.cos(arrival.lat * (Math.PI / 180)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = 6371 * c;
+    // const distance = Math.ceil(6371 * c); // 두 지점 간의 거리 (단위: km)
+    return distance;
+}
+
 //RegionSearch를 실행시키는 비동기 함수
 async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition, version) {
     console.log('여행 지역 알고리즘 시작!');
@@ -122,8 +138,12 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     let regionPointList = [];
 
     regionList.map((item, idx) => {
-        //selectPopular가 범위 안 일때만 계산
-        if (item.popular >= selectPopular[0] && item.popular <= selectPopular[1]) {
+        //selectPopular가 범위 안 일때만 계산 + 여행 반경에 따른 지역 필터링 작업
+        if (
+            item.popular >= selectPopular[0] &&
+            item.popular <= selectPopular[1] &&
+            distance(item, recentPosition) <= distanceSensitivity * 50
+        ) {
             regionPointList.push({
                 name: item.name,
                 photo: item.photo,
@@ -176,6 +196,10 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
     //상위 5개 지역의 정보를 객체 배열에 저장
     for (let i = 0; i < 5; i++) {
+        if (regionPointList[i].point < -100000) {
+            continue;
+        }
+
         const topPankRegion = regionPointList[i];
 
         let topRankTendency = [];
@@ -232,6 +256,14 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
         if (topPankRegion.name.length === 2) {
             if (topPankRegion.name === '제주') {
                 cityList = [topPankRegion.name + ' 제주시', topPankRegion.name + ' 서귀포시'];
+            } else if (topPankRegion.name === '서울') {
+                cityList = [
+                    topPankRegion.name + ' 도심권',
+                    topPankRegion.name + ' 동남권',
+                    topPankRegion.name + ' 동북권',
+                    topPankRegion.name + ' 서남권',
+                    topPankRegion.name + ' 서북권',
+                ];
             } else {
                 cityList = [topPankRegion.name + ' 전체'];
             }
@@ -291,7 +323,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     const endTime = performance.now();
 
     console.log(`상위 5개 지역. 성향 선택 개수`, countNum);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < result.length; i++) {
         console.log(result[i].name);
     }
 
