@@ -106,8 +106,10 @@ function distance(departure, arrival) {
 //RegionSearch를 실행시키는 비동기 함수
 async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition, version) {
     console.log('여행 지역 알고리즘 시작!');
+    let recentPositionFlag = false;
     if (recentPosition.lat !== 0 || recentPosition.lng !== 0) {
         console.log('현재 위치 좌표', recentPosition);
+        recentPositionFlag = true;
     }
     console.log('인기도', selectPopular[0], selectPopular[1]);
     console.log('거리민감도', distanceSensitivity);
@@ -139,10 +141,14 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
     regionList.map((item, idx) => {
         //selectPopular가 범위 안 일때만 계산 + 여행 반경에 따른 지역 필터링 작업
+        let distance2 = distance(item, recentPosition);
+        //클라이언트 스토어 업데이트 전까지
+        distance2 = 0;
+
         if (
             item.popular >= selectPopular[0] &&
             item.popular <= selectPopular[1] &&
-            distance(item, recentPosition) <= distanceSensitivity * 50
+            distance2 <= distanceSensitivity * 50
         ) {
             regionPointList.push({
                 name: item.name,
