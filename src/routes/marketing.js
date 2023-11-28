@@ -181,8 +181,6 @@ router.patch('/useCouponInWeb', async (req, res) => {
     try {
         const { couponCode, encryptedToken } = req.body;
 
-        console.log(encrypt('000476.1231223.0625'));
-
         const decryptedToken = decrypt(encryptedToken);
 
         let couponInfo = await Marketing.findOne({ name: couponCode });
@@ -304,6 +302,7 @@ function encrypt(text) {
     return encrypted;
 }
 
+//토큰 복호화 ( 대칭키 암호화, crypto )
 function decrypt(encrypted) {
     const decipher = crypto.createDecipheriv(algorithm, ENCRYPTION_KEY, iv);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');

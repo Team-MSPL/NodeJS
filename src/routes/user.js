@@ -136,6 +136,7 @@ router.post('/signUpAndIn', async (req, res) => {
                 userJwtToken: userJwtToken,
                 functionToken: savedUser.functionToken,
                 loginProvider: savedUser.loginProvider,
+                dailyReward: daliyReward,
                 blockUserList: savedUser.blockUserList,
                 fcmToken: savedUser.fcmToken,
             });
@@ -424,7 +425,7 @@ router.get('/retention', async (req, res, next) => {
         return;
     }
 
-    const users = await User.find({}).sort({ recentLogin: 1 }); // 최근 로그인 순으로 정렬
+    const users = await User.find({}).sort({ recentLogin: -1 }); // 최근 로그인 순으로 정렬
 
     // 차이가 1일 이상인 모든 유저 선택
     const usersWithLargeInterval = users

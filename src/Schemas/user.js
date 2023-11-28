@@ -38,7 +38,7 @@ const userSchema = new Schema({
     },
     loginLogList: {
         type: [Date],
-        default: [Date.now],
+        default: [],
     },
     recentLogin: {
         type: Date,
