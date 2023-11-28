@@ -25,17 +25,7 @@ router.post('/run', async (req, res) => {
 
             console.log('--- log start ---');
 
-            let version;
-
-            if (req.body.hasOwnProperty('version')) {
-                // 특정 변수가 존재하면 해당 값을 사용
-                version = req.body.version;
-                console.log('version ', version);
-            } else {
-                // 특정 변수가 존재하지 않으면 기본값 사용 : version = 1
-                version = 1;
-                console.log('version ', version);
-            }
+            const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
 
             // 파싱된 데이터를 이용하여 처리 로직 수행
 

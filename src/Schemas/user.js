@@ -36,6 +36,10 @@ const userSchema = new Schema({
         type: Date,
         default: Date.now,
     },
+    loginLogList: {
+        type: [Date],
+        default: [Date.now],
+    },
     recentLogin: {
         type: Date,
         //default: Date.now,
@@ -43,6 +47,11 @@ const userSchema = new Schema({
     functionToken: {
         type: Number,
         default: 5, //회원가입시 디폴트 보상
+    },
+    //푸시알림을 위한 fcm토큰
+    fcmToken: {
+        type: String,
+        default: '',
     },
     //쪽지함
     noteList: {

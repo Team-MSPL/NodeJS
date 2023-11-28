@@ -126,7 +126,9 @@ router.get('/tokenLog', async (req, res) => {
                 await manageUser.save();
             }
 
-            return res.status(201).json({ tokenLog: manageUser.tokenLog });
+            return res
+                .status(201)
+                .json({ tokenLog: manageUser.tokenLog.sort((a, b) => b.tokenLogDate - a.tokenLogDate) });
         } catch (error) {
             console.error('/manage/tokenLog - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'leternal server error' });

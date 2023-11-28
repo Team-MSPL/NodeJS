@@ -18,43 +18,48 @@ router.post('/run', async (req, res) => {
     // JWT 토큰 검증
     dotenv.config(); // .env 파일의 환경 변수 로드
 
+    const freeTicket = req.body.hasOwnProperty('freeTicket') ? req.body.freeTicket : false;
+
     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        //manage_user에 호출 횟수 추가
-        await ManageUser.findOne({ userId: decoded._id.toString() })
-            .then(async (user) => {
-                if (!user) {
-                    console.log(user);
+        //freeTicket이 false면 로그를 남김
+        if (!freeTicket) {
+            //manage_user에 호출 횟수 추가
+            await ManageUser.findOne({ userId: decoded._id.toString() })
+                .then(async (user) => {
+                    if (!user) {
+                        console.log(user);
+                        res.status(401).json({ message: 'Unauthorized' });
+                        return;
+                    }
+                    user.useTokenTime += 1;
+
+                    const now = new Date(); // 현재 날짜 및 시간
+                    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+                    const koreaTimeDiff = 9 * 60 * 60 * 1000;
+                    const korNow = new Date(utc + koreaTimeDiff);
+
+                    if (!user.tokenLog) {
+                        user.tokenLog = [];
+                    }
+                    user.tokenLog.push({
+                        tokenLogContent: '여행 코스 추천 기능 사용',
+                        tokenLogNumber: -1,
+                        tokenLogDate: now.getTime(),
+                    });
+
+                    await user.save();
+                })
+                .catch((error) => {
+                    console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
                     res.status(401).json({ message: 'Unauthorized' });
                     return;
-                }
-                user.useTokenTime += 1;
-
-                const now = new Date(); // 현재 날짜 및 시간
-                const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-                const koreaTimeDiff = 9 * 60 * 60 * 1000;
-                const korNow = new Date(utc + koreaTimeDiff);
-
-                if (!user.tokenLog) {
-                    user.tokenLog = [];
-                }
-                user.tokenLog.push({
-                    tokenLogContent: '여행 코스 추천 기능 사용',
-                    tokenLogNumber: -1,
-                    tokenLogDate: now.getTime(),
                 });
-
-                await user.save();
-            })
-            .catch((error) => {
-                console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
-                res.status(401).json({ message: 'Unauthorized' });
-                return;
-            });
+        }
 
         console.log('--- log start ---');
 

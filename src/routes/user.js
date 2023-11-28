@@ -19,8 +19,11 @@ router.post('/signUpAndIn', async (req, res) => {
     try {
         const { userName, userProfileImage, userToken, loginProvider, signUpFlag } = req.body;
 
+        const fcmToken = req.body.hasOwnProperty('fcmToken') ? req.body.fcmToken : '';
+
         // userToken(고유값)을 사용하여 이미 가입된 사용자가 있는지 확인
         const existingUser = await User.findOne({ userToken });
+
         if (existingUser) {
             //JWT토큰 생성
 
@@ -39,15 +42,28 @@ router.post('/signUpAndIn', async (req, res) => {
             const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
             const koreaTimeDiff = 9 * 60 * 60 * 1000;
             const korNow = new Date(utc + koreaTimeDiff);
-            if (existingUser.recentLogin.getDate() != korNow.getDate()) {
-                //existingUser.functionToken += 1;
-                //daliyReward = true;
-                //최근접속시간 업데이트
-                existingUser.recentLogin = korNow;
-                await existingUser.save();
-            }
             if (!existingUser.blockUserList) {
                 existingUser.blockUserList = [];
+                await existingUser.save();
+            }
+            if (!existingUser.fcmToken) {
+                existingUser.fcmToken = fcmToken;
+                await existingUser.save();
+            }
+            if (
+                existingUser.recentLogin.getDate() !== korNow.getDate() ||
+                existingUser.recentLogin.getMonth() !== korNow.getMonth() ||
+                existingUser.recentLogin.getFullYear() !== korNow.getFullYear()
+            ) {
+                // existingUser.functionToken += 1;
+                // dailyReward = true;
+                // 최근 접속 시간 및 날짜 업데이트
+                existingUser.recentLogin = korNow;
+                if (!existingUser.loginLogList) {
+                    existingUser.loginLogList = [];
+                }
+                existingUser.loginLogList.push(korNow);
+
                 await existingUser.save();
             }
 
@@ -60,6 +76,7 @@ router.post('/signUpAndIn', async (req, res) => {
                 loginProvider: existingUser.loginProvider,
                 dailyReward: daliyReward,
                 blockUserList: existingUser.blockUserList,
+                fcmToken: existingUser.fcmToken,
             });
             //return res.status(401).json({ message: '이미 회원가입을 한 유저입니다.' });
         }
@@ -75,12 +92,14 @@ router.post('/signUpAndIn', async (req, res) => {
             const koreaTimeDiff = 9 * 60 * 60 * 1000;
             const korNow = new Date(utc + koreaTimeDiff);
             const newUser = new User({
-                userName,
-                userProfileImage,
-                userToken,
-                loginProvider,
+                userName: userName,
+                userProfileImage: userProfileImage,
+                userToken: userToken,
+                loginProvider: loginProvider,
                 createdAt: korNow,
+                loginLogList: [korNow],
                 recentLogin: korNow,
+                fcmToken: fcmToken,
             });
 
             const savedUser = await newUser.save();
@@ -118,6 +137,7 @@ router.post('/signUpAndIn', async (req, res) => {
                 functionToken: savedUser.functionToken,
                 loginProvider: savedUser.loginProvider,
                 blockUserList: savedUser.blockUserList,
+                fcmToken: savedUser.fcmToken,
             });
         }
     } catch (error) {
@@ -394,5 +414,41 @@ router.get('/all', (req, res, next) => {
             next(err);
         });
 });
+
+// 9. 리텐션한 유저 수 확인
+router.get('/retention', async (req, res, next) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    const users = await User.find({}).sort({ recentLogin: 1 }); // 최근 로그인 순으로 정렬
+
+    // 차이가 1일 이상인 모든 유저 선택
+    const usersWithLargeInterval = users
+        .filter((user) => user.recentLogin && user.recentLogin - user.createdAt >= 24 * 60 * 60 * 1000) // 1일 이상 차이나는 경우
+        .map((user) => ({
+            userName: user.userName,
+            userId: user._id,
+            loginInterval: formatInterval(Math.abs(user.recentLogin - user.createdAt)),
+            loginLogList: user.loginLogList,
+        }))
+        .sort((a, b) => b.loginInterval - a.loginInterval);
+
+    res.json({ retentionUserNum: usersWithLargeInterval.length, retentionUserList: usersWithLargeInterval });
+});
+
+// ms를 mm월 dd일 hh시간 mm분 형식으로 변환하는 함수
+function formatInterval(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    const formattedInterval = `${days}일 ${hours % 24}시간 ${minutes % 60}분`;
+    return formattedInterval;
+}
 
 module.exports = router;

@@ -1,8 +1,17 @@
 백업
 mongodump --out ~/mongo_backup --host 127.0.0.1 --port 27017 -u danim -p danim0504
 
+or
+//이 방법 ㄱㄱ -> 이러고 mongo_backup 폴더를 로컬에 한번더 백업
+//최종 수정 시간 변경은 내부 파일만 되니까 확인 ㄱㄱ
+mongodump --out /home/ubuntu/mongo_backup --host 127.0.0.1 --port 27017 -u danim -p danim0504
+
+
 복구
 mongorestore --host 127.0.0.1 --port 27017 -u danim -p danim0504 ~/mongo_backup
 
+or
+
+mongorestore --host 127.0.0.1 --port 27017 -u danim -p danim0504 /home/ubuntu/mongo_backup
 참조
 https://velog.io/@killi8n/Mongodb-%EB%8D%A4%ED%94%84%ED%95%98%EA%B3%A0-%EB%B0%B1%EC%97%85%ED%95%98%EA%B8%B0-gejmop2baz
