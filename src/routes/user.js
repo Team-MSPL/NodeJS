@@ -16,6 +16,8 @@ admin.initializeApp({
 // 1. 회원가입 ( 구글, 카카오, 애플, 익명 )
 // if (디비에있으면 ) 클라에 정보주기 esle if (없으면 ) 회원가입진행 else if(회원가입플래그면) 저장하고 로그인
 router.post('/signUpAndIn', async (req, res) => {
+    //로그인시, 출석 보상
+    let daliyReward = false;
     try {
         const { userName, userProfileImage, userToken, loginProvider, signUpFlag } = req.body;
 
@@ -36,8 +38,6 @@ router.post('/signUpAndIn', async (req, res) => {
             // JWT 생성
             const userJwtToken = jwt.sign(payload, '${process.env.SECRET_KEY}', { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
 
-            //로그인시, 출석 보상
-            let daliyReward = false;
             const now = new Date(); // 현재 날짜 및 시간
             const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
             const koreaTimeDiff = 9 * 60 * 60 * 1000;

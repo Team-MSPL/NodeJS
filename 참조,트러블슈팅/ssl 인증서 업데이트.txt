@@ -1,0 +1,6 @@
+
+인증서 업데이트 - pm2 종료 후
+sudo certbot renew
+
+상태 확인
+sudo certbot certificates
