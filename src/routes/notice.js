@@ -64,7 +64,7 @@ router.get('/getOneNotice', async (req, res) => {
 });
 
 // 3. 공지사항 저장하기(관리자용)
-router.notice('/saveNotice', async (req, res) => {
+router.post('/saveNotice', async (req, res) => {
     const password = req.query.password || 'wrong';
 
     if (password !== process.env.ADMIN_KEY) {

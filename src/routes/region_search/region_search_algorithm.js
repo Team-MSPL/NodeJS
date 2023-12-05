@@ -143,7 +143,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
         //selectPopular가 범위 안 일때만 계산 + 여행 반경에 따른 지역 필터링 작업
         let distance2 = distance(item, recentPosition);
         //클라이언트 스토어 업데이트 전까지
-        distance2 = 0;
+        //distance2 = 0;
 
         if (
             item.popular >= selectPopular[0] &&

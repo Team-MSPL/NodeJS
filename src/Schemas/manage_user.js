@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
 
-//타임테이블 타입
+//tokenLog 타입
 let TokenLogType = {
     tokenLogContent: String,
     tokenLogNumber: Number,

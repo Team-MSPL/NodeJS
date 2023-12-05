@@ -4,7 +4,7 @@ const Marketing = require('../schemas/marketing.js');
 const ManageUser = require('../schemas/manage_user.js');
 const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const crypto = require('crypto-js');
 var _ = require('lodash');
 require('dotenv').config();
 
@@ -295,19 +295,27 @@ router.patch('/useCouponInWeb', async (req, res) => {
 });
 
 //토큰 암호화 ( 대칭키 암호화, crypto )
-function encrypt(text) {
-    const cipher = crypto.createCipheriv(algorithm, ENCRYPTION_KEY, iv);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return encrypted;
-}
+// function encrypt(text) {
+//     const cipher = crypto.createCipheriv(algorithm, ENCRYPTION_KEY, iv);
+//     let encrypted = cipher.update(text, 'utf8', 'hex');
+//     encrypted += cipher.final('hex');
+//     return encrypted;
+// }
 
 //토큰 복호화 ( 대칭키 암호화, crypto )
 function decrypt(encrypted) {
-    const decipher = crypto.createDecipheriv(algorithm, ENCRYPTION_KEY, iv);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
+    try {
+        const secret_key = process.env.CRYPTO_SECRET_KEY; //env키임
+        if (!secret_key) {
+            console.log('No Secret Key.');
+            return null;
+        }
+        const decrypted_bytes = CryptoJS.AES.decrypt(encrypted, secret_key);
+        const decrypted = decrypted_bytes.toString(CryptoJS.enc.Utf8);
+        return decrypted;
+    } catch (e) {
+        console.log('Decryption error occur : ', e);
+        return null;
+    }
 }
-
 module.exports = router;

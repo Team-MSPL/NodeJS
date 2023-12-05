@@ -22,11 +22,6 @@ const userSchema = new Schema({
         required: true,
         unique: true, // 고유 값
     },
-    //JWT토큰
-    // userJwtToken: {
-    //     type: String,
-    //     unique: true, // 고유 값
-    // },
     //로그인 방법
     loginProvider: {
         type: String,
@@ -39,7 +34,7 @@ const userSchema = new Schema({
     loginLogList: {
         type: [Date],
         default: [],
-    },
+    }, //빼야하고
     recentLogin: {
         type: Date,
         //default: Date.now,
@@ -47,7 +42,7 @@ const userSchema = new Schema({
     functionToken: {
         type: Number,
         default: 5, //회원가입시 디폴트 보상
-    },
+    }, //빼야하고
     //푸시알림을 위한 fcm토큰
     fcmToken: {
         type: String,
