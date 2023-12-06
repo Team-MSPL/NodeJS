@@ -27,6 +27,11 @@ const postSchema = new Schema({
         type: [String],
         default: [],
     },
+    //게시글 카테고리
+    postCategory: {
+        type: Number,
+        default: 1,
+    },
     //게시글 작성자
     postWriter: {
         type: String,

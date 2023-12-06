@@ -29,6 +29,25 @@ const manageUserSchema = new Schema({
         ],
         default: [],
     },
+    //사용자 토큰 저장(회원탈퇴 후 복귀해도 토큰을 돌려주도록)
+    userToken: {
+        type: String,
+        default: '',
+    },
+    functionToken: {
+        type: Number,
+        default: 5, //회원가입시 디폴트 보상
+    }, //빼야하고
+    //쪽지함
+    noteList: {
+        type: [String], // 자료형
+        default: [],
+    },
+    //차단리스트
+    blockUserList: {
+        type: [String], // 자료형
+        default: [],
+    },
 });
 
 module.exports = mongoose.model('ManageUser', manageUserSchema);

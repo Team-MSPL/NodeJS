@@ -4,7 +4,7 @@ const Marketing = require('../schemas/marketing.js');
 const ManageUser = require('../schemas/manage_user.js');
 const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto-js');
+const CryptoJS = require('crypto-js');
 var _ = require('lodash');
 require('dotenv').config();
 
@@ -193,7 +193,7 @@ router.patch('/useCouponInWeb', async (req, res) => {
 
         if (!user) {
             console.log(user);
-            return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+            return res.status(401).json({ message: '사용자를 찾을 수 없습니다.' });
         }
 
         //쿠폰을 첫 사용할때 - DB 생성

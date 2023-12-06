@@ -50,7 +50,10 @@ router.get('/postList', async (req, res) => {
                     $project: {
                         postId: { $toString: '$_id' },
                         postTitle: 1,
+                        ImageLength: { $size: '$postImage' }, // postImage 배열의 길이를 계산
+                        postCategory: 1,
                         postWriter: 1,
+                        postWriterProfileImage: 1,
                         postedAt: 1,
                         postContent: 1,
                         likerLength: { $size: '$liker' }, // liker 배열의 길이를 계산
@@ -71,7 +74,10 @@ router.get('/postList', async (req, res) => {
                     $project: {
                         postId: { $toString: '$_id' },
                         postTitle: 1,
+                        ImageLength: { $size: '$postImage' }, // postImage 배열의 길이를 계산
+                        postCategory: 1,
                         postWriter: 1,
+                        postWriterProfileImage: 1,
                         postedAt: 1,
                         postContent: 1,
                         likerLength: { $size: '$liker' }, // liker 배열의 길이를 계산
@@ -97,7 +103,10 @@ router.get('/postList', async (req, res) => {
                 postList.push({
                     postId: item._id.toString(),
                     postTitle: item.postTitle,
+                    ImageLength: item.postImage.length,
+                    postCategory: item.postCategory,
                     postWriter: item.postWriter,
+                    postWriterProfileImage: item.postWriterProfileImage,
                     postedAt: item.postedAt,
                     postContent: item.postContent,
                     likerLength: item.liker.length,
@@ -170,6 +179,8 @@ router.post('/savePost', async (req, res) => {
 
             const { postTitle, postContent, postImage, postedAt } = req.body;
 
+            const postCategory = req.body.hasOwnProperty('postCategory') ? req.body.postCategory : 1;
+
             const newPost = new Post({
                 postTitle: postTitle,
                 postContent: postContent,
@@ -178,6 +189,7 @@ router.post('/savePost', async (req, res) => {
                 postWriterUserId: postWriter._id.toString(),
                 postWriterProfileImage: postWriter.userProfileImage,
                 postedAt: postedAt,
+                postCategory: postCategory,
             });
 
             const savedPost = await newPost.save();

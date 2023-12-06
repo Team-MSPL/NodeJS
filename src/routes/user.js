@@ -23,6 +23,8 @@ router.post('/signUpAndIn', async (req, res) => {
 
         const fcmToken = req.body.hasOwnProperty('fcmToken') ? req.body.fcmToken : '';
 
+        const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
+
         // userToken(고유값)을 사용하여 이미 가입된 사용자가 있는지 확인
         const existingUser = await User.findOne({ userToken });
 
@@ -82,7 +84,68 @@ router.post('/signUpAndIn', async (req, res) => {
         }
         //회원가입인데, 아직 약관 동의를 안구한 경우
         else if (!signUpFlag) {
-            res.status(202).json({ message: '약관 동의가 필요합니다.' });
+            if (version === 1) {
+                res.status(202).json({ message: '약관 동의가 필요합니다.' });
+            } else {
+                // userToken(고유값)을 사용하여 과거에 한 번 가입했었던 사용자인지 확인
+                const existedUser = await ManageUser.findOne({ userToken: userToken });
+
+                if (!existedUser) {
+                    res.status(202).json({ message: '약관 동의가 필요합니다.' });
+                } else {
+                    //여기가 객체에 값을 배당하는 부분임!! 여기를 수정 안해서 에러났었음
+                    const now = new Date(); // 현재 날짜 및 시간
+                    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+                    const koreaTimeDiff = 9 * 60 * 60 * 1000;
+                    const korNow = new Date(utc + koreaTimeDiff);
+                    const comeBackUser = new User({
+                        userName: userName,
+                        userProfileImage: userProfileImage,
+                        loginProvider: loginProvider,
+                        createdAt: korNow,
+                        loginLogList: [korNow],
+                        recentLogin: korNow,
+                        fcmToken: fcmToken,
+                        //기존 정보 가져오기
+                        userToken: existedUser.userToken,
+                        functionToken: existedUser.functionToken,
+                        noteList: existedUser.noteList,
+                        blockUserList: existedUser.blockUserList,
+                    });
+
+                    const savedComeBackUser = await comeBackUser.save();
+
+                    //JWT토큰 생성
+
+                    // 페이로드 데이터 (토큰에 담을 정보)
+                    const payload = {
+                        userToken: savedComeBackUser.userToken,
+                        _id: savedComeBackUser._id.toString(), // 이 부분은 데이터베이스에서 생성된 고유 ID를 사용해야 합니다.
+                    };
+
+                    // JWT 비밀키 (이 비밀키를 가지고 토큰을 생성하고 검증합니다)
+                    //dotenv.config(); // .env 파일의 환경 변수 로드
+
+                    // JWT 생성
+                    const userJwtToken = jwt.sign(payload, '${process.env.SECRET_KEY}', { expiresIn: '180d' }); // 유효기간 180일. 6m하니까 6분되더라
+                    // TODO 이후에 토큰 유효기간을 1 ~ 2시간으로 줄이고, Refresh token으로 대체하자.
+
+                    console.log('Generated JWT:', userJwtToken);
+
+                    //status : 203 이면, 복귀 유저
+                    res.status(203).json({
+                        userId: savedComeBackUser._id.toString(),
+                        userName: savedComeBackUser.userName,
+                        userProfileImage: savedComeBackUser.userProfileImage,
+                        userJwtToken: userJwtToken,
+                        functionToken: savedComeBackUser.functionToken,
+                        loginProvider: savedComeBackUser.loginProvider,
+                        dailyReward: daliyReward,
+                        blockUserList: savedComeBackUser.blockUserList,
+                        fcmToken: savedComeBackUser.fcmToken,
+                    });
+                }
+            }
         }
         //회원가입인데, 약관 동의를 한 이후
         else {
@@ -243,6 +306,25 @@ router.delete('/withdraw', async (req, res) => {
                     });
                 }
             }
+
+            //ManageUser에 유저 정보 남겨두기
+            await ManageUser.findOne({ userId: userId })
+                .then(async (manageUser) => {
+                    if (!manageUser) {
+                        console.log(manageUser);
+                        res.status(401).json({ message: 'Unauthorized' });
+                    }
+                    manageUser.userToken = user.userToken;
+                    manageUser.functionToken = user.functionToken;
+                    manageUser.noteList = user.noteList;
+                    manageUser.blockUserList = user.blockUserList;
+
+                    await manageUser.save();
+                })
+                .catch((error) => {
+                    console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
+                    res.status(401).json({ message: 'Unauthorized' });
+                });
 
             // 사용자 삭제
             await User.deleteOne({ _id: userId });
