@@ -29,12 +29,13 @@ router.post('/reviewAndPoint', async (req, res) => {
 
             //TravelCourse 스키마에서 리뷰 유무 업데이트
 
-            let saveTravelCourse = await TravelCourse.findOneAndUpdate({ _id: travelId }, { reviewCheck: true })
-            .catch((error) => {
-                console.error('TravelCourse.findOneAndUpdate() 함수에 문제 발생 : ', error);
-                res.status(403).json({ message: '잘못된 travelId 입니다.' });
-                return;
-            });
+            let saveTravelCourse = await TravelCourse.findOneAndUpdate({ _id: travelId }, { reviewCheck: true }).catch(
+                (error) => {
+                    console.error('TravelCourse.findOneAndUpdate() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 travelId 입니다.' });
+                    return;
+                }
+            );
 
             console.log(saveTravelCourse);
 
@@ -95,7 +96,7 @@ async function updatePoint(point, tendencyPoint, region, tendency, timetable) {
 
     //readOnePlace로 처리할 수가 없음. 지역이 여러개면, 각 타임테이블 객체가 어디 지역인지 모름
     for (let a = 0; a < region.length; a++) {
-        await readAllPlace(region[a])
+        await readAllPlace(region[a], false)
             .then((res) => {
                 readPlaceList = [...readPlaceList, ...res];
             })
