@@ -37,33 +37,7 @@ router.get('/noticeList', async (req, res) => {
     }
 });
 
-// 2. 공지사항 하나 가져오기
-router.get('/getOneNotice', async (req, res) => {
-    // JWT 토큰 필요 X
-    try {
-        const { noticeId } = req.query;
-
-        //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
-        Notice.findOne({ _id: noticeId }) //noticeId를 저장해둔 것이 아니라, _id를 찾는거임
-            .then((notice) => {
-                if (!notice) {
-                    console.log(notice);
-                    return res.status(404).json({ message: '저장된 공지사항이 없습니다.' });
-                }
-
-                res.status(201).json(notice);
-            })
-            .catch((error) => {
-                console.error('Notice.findOne() 함수에 문제 발생 : ', error);
-                res.status(403).json({ message: '잘못된 noticeId 입니다.' });
-            });
-    } catch (error) {
-        console.error('/notice/getOneNotice - GET 함수에 문제 발생 : ', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
-});
-
-// 3. 공지사항 저장하기(관리자용)
+// 2. 공지사항 저장하기(관리자용)
 router.post('/saveNotice', async (req, res) => {
     const password = req.query.password || 'wrong';
 

@@ -7,6 +7,92 @@ require('dotenv').config();
 
 var _ = require('lodash');
 
+// 오늘자 광고 시청 횟수
+router.get('/watchADTime', async (req, res) => {
+    // 클라이언트에서 전달한 JWT 토큰 추출
+    const token = req.header('Authorization').split(' ')[1];
+
+    // JWT 토큰 검증
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+        if (err) {
+            console.error('JWT 토큰 검증 에러:', err);
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // JWT 토큰 검증 성공 시 요청 처리
+        try {
+            const manageUser = await ManageUser.findOne({ userId: decoded._id.toString() });
+
+            const now = new Date(); // 현재 날짜 및 시간
+            const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+            const koreaTimeDiff = 9 * 60 * 60 * 1000;
+            const korNow = new Date(utc + koreaTimeDiff);
+
+            if (!manageUser) {
+                res.status(403).json({ message: '사용자를 찾을 수 없습니다.' });
+            }
+            if (!manageUser.watchADTime) {
+                manageUser.watchADTime = 0;
+                manageUser.recentADDate = korNow;
+                await manageUser.save();
+            }
+            //하루가 지나면 초기화
+            else if (
+                manageUser.recentADDate.getDate() !== korNow.getDate() ||
+                manageUser.recentADDate.getMonth() !== korNow.getMonth() ||
+                manageUser.recentADDate.getFullYear() !== korNow.getFullYear()
+            ) {
+                manageUser.watchADTime = 0;
+                manageUser.recentADDate = korNow;
+                await manageUser.save();
+            }
+
+            return res.status(201).json({ watchADTime: manageUser.watchADTime });
+        } catch (error) {
+            console.error('/manage/watchADTime - GET 함수에 문제 발생 : ', error);
+            res.status(500).json({ message: 'leternal server error' });
+        }
+    });
+});
+// 오늘자 광고 시청 횟수
+router.patch('/setWatchADTime', async (req, res) => {
+    // 클라이언트에서 전달한 JWT 토큰 추출
+    const token = req.header('Authorization').split(' ')[1];
+
+    // JWT 토큰 검증
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+        if (err) {
+            console.error('JWT 토큰 검증 에러:', err);
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // JWT 토큰 검증 성공 시 요청 처리
+        try {
+            const manageUser = await ManageUser.findOne({ userId: decoded._id.toString() });
+
+            const { watchADTime } = req.body;
+
+            if (!manageUser) {
+                res.status(403).json({ message: '사용자를 찾을 수 없습니다.' });
+            }
+
+            const now = new Date(); // 현재 날짜 및 시간
+            const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+            const koreaTimeDiff = 9 * 60 * 60 * 1000;
+            const korNow = new Date(utc + koreaTimeDiff);
+
+            manageUser.watchADTime = watchADTime;
+            manageUser.recentADDate = korNow;
+            await manageUser.save();
+
+            return res.status(201).json({ watchADTime: manageUser.watchADTime });
+        } catch (error) {
+            console.error('/manage/watchADTime - GET 함수에 문제 발생 : ', error);
+            res.status(500).json({ message: 'leternal server error' });
+        }
+    });
+});
+
 // 총 기능 사용 횟수
 router.get('/sumUseTokenTime', async (req, res) => {
     const password = req.query.password || 'wrong';
@@ -94,7 +180,7 @@ router.post('/reportComment', async (req, res) => {
             //내가 찾아서 하는게 아니라, 클라이언트에서 보내주는 것이 맞다
             // TravelCourse.findOne({ _id: travelId })
         } catch (error) {
-            console.error('/manage/reportPost - POST 함수에 문제 발생 : ', error);
+            console.error('/manage/reportComment - POST 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'leternal server error' });
         }
     });

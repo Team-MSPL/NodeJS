@@ -29,6 +29,16 @@ const manageUserSchema = new Schema({
         ],
         default: [],
     },
+    //오늘자 광고 시청 횟수
+    watchADTime: {
+        type: Number,
+        default: 0,
+    },
+    //최근 광고 시청 시간
+    recentADDate: {
+        type: Date,
+    },
+
     //사용자 토큰 저장(회원탈퇴 후 복귀해도 토큰을 돌려주도록)
     userToken: {
         type: String,
