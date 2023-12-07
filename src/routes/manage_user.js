@@ -31,7 +31,7 @@ router.get('/watchADTime', async (req, res) => {
             if (!manageUser) {
                 res.status(403).json({ message: '사용자를 찾을 수 없습니다.' });
             }
-            if (!manageUser.watchADTime) {
+            if (!manageUser.watchADTime || !manageUser.recentADDate) {
                 manageUser.watchADTime = 0;
                 manageUser.recentADDate = korNow;
                 await manageUser.save();
