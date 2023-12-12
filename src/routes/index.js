@@ -18,5 +18,6 @@ router.use('/manageUser', require('./manage_user'));
 router.use('/marketing', require('./marketing'));
 router.use('/inquiry', require('./inquiry'));
 router.use('/notice', require('./notice'));
+router.use('/place', require('./place'));
 
 module.exports = router;

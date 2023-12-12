@@ -132,6 +132,10 @@ router.post('/signUpAndIn', async (req, res) => {
 
                     console.log('Generated JWT:', userJwtToken);
 
+                    //manageUser도 userId 업데이트!!!
+                    existedUser.userId = savedComeBackUser._id.toString();
+                    await existedUser.save();
+
                     //status : 203 이면, 복귀 유저
                     res.status(203).json({
                         userId: savedComeBackUser._id.toString(),
@@ -314,6 +318,8 @@ router.delete('/withdraw', async (req, res) => {
                         console.log(manageUser);
                         res.status(401).json({ message: 'Unauthorized' });
                     }
+
+                    manageUser.userId = user._id.toString();
                     manageUser.userToken = user.userToken;
                     manageUser.functionToken = user.functionToken;
                     manageUser.noteList = user.noteList;
