@@ -10,12 +10,16 @@ async function writeReviewOnPlace(region, name, review) {
 
         //데이터가 있을 경우
         if (
-            onePlaceSnapshot.data().review !== null ||
-            onePlaceSnapshot.data().review !== undefined ||
-            onePlaceSnapshot.data().review.length !== 0
+            !(
+                onePlaceSnapshot.data().review === null ||
+                onePlaceSnapshot.data().review === undefined ||
+                onePlaceSnapshot.data().review.length === 0
+            )
         ) {
             reviewList = onePlaceSnapshot.data().review;
         }
+
+        //console.log(onePlaceSnapshot.data().review);
 
         reviewList.push(review);
 
