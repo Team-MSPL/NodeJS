@@ -10,13 +10,15 @@ async function getPlaceID(place) {
     let placeID;
 
     const response = await axiosGoogle.get(
-        '/place/textsearch/json?location=${place.lng}%2C${place.lat}&query=${place.name}&language=ko&radius=10000&key=${process.env.GOOGLE_API_KEY}'
+        `/place/textsearch/json?location=${place.lng}%2C${place.lat}&query=${place.name}&language=ko&radius=10000&key=${process.env.GOOGLE_API_KEY}`
     );
 
     if (response.statusCode < 200 || response.statusCode > 400) {
         placeID = ''; // Error 반환
+    } else if (response.data.status === 'ZERO_RESULTS') {
+        placeID = ''; // Error 반환
     } else {
-        placeID = response.data.result;
+        placeID = response.data.results[0].place_id;
     }
     return placeID;
 }
@@ -26,15 +28,17 @@ async function googleKeywordApi(place) {
     let placeInfo = '';
 
     if (placeIDData == '') {
-        placeInfo = { status: 'failed', message: '정보가 없습니다.' }; // Error 반환
+        placeInfo = { status: 'failed' }; // Error 반환
     } else {
         const response = await axiosGoogle.get(
-            '/place/details/json?place_id=${placeIDData.data.results[0].place_id}&fields=photos%2Cname%2Crating%2Cformatted_address%2Creviews%2Cformatted_phone_number%2Copening_hours%2Ceditorial_summary&language=ko&key=${process.env.GOOGLE_API_KEY}'
+            `/place/details/json?place_id=${placeIDData}&fields=photos%2Cname%2Crating%2Cformatted_address%2Creviews%2Cformatted_phone_number%2Copening_hours%2Ceditorial_summary&language=ko&key=${process.env.GOOGLE_API_KEY}`
         );
         if (response.statusCode < 200 || response.statusCode > 400) {
-            placeInfo = { status: 'failed', message: '정보가 없습니다.' }; // Error 반환
+            placeInfo = { status: 'failed' }; // Error 반환
+        } else if (response.data.status === 'ZERO_RESULTS') {
+            placeInfo = { status: 'failed' }; // Error 반환
         } else {
-            placeInfo = response.data.result;
+            placeInfo = { status: 'success', data: response.data.result };
         }
     }
     return placeInfo;

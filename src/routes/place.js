@@ -25,7 +25,7 @@ router.get('/placeInfo', async (req, res) => {
             const lat = req.query.lat;
             const lng = req.query.lng;
 
-            let result = readOnePlaceInfo(region, name);
+            let result = await readOnePlaceInfo(region, name);
 
             //파베에서 정상적으로 불러왔을 경우
             if (result) {
@@ -33,15 +33,16 @@ router.get('/placeInfo', async (req, res) => {
             }
             //파베에서 정상적으로 불러오지 못 했을 경우 - 구글 Place API
             else {
-                result = googleKeywordApi({
+                result = await googleKeywordApi({
                     name: name,
                     lat: lat,
                     lng: lng,
                 });
+                console.log(result);
                 if (result.status === 'failed') {
-                    return res.status(401).json({ message: '장소 정보가 없습니다.' });
+                    return res.status(404).json({ message: '장소 정보가 없습니다.' });
                 } else {
-                    return res.status(201).json(result);
+                    return res.status(201).json(result.data);
                 }
             }
         } catch (error) {
