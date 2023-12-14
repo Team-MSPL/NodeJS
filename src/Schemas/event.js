@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const eventSchema = new Schema({
-    //이벤트 사진리스트
+    //이벤트 사진
     eventImage: {
-        type: [String],
+        type: String,
         default: [],
         required: true,
     },

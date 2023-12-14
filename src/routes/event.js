@@ -26,7 +26,7 @@ router.post('/saveEvent', async (req, res) => {
 
         res.status(201).json({ eventId: savedEvent._id });
     } catch (error) {
-        console.error('/event/postEvent - POST 함수에 문제 발생 : ', error);
+        console.error('/event/saveEvent - POST 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });
@@ -34,28 +34,19 @@ router.post('/saveEvent', async (req, res) => {
 // 이벤트 조회하기
 router.get('/eventList', async (req, res) => {
     try {
-        const token = req.header('Authorization').split(' ')[1];
+        const now = new Date(); // 현재 날짜 및 시간
+        const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+        const koreaTimeDiff = 9 * 60 * 60 * 1000;
+        const korNow = new Date(utc + koreaTimeDiff);
 
-        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
-            if (err) {
-                console.error('JWT 토큰 검증 에러:', err);
-                return res.status(401).json({ message: 'Unauthorized' });
-            }
+        // 현재 시간이 eventEndDate보다 이전인 Event만 조회
+        const eventList = await Event.find({ eventEndDate: { $gte: korNow } });
 
-            const now = new Date(); // 현재 날짜 및 시간
-            const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
-            const koreaTimeDiff = 9 * 60 * 60 * 1000;
-            const korNow = new Date(utc + koreaTimeDiff);
-
-            // 현재 시간이 eventEndDate보다 이전인 Event만 조회
-            const eventList = await Event.find({ eventEndDate: { $gte: korNow } });
-
-            // 조회된 이벤트들을 사용
-            console.log('조회된 이벤트:', eventList);
-            return res.status(200).json({ eventList: eventList });
-        });
+        // 조회된 이벤트들을 사용
+        console.log('조회된 이벤트:', eventList);
+        return res.status(200).json({ eventList: eventList });
     } catch (error) {
-        console.error('/marketing/useCoupon - PATCH 함수에 문제 발생 : ', error);
+        console.error('/event/eventList - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });
