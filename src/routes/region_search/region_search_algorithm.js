@@ -283,7 +283,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
         //지역 내 관광지 읽어오기
         for (let j = 0; j < cityList.length; j++) {
-            await readAllPlace(cityList[j], false)
+            await readAllPlace(cityList[j], false, j)
                 .then((res) => {
                     placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
                 })

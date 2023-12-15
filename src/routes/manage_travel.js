@@ -96,7 +96,7 @@ async function updatePoint(point, tendencyPoint, region, tendency, timetable) {
 
     //readOnePlace로 처리할 수가 없음. 지역이 여러개면, 각 타임테이블 객체가 어디 지역인지 모름
     for (let a = 0; a < region.length; a++) {
-        await readAllPlace(region[a], false)
+        await readAllPlace(region[a], false, a)
             .then((res) => {
                 readPlaceList = [...readPlaceList, ...res];
             })
