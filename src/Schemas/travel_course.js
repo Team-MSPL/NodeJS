@@ -13,6 +13,10 @@ let TimetableType = {
     y: Number,
     id: String,
     photo: String,
+    regionIndex: {
+        type: Number,
+        default: 0,
+    },
 };
 
 const travelCourseSchema = new Schema({
