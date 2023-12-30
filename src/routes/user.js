@@ -315,17 +315,26 @@ router.delete('/withdraw', async (req, res) => {
             await ManageUser.findOne({ userId: userId })
                 .then(async (manageUser) => {
                     if (!manageUser) {
-                        console.log(manageUser);
-                        res.status(401).json({ message: 'Unauthorized' });
+                        // 없으면 새로 만들어야함 - 회원가입때 manageUser 만드는 로직을 만들기 전에 가입하여, 기능을 한 번도 안썼으면 이 객체가 없음
+
+                        const newManageUser = new ManageUser({
+                            userId: user._id.toString(),
+                            userToken: user.userToken,
+                            functionToken: user.functionToken,
+                            noteList: user.noteList,
+                            blockUserList: user.blockUserList,
+                        });
+
+                        await newManageUser.save();
+                    } else {
+                        manageUser.userId = user._id.toString();
+                        manageUser.userToken = user.userToken;
+                        manageUser.functionToken = user.functionToken;
+                        manageUser.noteList = user.noteList;
+                        manageUser.blockUserList = user.blockUserList;
+
+                        await manageUser.save();
                     }
-
-                    manageUser.userId = user._id.toString();
-                    manageUser.userToken = user.userToken;
-                    manageUser.functionToken = user.functionToken;
-                    manageUser.noteList = user.noteList;
-                    manageUser.blockUserList = user.blockUserList;
-
-                    await manageUser.save();
 
                     // 사용자 삭제
                     await User.deleteOne({ _id: userId });
