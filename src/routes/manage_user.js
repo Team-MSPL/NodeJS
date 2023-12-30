@@ -239,7 +239,7 @@ router.patch('/sendNote', async (req, res) => {
             .then(async (user) => {
                 if (!user) {
                     console.log(user);
-                    return res.status(404).json({ message: '저장된 게시글이 없습니다.' });
+                    return res.status(404).json({ message: '저장된 유저가 없습니다.' });
                 }
                 user.noteList.push(note);
 

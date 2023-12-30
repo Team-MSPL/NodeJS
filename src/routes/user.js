@@ -326,16 +326,16 @@ router.delete('/withdraw', async (req, res) => {
                     manageUser.blockUserList = user.blockUserList;
 
                     await manageUser.save();
+
+                    // 사용자 삭제
+                    await User.deleteOne({ _id: userId });
+
+                    res.status(201).json({ message: '회원 탈퇴가 완료되었습니다.' });
                 })
                 .catch((error) => {
                     console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
                     res.status(401).json({ message: 'Unauthorized' });
                 });
-
-            // 사용자 삭제
-            await User.deleteOne({ _id: userId });
-
-            res.status(201).json({ message: '회원 탈퇴가 완료되었습니다.' });
         });
     } catch (error) {
         console.error('/users/withdraw - DELETE 함수에 문제 발생 : ', error);
