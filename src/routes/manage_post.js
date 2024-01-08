@@ -56,7 +56,7 @@ router.post('/reportPost', async (req, res) => {
             //내가 찾아서 하는게 아니라, 클라이언트에서 보내주는 것이 맞다
             // TravelCourse.findOne({ _id: travelId })
         } catch (error) {
-            console.error('/manage/reportPost - POST 함수에 문제 발생 : ', error);
+            console.error('/managePost/reportPost - POST 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'leternal server error' });
         }
     });
@@ -123,10 +123,31 @@ router.post('/reportComment', async (req, res) => {
             //내가 찾아서 하는게 아니라, 클라이언트에서 보내주는 것이 맞다
             // TravelCourse.findOne({ _id: travelId })
         } catch (error) {
-            console.error('/manage/reportPost - POST 함수에 문제 발생 : ', error);
+            console.error('/managePost/reportPost - POST 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'leternal server error' });
         }
     });
+});
+
+// 커뮤니티 신고 전체 조회
+router.get('/all', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        // JWT 토큰 검증 성공 시 요청 처리
+        // 모든 커뮤니티 신고를 조회
+        const allManagePosts = await ManagePost.find({});
+
+        res.status(200).json(allManagePosts);
+    } catch (error) {
+        console.error('/managePost/all - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 module.exports = router;

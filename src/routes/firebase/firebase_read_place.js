@@ -93,31 +93,23 @@ async function readPlaceList(region) {
 async function readOnePlace(region, name) {
     let placeData = {};
     try {
-        const onePlaceSnapshot = await database.collection(region).doc(name).get();
+        const documentPath = region + '/' + name;
+
+        // Firestore에서 데이터 읽기
+        const onePlaceSnapshot = await database.doc(documentPath).get();
         let item = onePlaceSnapshot.data();
 
-        let name = item.name;
-        let latitude = item.latitude;
-        let longitude = item.longitude;
-        let popular = item.popular;
-        let takenTime = item.takenTime;
-
-        let partner = item.partner;
-        let concept = item.concept;
-        let play = item.play;
-        let tour = item.tour;
-        let season = item.season;
         placeData = {
-            name: name,
-            lat: latitude,
-            lng: longitude,
-            takenTime: takenTime,
-            popular: popular,
-            partner: partner,
-            concept: concept,
-            play: play,
-            tour: tour,
-            season: season,
+            name: item.name,
+            lat: item.latitude,
+            lng: item.longitude,
+            takenTime: item.takenTime,
+            popular: item.popular,
+            partner: item.partner,
+            concept: item.concept,
+            play: item.play,
+            tour: item.tour,
+            season: item.season,
             category: 0, // 이태운 추가 - 타임테이블을 위함
             photo: item.photo, // 이태운 추가 - 타임테이블 위 관광지 사진을 위함
         };

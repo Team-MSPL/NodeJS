@@ -51,6 +51,9 @@ router.post('/signUpAndIn', async (req, res) => {
             if (!existingUser.fcmToken) {
                 existingUser.fcmToken = fcmToken;
                 await existingUser.save();
+            } else {
+                existingUser.fcmToken = fcmToken;
+                await existingUser.save();
             }
             if (
                 existingUser.recentLogin.getDate() !== korNow.getDate() ||

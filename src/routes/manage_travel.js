@@ -164,4 +164,25 @@ async function updatePoint(point, tendencyPoint, region, tendency, timetable) {
     }
 }
 
+// 여행 리뷰 전체 조회
+router.get('/all', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        // JWT 토큰 검증 성공 시 요청 처리
+        // 모든 여행 리뷰를 조회
+        const allReviews = await ManageTravel.find({});
+
+        res.status(200).json(allReviews);
+    } catch (error) {
+        console.error('/ManageTravel/all - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 module.exports = router;

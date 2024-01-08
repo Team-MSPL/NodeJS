@@ -1,7 +1,9 @@
 const express = require('express');
+var { readOnePlace } = require('./firebase/firebase_read_place.js');
 var { readOnePlaceInfo } = require('./firebase/firebase_read_place_info.js');
 var { writeReviewOnPlace, deleteReviewOnPlace } = require('./firebase/firebase_write.js');
 var { googleKeywordApi } = require('./firebase/google_place_api.js');
+const RecommendPlace = require('../schemas/recommend_place.js');
 const router = express.Router();
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
@@ -136,4 +138,65 @@ router.patch('/deletePlaceReview', async (req, res) => {
     }
 });
 
+// 메인 화면 추천 관광지 리스트
+router.get('/placeRecommendInMainScreen', async (req, res) => {
+    //JWT 토큰 인증 X
+
+    let placeList = [];
+
+    try {
+        //보여줄 관광지 리스트
+        const targetPlaceList = await RecommendPlace.find({});
+
+        for (const item of targetPlaceList) {
+            let place = await readOnePlace(item.region, item.name);
+
+            //대전 전체 등 "전체"라는 단어를 제거함
+            place.region = item.region.replace(' 전체', '');
+
+            placeList.push(place);
+        }
+
+        return res.status(200).json(placeList);
+    } catch (error) {
+        console.error('/place/placeRecommendInMainScreen - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 메인 화면 추천 관광지 리스트 세팅
+router.patch('/setPlaceRecommendInMainScreen', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        const { targetPlaceList } = req.body; // region, name을 가진 객체로 이루어진 리스트
+
+        //기존 RecommendPlace는 모두 삭제
+        try {
+            // 모든 데이터 삭제
+            const result = await RecommendPlace.deleteMany({});
+            console.log(`삭제된 데이터 수: ${result.deletedCount}`);
+        } catch (error) {
+            console.error('데이터 삭제 중 오류 발생:', error);
+        }
+
+        //새로운 데이터로 업데이트
+        for (const item of targetPlaceList) {
+            await new RecommendPlace({
+                region: item.region.trim(),
+                name: item.name.trim(),
+            }).save();
+        }
+
+        return res.status(200).json({ message: '추천 관광지 세팅 완료.' });
+    } catch (error) {
+        console.error('/place/setPlaceRecommendInMainScreen - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
 module.exports = router;
