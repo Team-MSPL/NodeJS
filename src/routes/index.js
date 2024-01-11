@@ -20,5 +20,6 @@ router.use('/inquiry', require('./inquiry'));
 router.use('/notice', require('./notice'));
 router.use('/place', require('./place'));
 router.use('/event', require('./event'));
+router.use('/regionSearchLog', require('./region_search_log'));
 
 module.exports = router;

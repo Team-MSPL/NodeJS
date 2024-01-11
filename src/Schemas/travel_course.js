@@ -31,6 +31,10 @@ const travelCourseSchema = new Schema({
         type: String, // 자료형
         required: true, // 필수 여부
     },
+    //공유 받은 유저들 ID 리스트
+    sharedUserList: {
+        type: [String], // 자료형
+    },
     //여행 지역 리스트
     region: {
         type: [String], // 자료형

@@ -3,6 +3,7 @@ const router = express.Router();
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
+const RegionSearchLog = require('../schemas/region_search_log.js');
 var _ = require('./region_search/region_search_algorithm.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
@@ -55,7 +56,7 @@ router.post('/run', async (req, res) => {
                         error: '추천드릴 수 있는 지역이 없습니다. 지역의 인기도와 여행 반경을 재설정 후, 다시 시도해주세요.',
                     });
                 } else {
-                    await countTokenLog(decoded);
+                    await countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity);
                     res.json(message.result);
                 }
             });
@@ -79,7 +80,7 @@ router.post('/run', async (req, res) => {
     });
 });
 
-async function countTokenLog(decoded) {
+async function countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity) {
     await ManageUser.findOne({ userId: decoded._id.toString() })
         .then(async (user) => {
             if (!user) {
@@ -108,5 +109,15 @@ async function countTokenLog(decoded) {
             console.error('ManageUser.findOne() 함수에 문제 발생 : ', error);
             res.status(401).json({ message: 'Unauthorized' });
         });
+
+    // RegionSearchLog 객체도 생성
+    const newRegionSearchLog = new RegionSearchLog({
+        userId: decoded._id.toString(),
+        selectList: selectList,
+        selectPopular: selectPopular,
+        recentPosition: recentPosition,
+        distanceSensitivity: distanceSensitivity,
+    });
+    await newRegionSearchLog.save();
 }
 module.exports = router;
