@@ -19,6 +19,7 @@
         "jsonwebtoken": "^9.0.1",
         "mongodb": "^5.7.0",
         "mongoose": "^7.4.1",
+        "node-cron": "^3.0.3",
         "uglify-es": "^3.3.9"
     },
     "devDependencies": {

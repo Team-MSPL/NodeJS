@@ -3,8 +3,8 @@ const router = express.Router();
 const ManageUser = require('../schemas/manage_user.js');
 const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
+const admin = require('firebase-admin');
 require('dotenv').config();
-
 var _ = require('lodash');
 
 // 오늘자 광고 시청 횟수
@@ -244,6 +244,23 @@ router.patch('/sendNote', async (req, res) => {
                 user.noteList.push(note);
 
                 await user.save();
+
+                // 여기서 FCM 푸시 알림 보내기
+                if (user.fcmToken) {
+                    const payload = {
+                        notification: {
+                            title: '새로운 쪽지 도착!',
+                            body: note,
+                            image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                        },
+                        data: {
+                            // 여기에 필요한 데이터를 추가할 수 있습니다.
+                            // 예: noteId, senderId 등
+                        },
+                    };
+
+                    await admin.messaging().sendToDevice(user.fcmToken, payload);
+                }
 
                 res.status(201).json({ message: '쪽지 전송 완료.' });
             })

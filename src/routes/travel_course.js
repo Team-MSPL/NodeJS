@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
+const User = require('../schemas/user.js');
 const TravelCourse = require('../schemas/travel_course.js');
+const admin = require('firebase-admin');
+const cron = require('node-cron');
 require('dotenv').config();
 
 // 1. 여행 코스 목록 가져오기 ( 메인 화면 + 내 여행 목록 )
@@ -216,12 +219,19 @@ router.patch('/updateSharedUserList', async (req, res) => {
                         return res.status(404).json({ message: '수정할 여행 코스를 찾을 수 없습니다.' });
                     }
 
-                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음. 그래서 push
-                    updatedTravelCourse.sharedUserList.push(decoded._id);
+                    if (
+                        updatedTravelCourse.sharedUserList.includes(decoded._id.toString()) ||
+                        updatedTravelCourse.userId === decoded._id.toString()
+                    ) {
+                        res.status(202).json({ message: '이미 존재하는 공유자입니다.' });
+                    } else {
+                        //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음. 그래서 push
+                        updatedTravelCourse.sharedUserList.push(decoded._id.toString());
 
-                    await updatedTravelCourse.save();
+                        await updatedTravelCourse.save();
 
-                    res.status(201).json({ message: '여행 코스 공유자 목록 수정 완료.' });
+                        res.status(201).json({ message: '여행 코스 공유자 목록 수정 완료.' });
+                    }
                 })
                 .catch((error) => {
                     console.error('TravelCourse.findOne() 함수에 문제 발생 : ', error);
@@ -366,5 +376,119 @@ router.get('/regionCount', async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
+
+// cron 표현식: 매일 18시에 실행 (18시 0분 0초)
+cron.schedule(
+    //'0 0 18 * * *',
+    '0 0 18 * * *',
+    async () => {
+        try {
+            // 내일 날짜 계산
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(3, 0, 0, 0); // 내일 03:00:00 - 여행 코스 스키마 day 배열 내의 뒷부분 값이 다 이렇게 되어 있음
+
+            let matchingTravelCourses = await TravelCourse.find({
+                'day.0': tomorrow.toISOString(),
+            });
+
+            // 조회된 여행 코스에 대해 푸시 알림을 보내는 함수 호출
+            matchingTravelCourses.forEach((travelCourse) => {
+                sendNotificationOnPreviousDay(travelCourse._id);
+            });
+
+            console.log(tomorrow.toISOString());
+            console.log(matchingTravelCourses.length);
+            console.log('Scheduled task completed successfully. - 여행 전날 알림');
+
+            // 어제 날짜 계산
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            yesterday.setHours(3, 0, 0, 0); // 어제 03:00:00 - 여행 코스 스키마 day 배열 내의 뒷부분 값이 다 이렇게 되어 있음
+            const yesterdayToString = yesterday.toISOString();
+
+            matchingTravelCourses = await TravelCourse.find({
+                $expr: {
+                    $eq: [{ $arrayElemAt: ['$day', -1] }, yesterday.toISOString()],
+                },
+            });
+
+            // 조회된 여행 코스에 대해 푸시 알림을 보내는 함수 호출
+            matchingTravelCourses.forEach((travelCourse) => {
+                sendNotificationOnAfterDay(travelCourse._id);
+            });
+
+            console.log(yesterdayToString);
+            console.log(matchingTravelCourses.length);
+            console.log('Scheduled task completed successfully. - 여행 종료 다음날 알림');
+        } catch (error) {
+            console.error('Error in scheduled task:', error);
+        }
+    },
+    {
+        scheduled: true,
+        timezone: 'Asia/Seoul', // 시간대 설정
+    }
+);
+
+// 여행 일정 전날에 푸시 알림 보내기
+async function sendNotificationOnPreviousDay(travelCourseId) {
+    try {
+        const travelCourse = await TravelCourse.findById(travelCourseId);
+
+        if (!travelCourse) {
+            console.error('여행 코스를 찾을 수 없습니다.');
+            return;
+        }
+
+        const userId = travelCourse.userId;
+        const user = await User.findOne({ _id: userId });
+
+        if (user && user.fcmToken) {
+            const payload = {
+                notification: {
+                    title: '예정된 여행 일정 안내',
+                    body: '계획하신 여행 일정이 내일 시작됩니다. 다님과 함께 즐거운 여행 되시길 바랍니다!',
+                    image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                },
+            };
+
+            await admin.messaging().sendToDevice(user.fcmToken, payload);
+        }
+        // }
+    } catch (error) {
+        console.error('푸시 알림 전송 중 에러:', error);
+    }
+}
+
+// 여행 일정 종료 다음날에 푸시 알림 보내기
+async function sendNotificationOnAfterDay(travelCourseId) {
+    try {
+        const travelCourse = await TravelCourse.findById(travelCourseId);
+
+        if (!travelCourse) {
+            console.error('여행 코스를 찾을 수 없습니다.');
+            return;
+        }
+
+        const userId = travelCourse.userId;
+        const user = await User.findOne({ _id: userId });
+
+        if (user && user.fcmToken) {
+            const payload = {
+                notification: {
+                    title: '여행은 어떠셨나요?',
+                    body: '앱 내에서 리뷰를 남겨주신다면, 다님에게 큰 힘이 될거에요!',
+                    image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                },
+            };
+
+            await admin.messaging().sendToDevice(user.fcmToken, payload);
+        }
+        // }
+    } catch (error) {
+        console.error('푸시 알림 전송 중 에러:', error);
+    }
+}
 
 module.exports = router;
