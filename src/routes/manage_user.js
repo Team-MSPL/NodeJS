@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 require('dotenv').config();
 var _ = require('lodash');
 
-// 오늘자 광고 시청 횟수
+// 오늘자 광고 시청 횟수 확인하기
 router.get('/watchADTime', async (req, res) => {
     // 클라이언트에서 전달한 JWT 토큰 추출
     const token = req.header('Authorization').split(' ')[1];
@@ -54,7 +54,7 @@ router.get('/watchADTime', async (req, res) => {
         }
     });
 });
-// 오늘자 광고 시청 횟수
+// 오늘자 광고 시청 횟수 세팅하기
 router.patch('/setWatchADTime', async (req, res) => {
     // 클라이언트에서 전달한 JWT 토큰 추출
     const token = req.header('Authorization').split(' ')[1];
@@ -93,7 +93,7 @@ router.patch('/setWatchADTime', async (req, res) => {
     });
 });
 
-// 총 기능 사용 횟수
+// 총 기능 사용 횟수 확인하기
 router.get('/sumUseTokenTime', async (req, res) => {
     const password = req.query.password || 'wrong';
 
