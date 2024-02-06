@@ -30,6 +30,23 @@ router.get('/placeInfo', async (req, res) => {
 
             let result = await readOnePlaceInfo(region, name);
 
+            //서울 전체로 쏘면, 도심권 등 5개 전부 탐색
+            if (region === '서울 전체') {
+                result = await readOnePlaceInfo('서울 도심권', name);
+                if (!result) {
+                    result = await readOnePlaceInfo('서울 동남권', name);
+                }
+                if (!result) {
+                    result = await readOnePlaceInfo('서울 동북권', name);
+                }
+                if (!result) {
+                    result = await readOnePlaceInfo('서울 서남권', name);
+                }
+                if (!result) {
+                    result = await readOnePlaceInfo('서울 서북권', name);
+                }
+            }
+
             //파베에서 정상적으로 불러왔을 경우
             if (result) {
                 return res.status(200).json(result);
