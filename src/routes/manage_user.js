@@ -274,4 +274,49 @@ router.patch('/sendNote', async (req, res) => {
     }
 });
 
+// MAU를 계산하여 반환
+router.get('/mau', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        // MongoDB의 집계(Aggregation) 기능을 사용하여 월별 활성 사용자 수 계산
+        const mauData = await User.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { recentLogin: { $exists: true } }, // 최근 로그인이 있는 사용자
+                        { loginLogList: { $exists: true, $ne: [] } }, // 로그인 이력이 있는 사용자
+                    ],
+                },
+            },
+            {
+                $project: {
+                    year: { $year: { $ifNull: ['$recentLogin', { $arrayElemAt: ['$loginLogList', 0] }] } }, // 최근 로그인 또는 첫 번째 로그인의 연도 정보 추출
+                    month: { $month: { $ifNull: ['$recentLogin', { $arrayElemAt: ['$loginLogList', 0] }] } }, // 최근 로그인 또는 첫 번째 로그인의 월 정보 추출
+                },
+            },
+            {
+                $group: {
+                    _id: { year: '$year', month: '$month' }, // 연도별 월별 그룹화
+                    count: { $sum: 1 }, // 그룹별 사용자 수 계산
+                },
+            },
+            {
+                $sort: { '_id.month': 1 }, // 월별 오름차순 정렬
+            },
+        ]);
+
+        // 결과 출력
+        res.json({ mauData });
+    } catch (error) {
+        console.error('Error while calculating MAU:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 module.exports = router;
