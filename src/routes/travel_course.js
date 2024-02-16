@@ -34,6 +34,7 @@ router.get('/travelList', async (req, res) => {
                 $or: [{ userId: userId }, { sharedUserList: userId }], //sharedUserList도 체크, sharedUserList 필드가 없는 경우 해당 조건은 거짓으로 간주되어 무시
             })
                 .select('travelName region day nDay')
+                .sort({ 'day.0': -1 }) // day 배열의 첫 번째 원소값을 기준으로 내림차순 정렬
                 .then((travelCourseList) => {
                     if (!travelCourseList || travelCourseList.length === 0) {
                         return res.status(404).json({ message: '저장된 여행이 없습니다.' });
