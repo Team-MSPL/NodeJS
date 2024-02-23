@@ -66,19 +66,16 @@ router.post('/run', async (req, res) => {
 
         let result = null;
 
-        //240223 - 메인화면 추천 여행지를 필수여행지로 넣을 경우, regionIndex를 찾아 넣어줘야함
+        //240223 - 필수여행지에 regionIndex를 찾아 넣어줌 ( 클라이언트에서 region값은 주는 거로 수정함 )
         const { regionList, essentialPlaceList } = req.body;
-
-        //메인화면 추천 여행지 리스트
-        const targetPlaceList = await RecommendPlace.find({});
 
         essentialPlaceList.length > 0 &&
             essentialPlaceList.map((item, idx) => {
-                //메인화면 추천 여행지 리스트와 일치하는 경우 탐색
-                for (const item2 of targetPlaceList) {
-                    if (item.region === item2.region && item.name === item2.name) {
-                        //값을 다시 regionList에서 탐색하여 인덱스번호를 찾아 regionIndex로 넣음. 없으면 안넣고 감
-                        item.regionIndex = regionList.indexOf(item.region);
+                //regionList와 일치하는 경우 탐색
+                for (let i = 0; i < regionList.length; i++) {
+                    if ((item.region ?? false) && item.region === regionList[i]) {
+                        //인덱스번호를 찾아 regionIndex로 넣음. 없으면 안넣고 감
+                        item.regionIndex = i;
                         break;
                     }
                 }
