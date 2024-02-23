@@ -3,6 +3,7 @@ const router = express.Router();
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
+const RecommendPlace = require('../schemas/recommend_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const axios = require('axios');
 
@@ -64,6 +65,25 @@ router.post('/run', async (req, res) => {
         console.log('--- log start ---');
 
         let result = null;
+
+        //240223 - 메인화면 추천 여행지를 필수여행지로 넣을 경우, regionIndex를 찾아 넣어줘야함
+        const { regionList, essentialPlaceList } = req.body;
+
+        //메인화면 추천 여행지 리스트
+        const targetPlaceList = await RecommendPlace.find({});
+
+        essentialPlaceList.length > 0 &&
+            essentialPlaceList.map((item, idx) => {
+                //메인화면 추천 여행지 리스트와 일치하는 경우 탐색
+                for (const item2 of targetPlaceList) {
+                    if (item.region === item2.region && item.name === item2.name) {
+                        //값을 다시 regionList에서 탐색하여 인덱스번호를 찾아 regionIndex로 넣음. 없으면 안넣고 감
+                        item.regionIndex = regionList.indexOf(item.region);
+                        break;
+                    }
+                }
+            });
+
         try {
             // ai 서버에 요청
             result = await axios({
