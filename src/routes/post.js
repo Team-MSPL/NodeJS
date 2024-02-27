@@ -3,6 +3,7 @@ const router = express.Router();
 const Post = require('../schemas/post.js');
 const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
+const admin = require('firebase-admin');
 const dotenv = require('dotenv');
 
 // 1. 게시글 목록 가져오기 ( 20개씩 )
@@ -392,6 +393,11 @@ router.patch('/saveComment', async (req, res) => {
 
                     await post.save();
 
+                    //댓글 작성자와 게시물 작성자가 다르면, 게시물 작성자에게 댓글 알림 보내주기
+                    if (post.postWriterUserId !== comment.commentWriterUserId) {
+                        sendNotificationToPostWriter(post, comment);
+                    }
+
                     res.status(201).json({ commentId: post.comment.at(-1)._id.toString() });
                 })
                 .catch((error) => {
@@ -451,5 +457,32 @@ router.patch('/deleteComment', async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
+
+// 댓글 추가시 게시물 작성자에게 푸시 알림 보내기 ( 본인 댓글 제외 )
+async function sendNotificationToPostWriter(post, comment) {
+    try {
+        const postWriter = await User.findOne({ _id: post.postWriterUserId });
+
+        if (!postWriter) {
+            console.error('게시물 작성자를 찾을 수 없습니다.');
+            return;
+        }
+
+        if (postWriter && postWriter.fcmToken) {
+            const payload = {
+                notification: {
+                    title: '새로운 댓글이 달렸어요',
+                    body: comment.commentContent,
+                    image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                },
+            };
+
+            await admin.messaging().sendToDevice(postWriter.fcmToken, payload);
+        }
+        // }
+    } catch (error) {
+        console.error('푸시 알림 전송 중 에러:', error);
+    }
+}
 
 module.exports = router;
