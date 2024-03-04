@@ -464,7 +464,7 @@ async function sendNotificationOnPreviousDay(travelCourseId) {
                 notification: {
                     title: '예정된 여행 일정 안내',
                     body: '계획하신 여행 일정이 내일 시작됩니다. 다님과 함께 즐거운 여행 되시길 바랍니다!',
-                    image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                    //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
                 },
             };
 
@@ -494,7 +494,7 @@ async function sendNotificationOnAfterDay(travelCourseId) {
                 notification: {
                     title: '여행은 어떠셨나요?',
                     body: '앱 내에서 리뷰를 남겨주신다면, 다님에게 큰 힘이 될거에요!',
-                    image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                    //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
                 },
             };
 

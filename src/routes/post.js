@@ -473,7 +473,7 @@ async function sendNotificationToPostWriter(post, comment) {
                 notification: {
                     title: '새로운 댓글이 달렸어요',
                     body: comment.commentContent,
-                    image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                    //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
                 },
             };
 
