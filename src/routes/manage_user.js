@@ -251,7 +251,7 @@ router.patch('/sendNote', async (req, res) => {
                         notification: {
                             title: '새로운 쪽지 도착!',
                             body: note,
-                            image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                            //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
                         },
                         data: {
                             // 여기에 필요한 데이터를 추가할 수 있습니다.
