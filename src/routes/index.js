@@ -21,5 +21,6 @@ router.use('/notice', require('./notice'));
 router.use('/place', require('./place'));
 router.use('/event', require('./event'));
 router.use('/regionSearchLog', require('./region_search_log'));
+router.use('/hikingSearch', require('./hiking_search'));
 
 module.exports = router;
