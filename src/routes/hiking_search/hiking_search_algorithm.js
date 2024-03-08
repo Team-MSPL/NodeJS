@@ -74,6 +74,7 @@ async function hikingSearch(mountainName, selectList, selectDifficulty, version)
                 takenTime: item.takenTime,
                 webSite: item.webSite,
                 photo: item.photo,
+                review: item.review,
 
                 type: item.type,
                 season: item.season,
@@ -92,6 +93,7 @@ async function hikingSearch(mountainName, selectList, selectDifficulty, version)
                 takenTime: item.takenTime,
                 webSite: item.webSite,
                 photo: item.photo,
+                review: item.review,
 
                 type: item.type,
                 season: item.season,
@@ -142,6 +144,7 @@ async function hikingSearch(mountainName, selectList, selectDifficulty, version)
             takenTime: topPankHiking.takenTime,
             webSite: topPankHiking.webSite,
             photo: topPankHiking.photo,
+            review: topPankHiking.review,
 
             type: topPankHiking.type,
             season: topPankHiking.season,
