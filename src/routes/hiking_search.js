@@ -21,7 +21,7 @@ router.post('/run', async (req, res) => {
         }
 
         try {
-            const { selectList, selectDifficulty } = req.body;
+            const { mountainName, selectList, selectDifficulty } = req.body;
 
             console.log('--- log start ---');
 
@@ -34,6 +34,7 @@ router.post('/run', async (req, res) => {
                 '/home/ubuntu/danim_database/src/routes/hiking_search/hiking_search_algorithm.js',
                 {
                     workerData: {
+                        mountainName: mountainName,
                         selectList: selectList,
                         selectDifficulty: selectDifficulty,
                         version: version,
