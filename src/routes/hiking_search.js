@@ -75,7 +75,7 @@ async function countLog(decoded, selectList, selectDifficulty) {
     const newHikingSearchLog = new HikingSearchLog({
         userId: decoded._id.toString(),
         selectList: selectList,
-        selectPopular: selectDifficulty,
+        selectDifficulty: selectDifficulty,
     });
     await newHikingSearchLog.save();
 }
