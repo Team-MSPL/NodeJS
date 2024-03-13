@@ -235,7 +235,9 @@ router.get('/regionInfo', async (req, res) => {
 
             let result = await readOneRegion(region);
 
-            if (!null) {
+            console.log(result);
+
+            if (result != undefined && result != null) {
                 return res.status(200).json(result);
             }
             //장소 검색 에러
