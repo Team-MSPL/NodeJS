@@ -5,12 +5,12 @@ require('dotenv').config();
 
 var _ = require('lodash');
 
-// 1. 뉴스 목록 가져오기 ( 20개씩 )
+// 1. 뉴스 목록 가져오기 ( 5개씩 )
 router.get('/newsList', async (req, res) => {
     // JWT 토큰 필요 X
     try {
         const page = req.query.page || 1; // 페이지 번호를 쿼리 매개변수로 받아옵니다.
-        const perPage = 4; // 페이지당 게시물 수
+        const perPage = 5; // 페이지당 게시물 수
 
         const startIndex = (page - 1) * perPage;
         const endIndex = startIndex + perPage;
