@@ -57,51 +57,20 @@ async function readAllRegion(collectionName) {
     return allregion;
 }
 
-async function readRegionList() {
-    let regionList = null;
-    const regionListSnapshot = await database.collection('전국 여행 지역').doc('여행 지역 목록').get();
-
-    regionList = regionListSnapshot.data().관광지;
-
-    return regionList;
-}
-
-async function readOneRegion(name) {
-    let regionData = {};
+async function readOneRegion(region) {
+    //let regionData = {};
     try {
-        const oneregionSnapshot = await database.collection('전국 여행 지역').doc(name).get();
-        let item = oneregionSnapshot.data();
+        const documentPath = '전국 여행 지역 ver2' + '/' + region;
 
-        let name = item.name;
-        let popular = item.popular;
-        let takenDay = item.takenDay;
-        let latitude = item.latitude;
-        let longitude = item.longitude;
-
-        let concept = item.concept;
-        let play = item.play;
-        let tour = item.tour;
-        let season = item.season;
-        let photo = item.photo;
-        regionData = {
-            name: name,
-            lat: latitude,
-            lng: longitude,
-            takenDay: takenDay,
-            popular: popular,
-            concept: concept,
-            play: play,
-            tour: tour,
-            season: season,
-            photo: photo,
-        };
+        // Firestore에서 데이터 읽기
+        const onePlaceSnapshot = await database.doc(documentPath).get();
+        let item = onePlaceSnapshot.data();
+        return item;
     } catch (error) {
-        console.log('관광 지역 데이터를 읽어오는 중에 오류가 발생했습니다:', error);
+        console.log('관광지 데이터를 읽어오는 중에 오류가 발생했습니다:', error);
+        return null;
     }
-    return regionData;
 }
 
-//export { readAllRegion, readRegionList, readOneRegion };
 module.exports.readAllRegion = readAllRegion;
-module.exports.readRegionList = readRegionList;
 module.exports.readOneRegion = readOneRegion;

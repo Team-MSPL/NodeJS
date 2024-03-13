@@ -1,5 +1,6 @@
 const express = require('express');
 var { readOnePlace } = require('./firebase/firebase_read_place.js');
+var { readOneRegion } = require('./firebase/firebase_read_region.js');
 var { readOnePlaceInfo } = require('./firebase/firebase_read_place_info.js');
 var { writeReviewOnPlace, deleteReviewOnPlace } = require('./firebase/firebase_write.js');
 var { googleKeywordApi } = require('./firebase/google_place_api.js');
@@ -216,4 +217,36 @@ router.patch('/setPlaceRecommendInMainScreen', async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
+
+// 여행 지역 정보
+router.get('/regionInfo', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        dotenv.config();
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const region = req.query.region;
+
+            let result = await readOneRegion(region);
+
+            if (!null) {
+                return res.status(200).json(result);
+            }
+            //장소 검색 에러
+            else {
+                return res.status(404).json({ message: '여행 지역 정보가 없습니다.' });
+            }
+        });
+    } catch (error) {
+        console.error('/place/regionInfo - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 module.exports = router;
