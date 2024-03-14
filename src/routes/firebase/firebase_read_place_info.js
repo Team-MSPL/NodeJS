@@ -25,23 +25,27 @@ async function readOnePlaceInfo(region, name) {
             return placeInfoData;
         }
 
-        //리뷰 작성자 userName도 포함해서 주기 - 비동기 처리 문제 때문에 map 못씀
+        //리뷰 작성자 userName, userProfileImage도 포함해서 주기 - 비동기 처리 문제 때문에 map 못씀
         for (const item of placeInfoData.review) {
             try {
                 const profile = await User.findOne({ userToken: item.reviewUserToken });
 
                 let reviewerName;
+                let reviewerProfileImage;
 
                 if (!profile) {
                     console.log(profile);
                     console.log('사용자를 찾을 수 없습니다.');
                     reviewerName = '나그네';
+                    reviewerProfileImage = 'https://danim.me/square_logo.png';
                 } else {
                     reviewerName = profile.userName;
+                    reviewerProfileImage = profile.userProfileImage;
                 }
 
-                // reviewerName 할당
+                // 할당
                 item.reviewerName = reviewerName;
+                item.reviewerProfileImage = reviewerProfileImage;
             } catch (error) {
                 console.error('User.findOne() 함수에 문제 발생 : ', error);
                 res.status(403).json({ message: '잘못된 입력입니다.' });
