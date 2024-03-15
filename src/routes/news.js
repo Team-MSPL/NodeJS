@@ -19,6 +19,8 @@ router.get('/newsList', async (req, res) => {
 
         let newsList = [];
 
+        newsLength = (await News.find()).length;
+
         //디폴트, 최신순
         newsList = await News.find(filter) // filter를 find 메서드로 전달
             .sort({ newsDate: -1 }) // String 형태의 날짜를 Date 타입으로 변환하여 최신순으로 정렬
@@ -29,7 +31,7 @@ router.get('/newsList', async (req, res) => {
             return res.status(404).json({ message: '저장된 뉴스가 없습니다.' });
         }
 
-        res.status(201).json(newsList);
+        res.status(201).json({ newsList: newsList, newsLength: newsLength });
     } catch (error) {
         console.error('/news/newsList - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
