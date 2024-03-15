@@ -93,12 +93,13 @@ router.patch('/saveReview', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { region, name, reviewContent, reviewPhotoList, reviewUserToken } = req.body; // reviewUserToken - 탈퇴 후 복귀하는 유저들 때문에 유저토큰 사용
+            const { region, name, reviewContent, reviewPhotoList, reviewUserToken, reviewId } = req.body; // reviewUserToken - 탈퇴 후 복귀하는 유저들 때문에 유저토큰 사용
 
             let result = await writeReviewOnHiking(region, name, {
                 reviewContent: reviewContent,
                 reviewUserToken: reviewUserToken,
                 reviewPhotoList: reviewPhotoList,
+                reviewId: reviewId,
             });
             console.log(result);
 
@@ -133,13 +134,9 @@ router.patch('/deleteReview', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { region, name, reviewContent, reviewPhotoList, reviewUserToken } = req.body; // reviewUserToken - 탈퇴 후 복귀하는 유저들 때문에 유저토큰 사용
+            const { region, name, reviewId } = req.body;
 
-            let result = await deleteReviewOnHiking(region, name, {
-                reviewContent: reviewContent,
-                reviewPhotoList: reviewPhotoList,
-                reviewUserToken: reviewUserToken,
-            });
+            let result = await deleteReviewOnHiking(region, name, reviewId);
 
             if (result.status === 'success') {
                 return res.status(200).json({ message: '탐방 코스 리뷰 삭제 성공.' });

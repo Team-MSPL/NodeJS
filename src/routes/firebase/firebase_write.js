@@ -49,7 +49,7 @@ async function writeReviewOnPlace(region, name, review) {
     }
 }
 
-async function deleteReviewOnPlace(region, name, review) {
+async function deleteReviewOnPlace(region, name, reviewId) {
     try {
         const documentPath = '관광지 정보/관광지 정보/' + region + '/' + name;
 
@@ -64,12 +64,8 @@ async function deleteReviewOnPlace(region, name, review) {
         }
 
         const updatedReviewList = reviewList.filter((reviewData) => {
-            // 리뷰 필드의 내용, 사진 리스트, 사용자 토큰이 하나라도 일치하지 않는 경우만 남기기 ( 모두 일치하면 제거 )
-            return (
-                reviewData.reviewContent !== review.reviewContent ||
-                !arraysEqual(reviewData.reviewPhotoList, review.reviewPhotoList) ||
-                reviewData.reviewUserToken !== review.reviewUserToken
-            );
+            // 리뷰 필드의 reviewId 일치하지 않는 경우만 남기기 ( 일치하면 제거 )
+            return reviewData.reviewId !== reviewId;
         });
 
         // 여기서 updatedReviewList를 사용하거나 필요한 작업을 수행
@@ -145,7 +141,7 @@ async function writeReviewOnHiking(mountainName, courseName, review) {
     }
 }
 
-async function deleteReviewOnHiking(mountainName, courseName, review) {
+async function deleteReviewOnHiking(mountainName, courseName, reviewId) {
     try {
         const documentPath = mountainName + '/' + courseName;
 
@@ -158,14 +154,9 @@ async function deleteReviewOnHiking(mountainName, courseName, review) {
         if (reviewList === null || reviewList === undefined || reviewList.length === 0) {
             return { status: 'no data' };
         }
-
         const updatedReviewList = reviewList.filter((reviewData) => {
-            // 리뷰 필드의 내용, 사진 리스트, 사용자 토큰이 하나라도 일치하지 않는 경우만 남기기 ( 모두 일치하면 제거 )
-            return (
-                reviewData.reviewContent !== review.reviewContent ||
-                !arraysEqual(reviewData.reviewPhotoList, review.reviewPhotoList) ||
-                reviewData.reviewUserToken !== review.reviewUserToken
-            );
+            // 리뷰 필드의 reviewId 일치하지 않는 경우만 남기기 ( 일치하면 제거 )
+            return reviewData.reviewId !== reviewId;
         });
 
         // 여기서 updatedReviewList를 사용하거나 필요한 작업을 수행
