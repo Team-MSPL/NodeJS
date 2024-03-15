@@ -86,12 +86,13 @@ router.patch('/savePlaceReview', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { region, name, reviewContent, reviewPhotoList, reviewUserToken } = req.body; // reviewUserToken - 탈퇴 후 복귀하는 유저들 때문에 유저토큰 사용
+            const { region, name, reviewContent, reviewPhotoList, reviewUserToken, reviewId } = req.body; // reviewUserToken - 탈퇴 후 복귀하는 유저들 때문에 유저토큰 사용
 
             let result = await writeReviewOnPlace(region, name, {
                 reviewContent: reviewContent,
                 reviewUserToken: reviewUserToken,
                 reviewPhotoList: reviewPhotoList,
+                reviewId: reviewId,
             });
             console.log(result);
 
@@ -126,13 +127,10 @@ router.patch('/deletePlaceReview', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { region, name, reviewContent, reviewPhotoList, reviewUserToken } = req.body; // reviewUserToken - 탈퇴 후 복귀하는 유저들 때문에 유저토큰 사용
+            const { region, name, reviewId } = req.body;
 
-            let result = await deleteReviewOnPlace(region, name, {
-                reviewContent: reviewContent,
-                reviewPhotoList: reviewPhotoList,
-                reviewUserToken: reviewUserToken,
-            });
+            //240315 - reviewId 도입했으나, 이전에 남긴 리뷰들때문에 남겨둠
+            let result = await deleteReviewOnPlace(region, name, reviewId);
 
             if (result.status === 'success') {
                 return res.status(200).json({ message: '관광지 리뷰 삭제 성공.' });
