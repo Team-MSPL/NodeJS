@@ -6,12 +6,12 @@ require('dotenv').config();
 
 var _ = require('lodash');
 
-// 1. 공지사항 목록 가져오기 ( 20개씩 )
+// 1. 공지사항 목록 가져오기 ( 10개씩 )
 router.get('/noticeList', async (req, res) => {
     // JWT 토큰 필요 X
     try {
         const page = req.query.page || 1; // 페이지 번호를 쿼리 매개변수로 받아옵니다.
-        const perPage = 20; // 페이지당 게시물 수
+        const perPage = 10; // 페이지당 게시물 수
 
         const startIndex = (page - 1) * perPage;
         const endIndex = startIndex + perPage;
@@ -22,7 +22,7 @@ router.get('/noticeList', async (req, res) => {
 
         //디폴트, 최신순
         noticeList = await Notice.find(filter) // filter를 find 메서드로 전달
-            .sort({ noticeedAt: -1 }) // String 형태의 날짜를 Date 타입으로 변환하여 최신순으로 정렬
+            .sort({ noticedAt: -1 }) // 최신순으로 정렬
             .skip(startIndex)
             .limit(perPage);
 
