@@ -402,15 +402,14 @@ cron.schedule(
             console.log(matchingTravelCourses.length);
             console.log('Scheduled task completed successfully. - 여행 전날 알림');
 
-            // 어제 날짜 계산
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            yesterday.setHours(3, 0, 0, 0); // 어제 03:00:00 - 여행 코스 스키마 day 배열 내의 뒷부분 값이 다 이렇게 되어 있음
-            const yesterdayToString = yesterday.toISOString();
+            // 오늘 날짜 계산
+            const today = new Date();
+            today.setHours(3, 0, 0, 0); // 어제 03:00:00 - 여행 코스 스키마 day 배열 내의 뒷부분 값이 다 이렇게 되어 있음
+            const yesterdayToString = today.toISOString();
 
             // matchingTravelCourses = await TravelCourse.find({
             //     $expr: {
-            //         $eq: [{ $arrayElemAt: ['$day', -1] }, yesterday.toISOString()],
+            //         $eq: [{ $arrayElemAt: ['$day', -1] }, today.toISOString()],
             //     },
             // });
 
@@ -420,7 +419,7 @@ cron.schedule(
             matchingTravelCourses = [];
 
             travelCourses.map((item, idx) => {
-                if (item.day[item.nDay - 1] === yesterday.toISOString()) {
+                if (item.day[item.nDay - 1] === today.toISOString()) {
                     // console.log(item.day[item.nDay - 1]);
                     // console.log(item.nDay - 1);
                     matchingTravelCourses.push(item);
@@ -476,7 +475,7 @@ async function sendNotificationOnPreviousDay(travelCourseId) {
     }
 }
 
-// 여행 일정 종료 다음날에 푸시 알림 보내기
+// 여행 일정 종료날에 푸시 알림 보내기
 async function sendNotificationOnAfterDay(travelCourseId) {
     try {
         const travelCourse = await TravelCourse.findById(travelCourseId);
