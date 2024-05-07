@@ -378,6 +378,64 @@ router.get('/regionCount', async (req, res) => {
     }
 });
 
+//8. 여행 성향 선택 분포도 확인하기
+router.get('/tendencyCount', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+    // 각 성향 값들을 정의한 배열
+    const tendencyData = [
+        ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와', '반려동물과'],
+        ['힐링', '액티비티', '배움이 있는', '맛있는', '교통이 편한', '알뜰한'],
+        ['레저 스포츠', '문화시설', '사진 명소', '이색체험', '유적지', '박물관', '공원', '사찰', '성지'],
+        ['바다', '산', '드라이브코스', '산책', '쇼핑', '실내여행지', '시티투어', '전통한옥'],
+        ['봄', '여름', '가을', '겨울'],
+    ];
+
+    try {
+        // 각 성향의 선택 횟수를 저장할 배열 초기화
+        const tendencyCounts = [
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0],
+        ];
+
+        // 모든 여행 코스를 순회하면서 각 성향의 선택 횟수를 카운트
+        const allTravelCourses = await TravelCourse.find({});
+        allTravelCourses.forEach((course) => {
+            course.tendency.forEach((subArray, i) => {
+                subArray.forEach((value, j) => {
+                    if (value === 1) {
+                        tendencyCounts[i][j]++;
+                    }
+                });
+            });
+        });
+
+        // 결과를 응답으로 보내기 위해 배열 형태로 변환
+        const result = tendencyCounts.map((counts, index) => {
+            return {
+                _id: index,
+                details: counts.map((count, idx) => {
+                    return {
+                        value: tendencyData[index][idx],
+                        count: count,
+                    };
+                }),
+            };
+        });
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('API에서 집계 쿼리 중 에러:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 // cron 표현식: 매일 18시에 실행 (18시 0분 0초)
 cron.schedule(
     //'0 0 18 * * *',
