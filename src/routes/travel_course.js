@@ -434,7 +434,7 @@ cron.schedule(
 
             console.log(yesterdayToString);
             console.log(matchingTravelCourses.length);
-            console.log('Scheduled task completed successfully. - 여행 종료 다음날 알림');
+            console.log('Scheduled task completed successfully. - 여행 종료날 알림');
         } catch (error) {
             console.error('Error in scheduled task:', error);
         }

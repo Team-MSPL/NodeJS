@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
 const RecommendPlace = require('../schemas/recommend_place.js');
+const AI = require('../schemas/ai.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const axios = require('axios');
 
@@ -116,5 +117,119 @@ async function runWorkerThread(workerData) {
         });
     });
 }
+
+// AI 결과 목록 불러오기
+router.get('/aiList', async (req, res) => {
+    const token = req.header('Authorization').split(' ')[1];
+
+    // JWT 토큰 검증
+    dotenv.config(); // .env 파일의 환경 변수 로드
+
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+        if (err) {
+            console.error('JWT 토큰 검증 에러:', err);
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        // JWT 토큰 검증 성공 시 요청 처리
+        try {
+            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+            AI.find({ userId: decoded._id })
+                .sort({ 'day.0': -1 }) // day 배열의 첫 번째 원소값을 기준으로 내림차순 정렬
+                .then((aiResultList) => {
+                    if (!aiResultList) {
+                        return res.status(404).json({ message: '해당 유저 ID에 대한 AI 결과를 찾을 수 없습니다.' });
+                    } else if (aiResultList.length === 0) {
+                        return res.status(202).json(aiResultList);
+                    }
+
+                    res.status(201).json(aiResultList);
+                })
+                .catch((error) => {
+                    console.error('AI.find() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 userId 입니다.' });
+                });
+        } catch (error) {
+            console.error('/AI - GET 함수에 문제 발생 : ', error);
+            res.status(500).json({ message: 'Internal server error' });
+        }
+    });
+});
+
+// AI 결과 임시 저장해두기
+router.post('/saveAI', async (req, res) => {
+    try {
+        // 클라이언트에서 전달한 JWT 토큰 추출
+        const token = req.header('Authorization').split(' ')[1];
+
+        // JWT 토큰 검증
+        dotenv.config(); // .env 파일의 환경 변수 로드
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { region, tendency, timeLimitArray, nDay, day, transit, preset, enoughPlace, bestPointList } =
+                req.body;
+
+            const newAI = new AI({
+                userId: decoded._id,
+                region: region,
+                tendency: tendency,
+                timeLimitArray: timeLimitArray,
+                nDay: nDay,
+                day: day,
+                transit: transit,
+                preset: preset,
+                enoughPlace: enoughPlace,
+                bestPointList: bestPointList,
+            });
+
+            const savedAI = await newAI.save();
+
+            res.status(201).json({ aiId: savedAI._id });
+        });
+    } catch (error) {
+        console.error('/AI/saveAI - POST 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// AI 결과 삭제하기
+router.delete('/deleteAI', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        dotenv.config();
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { aiId } = req.body;
+
+            // Delete the travel course
+            AI.findOneAndDelete({ _id: aiId })
+                .then((deletedAI) => {
+                    if (!deletedAI) {
+                        return res.status(404).json({ message: '삭제할 AI 결과를 찾을 수 없습니다.' });
+                    }
+
+                    res.status(200).json({ message: 'AI 결과 삭제 완료.' });
+                })
+                .catch((error) => {
+                    console.error('AI.findOneAndDelete() 함수에 문제 발생 : ', error);
+                    res.status(500).json({ message: '서버 내부 오류 발생' });
+                });
+        });
+    } catch (error) {
+        console.error('/AI/deleteAI - DELETE 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
 
 module.exports = router;
