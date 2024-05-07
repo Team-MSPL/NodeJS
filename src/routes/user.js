@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../schemas/user.js');
 const ManageUser = require('../schemas/manage_user.js');
 const TravelCourse = require('../schemas/travel_course.js');
+const Post = require('../schemas/post.js');
 const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
 var _ = require('lodash');
@@ -238,14 +239,20 @@ router.patch('/updateProfile', async (req, res) => {
                 { userName: userName, userProfileImage: userProfileImage },
                 { new: true }
             ) // { new: true }로 리턴값 받기
-                .then((updatedProfile) => {
+                .then(async (updatedProfile) => {
                     if (!updatedProfile) {
                         console.log(updatedProfile);
                         return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
                     }
 
-                    //res.status(201).json(travelCourse);
-                    res.status(201).json({ message: '프로필 수정 완료.' });
+                    // 프로필 이름이 변경되면 연관된 Post의 postWriter 필드도 변경
+                    Post.updateMany(
+                        { postWriterUserId: decoded._id, postedAt: { $gt: '2024/05/08 00:00:00' } }, // 2024년 5월 8일 이후에 작성된 Post
+                        { $set: { postWriter: updatedProfile.userName } } // postWriter 필드를 새로운 프로필 이름으로 변경
+                    ).then(() => {
+                        //res.status(201).json(travelCourse);
+                        res.status(201).json({ message: '프로필 수정 완료.' });
+                    });
                 })
                 .catch((error) => {
                     console.error('User.findOneAndUpdate() 함수에 문제 발생 : ', error);
