@@ -171,11 +171,22 @@ router.post('/saveAI', async (req, res) => {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
 
-            const { region, tendency, timeLimitArray, nDay, day, transit, preset, enoughPlace, bestPointList } =
-                req.body;
+            const {
+                travelName,
+                region,
+                tendency,
+                timeLimitArray,
+                nDay,
+                day,
+                transit,
+                preset,
+                enoughPlace,
+                bestPointList,
+            } = req.body;
 
             const newAI = new AI({
                 userId: decoded._id,
+                travelName: travelName,
                 region: region,
                 tendency: tendency,
                 timeLimitArray: timeLimitArray,
