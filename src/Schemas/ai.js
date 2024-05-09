@@ -30,6 +30,10 @@ const aiSchema = new Schema({
         type: String, // 자료형
         required: true, // 필수 여부
     },
+    //여행 이름
+    travelName: {
+        type: String,
+    },
     //여행 지역 리스트
     region: {
         type: [String], // 자료형
