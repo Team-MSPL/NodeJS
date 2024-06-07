@@ -280,6 +280,8 @@ router.delete('/withdraw', async (req, res) => {
 
             const { userId, signUpFirebase } = req.body;
 
+            const withdrawReasonList = req.body.hasOwnProperty('withdrawReasonList') ? req.body.withdrawReasonList : [];
+
             // 사용자 찾기
 
             let user;
@@ -333,6 +335,7 @@ router.delete('/withdraw', async (req, res) => {
                             functionToken: user.functionToken,
                             noteList: user.noteList,
                             blockUserList: user.blockUserList,
+                            withdrawReasonList: withdrawReasonList,
                         });
 
                         await newManageUser.save();
@@ -342,6 +345,7 @@ router.delete('/withdraw', async (req, res) => {
                         manageUser.functionToken = user.functionToken;
                         manageUser.noteList = user.noteList;
                         manageUser.blockUserList = user.blockUserList;
+                        manageUser.withdrawReasonList = [...manageUser.withdrawReasonList, ...withdrawReasonList];
 
                         await manageUser.save();
                     }
