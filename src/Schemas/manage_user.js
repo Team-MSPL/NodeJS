@@ -58,6 +58,11 @@ const manageUserSchema = new Schema({
         type: [String], // 자료형
         default: [],
     },
+    //탈퇴사유
+    withdrawReasonList: {
+        type: [String], // 자료형
+        default: [],
+    },
 });
 
 module.exports = mongoose.model('ManageUser', manageUserSchema);
