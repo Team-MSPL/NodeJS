@@ -395,7 +395,7 @@ router.patch('/saveComment', async (req, res) => {
 
                     //댓글 작성자와 게시물 작성자가 다르면, 게시물 작성자에게 댓글 알림 보내주기
                     if (post.postWriterUserId !== comment.commentWriterUserId) {
-                        sendNotificationToPostWriter(post, comment);
+                        sendNotificationToPostWriter(post, comment, commentWriter);
                     }
 
                     res.status(201).json({ commentId: post.comment.at(-1)._id.toString() });
@@ -459,26 +459,26 @@ router.patch('/deleteComment', async (req, res) => {
 });
 
 // 댓글 추가시 게시물 작성자, 댓글 작성자에게 푸시 알림 보내기 ( 본인 댓글 제외 )
-async function sendNotificationToPostWriter(post, comment) {
+async function sendNotificationToPostWriter(post, comment, recentCommentWriter) {
     try {
         const postWriter = await User.findOne({ _id: post.postWriterUserId });
 
-        let fcmTokenList = [];
+        let fcmTokenList = [recentCommentWriter.fcmToken]; // 최근에 댓글 단 사람에게는 알림 안가게
+
+        const payload = {
+            notification: {
+                title: '새로운 댓글이 달렸어요',
+                body: comment.commentContent,
+                //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+            },
+        };
 
         if (!postWriter) {
             console.error('게시물 작성자를 찾을 수 없습니다.');
             //return;//한명 못찾아도 댓글 작성자들은 보내야 함
         }
 
-        if (postWriter && postWriter.fcmToken) {
-            const payload = {
-                notification: {
-                    title: '새로운 댓글이 달렸어요',
-                    body: comment.commentContent,
-                    //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
-                },
-            };
-
+        if (postWriter && postWriter.fcmToken && !fcmTokenList.includes(postWriter.fcmToken)) {
             await admin.messaging().sendToDevice(postWriter.fcmToken, payload);
 
             fcmTokenList.push(postWriter.fcmToken);
@@ -494,19 +494,10 @@ async function sendNotificationToPostWriter(post, comment) {
             }
 
             //만약 fcmTokenList에 있는데 알림 또 보내면 중복
-            if (!fcmTokenList.includes(commentWriter.fcmToken)) {
-                if (commentWriter && commentWriter.fcmToken) {
-                    const payload = {
-                        notification: {
-                            title: '새로운 댓글이 달렸어요',
-                            body: comment.commentContent,
-                            //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
-                        },
-                    };
+            if (commentWriter && commentWriter.fcmToken && !fcmTokenList.includes(commentWriter.fcmToken)) {
+                await admin.messaging().sendToDevice(commentWriter.fcmToken, payload);
 
-                    await admin.messaging().sendToDevice(commentWriter.fcmToken, payload);
-                }
-                fcmTokenList.push(postWriter.fcmToken);
+                fcmTokenList.push(commentWriter.fcmToken);
             }
         });
     } catch (error) {
