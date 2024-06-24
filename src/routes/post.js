@@ -458,14 +458,16 @@ router.patch('/deleteComment', async (req, res) => {
     }
 });
 
-// 댓글 추가시 게시물 작성자에게 푸시 알림 보내기 ( 본인 댓글 제외 )
+// 댓글 추가시 게시물 작성자, 댓글 작성자에게 푸시 알림 보내기 ( 본인 댓글 제외 )
 async function sendNotificationToPostWriter(post, comment) {
     try {
         const postWriter = await User.findOne({ _id: post.postWriterUserId });
 
+        let fcmTokenList = [];
+
         if (!postWriter) {
             console.error('게시물 작성자를 찾을 수 없습니다.');
-            return;
+            //return;//한명 못찾아도 댓글 작성자들은 보내야 함
         }
 
         if (postWriter && postWriter.fcmToken) {
@@ -478,8 +480,35 @@ async function sendNotificationToPostWriter(post, comment) {
             };
 
             await admin.messaging().sendToDevice(postWriter.fcmToken, payload);
+
+            fcmTokenList.push(postWriter.fcmToken);
         }
-        // }
+
+        //댓글작성자들에게도 알림 보내기
+        post.comment.map(async (item, idx) => {
+            let commentWriter = await User.findOne({ _id: item.commentWriterUserId });
+
+            if (!commentWriter) {
+                console.error('댓글 작성자를 찾을 수 없습니다.');
+                //return;//한명 못찾아도 뒷 사람들은 보내야 함
+            }
+
+            //만약 fcmTokenList에 있는데 알림 또 보내면 중복
+            if (!fcmTokenList.includes(commentWriter.fcmToken)) {
+                if (commentWriter && commentWriter.fcmToken) {
+                    const payload = {
+                        notification: {
+                            title: '새로운 댓글이 달렸어요',
+                            body: comment.commentContent,
+                            //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                        },
+                    };
+
+                    await admin.messaging().sendToDevice(commentWriter.fcmToken, payload);
+                }
+                fcmTokenList.push(postWriter.fcmToken);
+            }
+        });
     } catch (error) {
         console.error('푸시 알림 전송 중 에러:', error);
     }
