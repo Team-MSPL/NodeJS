@@ -41,7 +41,7 @@ const userSchema = new Schema({
     },
     functionToken: {
         type: Number,
-        default: 5, //회원가입시 디폴트 보상
+        default: 3, //회원가입시 디폴트 이용권 보상
     }, //빼야하고
     //푸시알림을 위한 fcm토큰
     fcmToken: {
