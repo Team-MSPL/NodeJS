@@ -1,0 +1,4 @@
+node처럼 하고, src 있는 프로젝트 폴더로 들어가서
+npm run build
+프리티어 등 메모리가 적으면 가상 메모리 사용
+export NODE_OPTIONS=--max_old_space_size=4096

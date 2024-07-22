@@ -245,10 +245,11 @@ router.patch('/updateProfile', async (req, res) => {
                         return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
                     }
 
-                    // 프로필 이름이 변경되면 연관된 Post의 postWriter 필드도 변경
+                    // 프로필 이름이 변경되면 연관된 Post의 postWriter, postWriterProfileImage 필드도 변경
                     Post.updateMany(
                         { postWriterUserId: decoded._id, postedAt: { $gt: '2024/05/08 00:00:00' } }, // 2024년 5월 8일 이후에 작성된 Post
-                        { $set: { postWriter: updatedProfile.userName } } // postWriter 필드를 새로운 프로필 이름으로 변경
+                        { $set: { postWriter: updatedProfile.userName } }, // postWriter 필드를 새로운 프로필 이름으로 변경
+                        { $set: { postWriterProfileImage: updatedProfile.userProfileImage } } // postWriterProfileImage 필드를 새로운 프로필 이름으로 변경
                     ).then(() => {
                         //res.status(201).json(travelCourse);
                         res.status(201).json({ message: '프로필 수정 완료.' });
