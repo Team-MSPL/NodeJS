@@ -436,6 +436,27 @@ router.get('/tendencyCount', async (req, res) => {
     }
 });
 
+//9. 여행 일기 및 사진 불러오기
+router.get('/diaryAndPicture', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        // diary가 비어 있지 않거나 picture 배열의 크기가 0이 아닌 객체들을 찾음
+        const result = await TravelCourse.find({
+            $or: [{ diary: { $ne: '' } }, { picture: { $not: { $size: 0 } } }],
+        });
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('API에서 집계 쿼리 중 에러:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 // cron 표현식: 매일 18시에 실행 (18시 0분 0초)
 cron.schedule(
     //'0 0 18 * * *',
