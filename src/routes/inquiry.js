@@ -22,12 +22,12 @@ router.post('/inquiry', async (req, res) => {
 
         // JWT 토큰 검증 성공 시 요청 처리
         try {
-            const { userName, inquiry } = req.body;
+            const { userName, inquire } = req.body;
 
             const newInquiry = new Inquiry({
                 userId: decoded._id,
                 userName: userName,
-                inquiryContent: inquiry,
+                inquiryContent: inquire,
             });
 
             //DB에 저장
