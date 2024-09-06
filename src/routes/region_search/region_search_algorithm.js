@@ -1,35 +1,9 @@
-var { readAllRegion } = require('../firebase/firebase_read_region.js');
-var { readAllPlace } = require('../firebase/firebase_read_place.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 var _ = require('lodash');
 
 var count = [0, 0, 0, 0, 0]; //selectList 선택 개수 저장 배열
 var countNum = 0; // 한 줄당 count 총 갯수
-
-//Step 1. Data Loading
-async function dataLoading(version) {
-    let regionList = []; // reset the list
-
-    let collectionName;
-
-    if (version === 1) {
-        collectionName = '전국 여행 지역';
-    } else {
-        collectionName = '전국 여행 지역 ver2';
-    }
-
-    await readAllRegion(collectionName)
-        .then((res) => {
-            regionList = [...regionList, ...res];
-            //regionListCopy = [...regionListCopy, ...res];
-        })
-        .catch((err) => {
-            console.log(err);
-        });
-
-    return regionList;
-}
 
 // 지역 점수 계산 프로세스
 function regionPoint(targetregion, selectList, distanceSensitivity, recentPosition) {
@@ -104,7 +78,7 @@ function distance(departure, arrival) {
 }
 
 //RegionSearch를 실행시키는 비동기 함수
-async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition, version) {
+function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition, version, regionList) {
     console.log('여행 지역 알고리즘 시작!');
     let recentPositionFlag = false;
     if (recentPosition.lat !== 0 || recentPosition.lng !== 0) {
@@ -114,12 +88,9 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     console.log('인기도', selectPopular[0], selectPopular[1]);
     console.log('거리민감도', distanceSensitivity);
 
-    //시간 재기
-    const startTime = performance.now();
-
-    //데이터 로딩
-    let regionList = await dataLoading(version);
     console.log('전체 지역 수', regionList.length);
+
+    console.log(`상위 5개 지역. 성향 선택 개수`, countNum);
 
     //selectList 선순회 - placePoint에서 평균 구할 때 사용 - 내부에서 계산하면 시간 오래 걸리니까
     count = [0, 0, 0, 0, 0]; //초기화
@@ -279,71 +250,20 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
             cityList = [topPankRegion.name];
         }
 
-        let placeListInTopRankRegion = [];
-
-        //지역 내 관광지 읽어오기
-        for (let j = 0; j < cityList.length; j++) {
-            await readAllPlace(cityList[j], false, j)
-                .then((res) => {
-                    placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
-                })
-                .catch((err) => {
-                    console.log(err);
-                });
-        }
-
-        //popular 순으로 재배열 ( 내림차순? - 확인 필요 )
-        placeListInTopRankRegion = placeListInTopRankRegion.sort((a, b) => b.popular - a.popular);
-
-        //popular 상위 5개 관광지 골라내서 배열에 넣기
-        let topPopularPlaceList = [];
-
-        if (placeListInTopRankRegion.length >= 5) {
-            for (let j = 0; j < 5; j++) {
-                topPopularPlaceList.push({
-                    name: placeListInTopRankRegion[j].name,
-                    photo: placeListInTopRankRegion[j].photo,
-                    lat: placeListInTopRankRegion[j].lat,
-                    lng: placeListInTopRankRegion[j].lng,
-                });
-            }
-        }
-        //지역 내 관광지 5개가 안될경우 - 예) 충남 계룡시
-        else {
-            placeListInTopRankRegion.map((item, idx) => {
-                topPopularPlaceList.push({ name: item.name, photo: item.photo });
-            });
-        }
-
         result.push({
             name: topPankRegion.name,
             takenDay: topPankRegion.takenDay,
             photo: topPankRegion.photo,
-            tendency: topRankTendency,
-            topPopularPlaceList: topPopularPlaceList,
+            tendency: _.cloneDeep(topRankTendency),
+            cityList: cityList,
+            //topPopularPlaceList: topPopularPlaceList,
         });
-        console.log(topPankRegion.point);
     }
 
-    //시간 재기
-    const endTime = performance.now();
+    const wakeUpTime = Date.now() + 3000;
+    while (Date.now() < wakeUpTime) {}
 
-    console.log(`상위 5개 지역. 성향 선택 개수`, countNum);
-    for (let i = 0; i < result.length; i++) {
-        console.log(result[i].name);
-    }
-
-    console.log(`알고리즘 돌리는데 걸리는 시간`);
-
-    const elapsedTime = endTime - startTime;
-
-    console.log(`Elapsed time: ${elapsedTime / 1000} seconds`);
-    console.log(`------------------------------------------`);
-
-    //const wakeUpTime = Date.now() + 5000;
-    //while (Date.now() < wakeUpTime) {}
-
-    parentPort.postMessage({ result: result });
+    //parentPort.postMessage({ result: result });
     return result;
 }
 
@@ -359,4 +279,4 @@ if (isMainThread) {
     );
 }
 
-//module.exports.regionSearch = regionSearch;
+module.exports.regionSearch = regionSearch;
