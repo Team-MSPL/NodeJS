@@ -4,8 +4,35 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
 const RegionSearchLog = require('../schemas/region_search_log.js');
-var _ = require('./region_search/region_search_algorithm.js');
+const { regionSearch } = require('./region_search/region_search_algorithm.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
+var { readAllRegion } = require('./firebase/firebase_read_region.js');
+var { readAllPlace } = require('./firebase/firebase_read_place.js');
+const { log } = require('console');
+
+//Step 1. Data Loading
+async function dataLoading(version) {
+    let regionList = []; // reset the list
+
+    let collectionName;
+
+    if (version === 1) {
+        collectionName = '전국 여행 지역';
+    } else {
+        collectionName = '전국 여행 지역 ver2';
+    }
+
+    await readAllRegion(collectionName)
+        .then((res) => {
+            regionList = [...regionList, ...res];
+            //regionListCopy = [...regionListCopy, ...res];
+        })
+        .catch((err) => {
+            console.log(err);
+        });
+
+    return regionList;
+}
 
 // 여행 지역 추천
 router.post('/run', async (req, res) => {
@@ -24,6 +51,9 @@ router.post('/run', async (req, res) => {
         try {
             const { selectList, selectPopular, recentPosition, distanceSensitivity } = req.body;
 
+            //시간 재기
+            const startTime = performance.now();
+
             console.log('--- log start ---');
 
             const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
@@ -32,40 +62,104 @@ router.post('/run', async (req, res) => {
 
             // 요청을 처리할 워커 스레드 생성
             //./region_search/region_search_algorithm.js
-            const worker = new Worker(
-                '/home/ubuntu/danim_database/src/routes/region_search/region_search_algorithm.js',
-                {
-                    workerData: {
-                        selectList: selectList,
-                        selectPopular: selectPopular,
-                        recentPosition: recentPosition,
-                        distanceSensitivity: distanceSensitivity,
-                        version: version,
-                    },
-                }
+            // const worker = new Worker(
+
+            //데이터 로딩
+            let regionList = await dataLoading(version);
+
+            result_search = regionSearch(
+                selectList,
+                selectPopular,
+                distanceSensitivity,
+                recentPosition,
+                version,
+                regionList
             );
 
-            // 워커 스레드가 완료되면 응답을 클라이언트에 보냅니다.
-            worker.on('message', async (message) => {
-                //res.json({ message: 'API 요청 처리 완료', data: message });
+            let result = [];
 
-                console.log('--- log end ---');
+            for (let i = 0; i < result_search.length; i++) {
+                let placeListInTopRankRegion = [];
 
-                if (message.result.length === 0) {
-                    res.status(405).json({
-                        error: '추천드릴 수 있는 지역이 없습니다. 지역의 인기도와 여행 반경을 재설정 후, 다시 시도해주세요.',
-                    });
-                } else {
-                    await countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity);
-                    res.json(message.result);
+                //지역 내 관광지 읽어오기
+                for (let j = 0; j < result_search[i].cityList.length; j++) {
+                    await readAllPlace(result_search[i].cityList[j], false, j)
+                        .then((res) => {
+                            placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
+                        })
+                        .catch((err) => {
+                            console.log(err);
+                        });
                 }
-            });
 
-            // 에러 처리
-            worker.on('error', (error) => {
-                console.error(error);
-                res.status(500).json({ error: 'Internal server error' });
-            });
+                //popular 순으로 재배열 ( 내림차순? - 확인 필요 )
+                placeListInTopRankRegion = placeListInTopRankRegion.sort((a, b) => b.popular - a.popular);
+
+                //popular 상위 5개 관광지 골라내서 배열에 넣기
+                let topPopularPlaceList = [];
+
+                if (placeListInTopRankRegion.length >= 5) {
+                    for (let j = 0; j < 5; j++) {
+                        topPopularPlaceList.push({
+                            name: placeListInTopRankRegion[j].name,
+                            photo: placeListInTopRankRegion[j].photo,
+                            lat: placeListInTopRankRegion[j].lat,
+                            lng: placeListInTopRankRegion[j].lng,
+                        });
+                    }
+                }
+                //지역 내 관광지 5개가 안될경우 - 예) 충남 계룡시
+                else {
+                    placeListInTopRankRegion.map((item, idx) => {
+                        topPopularPlaceList.push({ name: item.name, photo: item.photo });
+                    });
+                }
+                result.push({
+                    name: result_search[i].name,
+                    takenDay: result_search[i].takenDay,
+                    photo: result_search[i].photo,
+                    tendency: result_search[i].tendency,
+                    topPopularPlaceList: topPopularPlaceList,
+                });
+            }
+
+            //시간 재기
+            const endTime = performance.now();
+
+            for (let i = 0; i < result.length; i++) {
+                console.log(result[i].name);
+            }
+
+            console.log(`알고리즘 돌리는데 걸리는 시간`);
+
+            const elapsedTime = endTime - startTime;
+
+            console.log(`Elapsed time: ${elapsedTime / 1000} seconds`);
+            console.log(`------------------------------------------`);
+
+            res.json(result);
+
+            // 워커 스레드가 완료되면 응답을 클라이언트에 보냅니다.
+            // worker.on('message', async (message) => {
+            //     //res.json({ message: 'API 요청 처리 완료', data: message });
+
+            //     console.log('--- log end ---');
+
+            //     if (message.result.length === 0) {
+            //         res.status(405).json({
+            //             error: '추천드릴 수 있는 지역이 없습니다. 지역의 인기도와 여행 반경을 재설정 후, 다시 시도해주세요.',
+            //         });
+            //     } else {
+            //         await countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity);
+            //         res.json(message.result);
+            //     }
+            // });
+
+            // // 에러 처리
+            // worker.on('error', (error) => {
+            //     console.error(error);
+            //     res.status(500).json({ error: 'Internal server error' });
+            // });
 
             // const resultData = await regionSearch({
             //     selectList: selectList,
