@@ -4,6 +4,7 @@ var { readOneRegion } = require('./firebase/firebase_read_region.js');
 var { readOnePlaceInfo } = require('./firebase/firebase_read_place_info.js');
 var { writeReviewOnPlace, deleteReviewOnPlace } = require('./firebase/firebase_write.js');
 var { googleKeywordApi } = require('./firebase/google_place_api.js');
+var { googleGeoApi } = require('./firebase/google_geo_place_api.js');
 const RecommendPlace = require('../schemas/recommend_place.js');
 const router = express.Router();
 const dotenv = require('dotenv');
@@ -267,7 +268,7 @@ router.get('/placeGeoInfo', async (req, res) => {
             const region = req.query.region;
             const name = req.query.name;
 
-            result = await googleKeywordApi({
+            result = await googleGeoApi({
                 name,
                 region,
             });
