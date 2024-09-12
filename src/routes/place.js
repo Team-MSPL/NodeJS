@@ -275,7 +275,7 @@ router.get('/placeGeoInfo', async (req, res) => {
             if (result.status === 'failed') {
                 return res.status(404).json({ message: '장소 정보가 없습니다.' });
             } else {
-                return res.status(201).json(result.data);
+                return res.status(201).json(result);
             }
         } catch (error) {
             console.error('/place/placeGeoInfo - GET 함수에 문제 발생 : ', error);

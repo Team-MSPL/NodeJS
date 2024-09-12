@@ -18,7 +18,7 @@ async function getPlaceGeo(place) {
     } else if (response.data.status === 'ZERO_RESULTS') {
         placeGeo = { lat: 0.0, lng: 0.0 }; // Error 반환
     } else {
-        placeGeo = response.candidates[0]?.geometry?.location;
+        placeGeo = response.data.candidates[0]?.geometry?.location;
     }
     return placeGeo;
 }
