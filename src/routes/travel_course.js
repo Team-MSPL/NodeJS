@@ -544,9 +544,15 @@ async function sendNotificationOnPreviousDay(travelCourseId) {
                     body: '계획하신 여행 일정이 내일 시작됩니다. 다님과 함께 즐거운 여행 되시길 바랍니다!',
                     //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
                 },
+                data: {
+                    // 여기에 필요한 데이터를 추가할 수 있습니다.
+                    // 예: noteId, senderId 등
+                },
+                token: user.fcmToken,
             };
 
-            await admin.messaging().sendToDevice(user.fcmToken, payload);
+            //await admin.messaging().sendToDevice(user.fcmToken, payload);
+            await admin.messaging().send(payload);
         }
         // }
     } catch (error) {
@@ -574,9 +580,15 @@ async function sendNotificationOnAfterDay(travelCourseId) {
                     body: '앱 내에서 리뷰를 남겨주신다면, 다님에게 큰 힘이 될거에요!',
                     //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
                 },
+                data: {
+                    // 여기에 필요한 데이터를 추가할 수 있습니다.
+                    // 예: noteId, senderId 등
+                },
+                token: user.fcmToken,
             };
 
-            await admin.messaging().sendToDevice(user.fcmToken, payload);
+            //await admin.messaging().sendToDevice(user.fcmToken, payload);
+            await admin.messaging().send(payload);
         }
         // }
     } catch (error) {

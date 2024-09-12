@@ -465,21 +465,25 @@ async function sendNotificationToPostWriter(post, comment, recentCommentWriter) 
 
         let fcmTokenList = [recentCommentWriter.fcmToken]; // 최근에 댓글 단 사람에게는 알림 안가게
 
-        const payload = {
-            notification: {
-                title: '새로운 댓글이 달렸어요',
-                body: comment.commentContent,
-                //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
-            },
-        };
-
         if (!postWriter) {
             console.error('게시물 작성자를 찾을 수 없습니다.');
             //return;//한명 못찾아도 댓글 작성자들은 보내야 함
         }
 
         if (postWriter && postWriter.fcmToken && !fcmTokenList.includes(postWriter.fcmToken)) {
-            await admin.messaging().sendToDevice(postWriter.fcmToken, payload);
+            const payload = {
+                notification: {
+                    title: '새로운 댓글이 달렸어요',
+                    body: comment.commentContent,
+                    //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                },
+                data: {
+                    // 여기에 필요한 데이터를 추가할 수 있습니다.
+                    // 예: noteId, senderId 등
+                },
+                token: postWriter.fcmToken,
+            };
+            await admin.messaging().send(payload);
 
             fcmTokenList.push(postWriter.fcmToken);
         }
@@ -495,7 +499,19 @@ async function sendNotificationToPostWriter(post, comment, recentCommentWriter) 
 
             //만약 fcmTokenList에 있는데 알림 또 보내면 중복
             if (commentWriter && commentWriter.fcmToken && !fcmTokenList.includes(commentWriter.fcmToken)) {
-                await admin.messaging().sendToDevice(commentWriter.fcmToken, payload);
+                const payload = {
+                    notification: {
+                        title: '새로운 댓글이 달렸어요',
+                        body: comment.commentContent,
+                        //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                    },
+                    data: {
+                        // 여기에 필요한 데이터를 추가할 수 있습니다.
+                        // 예: noteId, senderId 등
+                    },
+                    token: commentWriter.fcmToken,
+                };
+                await admin.messaging().send(payload);
 
                 fcmTokenList.push(commentWriter.fcmToken);
             }
