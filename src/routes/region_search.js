@@ -54,6 +54,12 @@ router.post('/run', async (req, res) => {
             //시간 재기
             const startTime = performance.now();
 
+            console.log(req);
+            console.log(req.body);
+            console.log(selectList);
+            console.log(selectPopular);
+            console.log(recentPosition);
+            console.log(distanceSensitivity);
             console.log('--- log start ---');
 
             const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
@@ -76,53 +82,42 @@ router.post('/run', async (req, res) => {
                 regionList
             );
 
-            let result = [];
-
-            for (let i = 0; i < result_search.length; i++) {
-                let placeListInTopRankRegion = [];
-
-                //지역 내 관광지 읽어오기
-                for (let j = 0; j < result_search[i].cityList.length; j++) {
-                    await readAllPlace(result_search[i].cityList[j], false, j)
-                        .then((res) => {
-                            placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
-                        })
-                        .catch((err) => {
-                            console.log(err);
-                        });
-                }
-
-                //popular 순으로 재배열 ( 내림차순? - 확인 필요 )
-                placeListInTopRankRegion = placeListInTopRankRegion.sort((a, b) => b.popular - a.popular);
-
-                //popular 상위 5개 관광지 골라내서 배열에 넣기
-                let topPopularPlaceList = [];
-
-                if (placeListInTopRankRegion.length >= 5) {
-                    for (let j = 0; j < 5; j++) {
-                        topPopularPlaceList.push({
-                            name: placeListInTopRankRegion[j].name,
-                            photo: placeListInTopRankRegion[j].photo,
-                            lat: placeListInTopRankRegion[j].lat,
-                            lng: placeListInTopRankRegion[j].lng,
-                        });
-                    }
-                }
-                //지역 내 관광지 5개가 안될경우 - 예) 충남 계룡시
-                else {
-                    placeListInTopRankRegion.map((item, idx) => {
-                        topPopularPlaceList.push({ name: item.name, photo: item.photo });
+            let result = await Promise.all(
+                result_search.map(async (region) => {
+                    // 각 지역에 대해 관광지 리스트를 불러오는 Promise 배열 생성
+                    let placePromises = region.cityList.map(async (city, idx) => {
+                        try {
+                            return await readAllPlace(city, false, idx);
+                        } catch (err) {
+                            console.error(err);
+                            return [];
+                        }
                     });
-                }
-                result.push({
-                    name: result_search[i].name,
-                    takenDay: result_search[i].takenDay,
-                    photo: result_search[i].photo,
-                    tendency: result_search[i].tendency,
-                    topPopularPlaceList: topPopularPlaceList,
-                });
-            }
 
+                    // 모든 도시에서의 관광지 데이터를 병렬로 가져오기
+                    let places = await Promise.all(placePromises);
+                    let placeListInTopRankRegion = places.flat();
+
+                    // 인기 순으로 정렬
+                    placeListInTopRankRegion.sort((a, b) => b.popular - a.popular);
+
+                    // 인기 상위 5개 관광지 골라내기
+                    let topPopularPlaceList = placeListInTopRankRegion.slice(0, 5).map((place) => ({
+                        name: place.name,
+                        photo: place.photo,
+                        lat: place.lat,
+                        lng: place.lng,
+                    }));
+
+                    return {
+                        name: region.name,
+                        takenDay: region.takenDay,
+                        photo: region.photo,
+                        tendency: region.tendency,
+                        topPopularPlaceList: topPopularPlaceList,
+                    };
+                })
+            );
             //시간 재기
             const endTime = performance.now();
 
@@ -138,35 +133,6 @@ router.post('/run', async (req, res) => {
             console.log(`------------------------------------------`);
 
             res.json(result);
-
-            // 워커 스레드가 완료되면 응답을 클라이언트에 보냅니다.
-            // worker.on('message', async (message) => {
-            //     //res.json({ message: 'API 요청 처리 완료', data: message });
-
-            //     console.log('--- log end ---');
-
-            //     if (message.result.length === 0) {
-            //         res.status(405).json({
-            //             error: '추천드릴 수 있는 지역이 없습니다. 지역의 인기도와 여행 반경을 재설정 후, 다시 시도해주세요.',
-            //         });
-            //     } else {
-            //         await countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity);
-            //         res.json(message.result);
-            //     }
-            // });
-
-            // // 에러 처리
-            // worker.on('error', (error) => {
-            //     console.error(error);
-            //     res.status(500).json({ error: 'Internal server error' });
-            // });
-
-            // const resultData = await regionSearch({
-            //     selectList: selectList,
-            //     selectPopular: selectPopular,
-            //     recentPosition: recentPosition,
-            //     distanceSensitivity: distanceSensitivity,
-            // });
         } catch (error) {
             console.error('/regionSearch/run - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'Internal server error' });
