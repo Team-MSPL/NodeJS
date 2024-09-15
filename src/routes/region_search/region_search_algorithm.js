@@ -267,16 +267,16 @@ function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosi
     return result;
 }
 
-if (isMainThread) {
-    console.log('Main Thread');
-} else {
-    regionSearch(
-        workerData.selectList,
-        workerData.selectPopular,
-        workerData.distanceSensitivity,
-        workerData.recentPosition,
-        workerData.version
-    );
-}
+// if (isMainThread) {
+//     console.log('Main Thread');
+// } else {
+//     regionSearch(
+//         workerData.selectList,
+//         workerData.selectPopular,
+//         workerData.distanceSensitivity,
+//         workerData.recentPosition,
+//         workerData.version
+//     );
+// }
 
 module.exports.regionSearch = regionSearch;
