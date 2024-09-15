@@ -23,5 +23,6 @@ router.use('/event', require('./event'));
 router.use('/regionSearchLog', require('./region_search_log'));
 router.use('/hikingSearch', require('./hiking_search'));
 router.use('/news', require('./news'));
+router.use('/sellingProduct', require('./selling_product'));
 
 module.exports = router;
