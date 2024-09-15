@@ -257,9 +257,11 @@ router.patch('/sendNote', async (req, res) => {
                             // 여기에 필요한 데이터를 추가할 수 있습니다.
                             // 예: noteId, senderId 등
                         },
+                        token: user.fcmToken,
                     };
 
-                    await admin.messaging().sendToDevice(user.fcmToken, payload);
+                    //await admin.messaging().sendToDevice(user.fcmToken, payload);
+                    await admin.messaging().send(payload);
                 }
 
                 res.status(201).json({ message: '쪽지 전송 완료.' });
