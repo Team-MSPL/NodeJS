@@ -328,6 +328,9 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     //시간 재기
     const endTime = performance.now();
 
+    //const wakeUpTime = Date.now() + 3000;
+    //while (Date.now() < wakeUpTime) {}
+
     console.log(`상위 5개 지역. 성향 선택 개수`, countNum);
     for (let i = 0; i < result.length; i++) {
         console.log(result[i].name);
@@ -339,9 +342,6 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
     console.log(`Elapsed time: ${elapsedTime / 1000} seconds`);
     console.log(`------------------------------------------`);
-
-    //const wakeUpTime = Date.now() + 3000;
-    //while (Date.now() < wakeUpTime) {}
 
     parentPort.postMessage({ result: result });
     return result;
