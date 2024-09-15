@@ -4,35 +4,8 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
 const RegionSearchLog = require('../schemas/region_search_log.js');
-const { regionSearch } = require('./region_search/region_search_algorithm.js');
+var _ = require('./region_search/region_search_algorithm.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
-var { readAllRegion } = require('./firebase/firebase_read_region.js');
-var { readAllPlace } = require('./firebase/firebase_read_place.js');
-const { log } = require('console');
-
-//Step 1. Data Loading
-async function dataLoading(version) {
-    let regionList = []; // reset the list
-
-    let collectionName;
-
-    if (version === 1) {
-        collectionName = '전국 여행 지역';
-    } else {
-        collectionName = '전국 여행 지역 ver2';
-    }
-
-    await readAllRegion(collectionName)
-        .then((res) => {
-            regionList = [...regionList, ...res];
-            //regionListCopy = [...regionListCopy, ...res];
-        })
-        .catch((err) => {
-            console.log(err);
-        });
-
-    return regionList;
-}
 
 // 여행 지역 추천
 router.post('/run', async (req, res) => {
@@ -51,15 +24,6 @@ router.post('/run', async (req, res) => {
         try {
             const { selectList, selectPopular, recentPosition, distanceSensitivity } = req.body;
 
-            //시간 재기
-            const startTime = performance.now();
-
-            console.log(req);
-            console.log(req.body);
-            console.log(selectList);
-            console.log(selectPopular);
-            console.log(recentPosition);
-            console.log(distanceSensitivity);
             console.log('--- log start ---');
 
             const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
@@ -68,71 +32,47 @@ router.post('/run', async (req, res) => {
 
             // 요청을 처리할 워커 스레드 생성
             //./region_search/region_search_algorithm.js
-            // const worker = new Worker(
-
-            //데이터 로딩
-            let regionList = await dataLoading(version);
-
-            result_search = regionSearch(
-                selectList,
-                selectPopular,
-                distanceSensitivity,
-                recentPosition,
-                version,
-                regionList
+            const worker = new Worker(
+                '/home/ubuntu/danim_database/src/routes/region_search/region_search_algorithm.js',
+                {
+                    workerData: {
+                        selectList: selectList,
+                        selectPopular: selectPopular,
+                        recentPosition: recentPosition,
+                        distanceSensitivity: distanceSensitivity,
+                        version: version,
+                    },
+                }
             );
 
-            let result = await Promise.all(
-                result_search.map(async (region) => {
-                    // 각 지역에 대해 관광지 리스트를 불러오는 Promise 배열 생성
-                    let placePromises = region.cityList.map(async (city, idx) => {
-                        try {
-                            return await readAllPlace(city, false, idx);
-                        } catch (err) {
-                            console.error(err);
-                            return [];
-                        }
+            // 워커 스레드가 완료되면 응답을 클라이언트에 보냅니다.
+            worker.on('message', async (message) => {
+                //res.json({ message: 'API 요청 처리 완료', data: message });
+
+                console.log('--- log end ---');
+
+                if (message.result.length === 0) {
+                    res.status(405).json({
+                        error: '추천드릴 수 있는 지역이 없습니다. 지역의 인기도와 여행 반경을 재설정 후, 다시 시도해주세요.',
                     });
+                } else {
+                    await countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity);
+                    res.json(message.result);
+                }
+            });
 
-                    // 모든 도시에서의 관광지 데이터를 병렬로 가져오기
-                    let places = await Promise.all(placePromises);
-                    let placeListInTopRankRegion = places.flat();
+            // 에러 처리
+            worker.on('error', (error) => {
+                console.error(error);
+                res.status(500).json({ error: 'Internal server error' });
+            });
 
-                    // 인기 순으로 정렬
-                    placeListInTopRankRegion.sort((a, b) => b.popular - a.popular);
-
-                    // 인기 상위 5개 관광지 골라내기
-                    let topPopularPlaceList = placeListInTopRankRegion.slice(0, 5).map((place) => ({
-                        name: place.name,
-                        photo: place.photo,
-                        lat: place.lat,
-                        lng: place.lng,
-                    }));
-
-                    return {
-                        name: region.name,
-                        takenDay: region.takenDay,
-                        photo: region.photo,
-                        tendency: region.tendency,
-                        topPopularPlaceList: topPopularPlaceList,
-                    };
-                })
-            );
-            //시간 재기
-            const endTime = performance.now();
-
-            for (let i = 0; i < result.length; i++) {
-                console.log(result[i].name);
-            }
-
-            console.log(`알고리즘 돌리는데 걸리는 시간`);
-
-            const elapsedTime = endTime - startTime;
-
-            console.log(`Elapsed time: ${elapsedTime / 1000} seconds`);
-            console.log(`------------------------------------------`);
-
-            res.json(result);
+            // const resultData = await regionSearch({
+            //     selectList: selectList,
+            //     selectPopular: selectPopular,
+            //     recentPosition: recentPosition,
+            //     distanceSensitivity: distanceSensitivity,
+            // });
         } catch (error) {
             console.error('/regionSearch/run - GET 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'Internal server error' });
