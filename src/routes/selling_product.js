@@ -110,8 +110,8 @@ router.get('/list', async (req, res) => {
             if (b.matchCount !== a.matchCount) {
                 return b.matchCount - a.matchCount;
             }
-            // matchCount가 같을 경우 rating으로 정렬
-            return b.product.sellingProductRating - a.product.sellingProductRating;
+            // matchCount가 같을 경우 sellingProductReviewCount 으로 정렬
+            return b.product.sellingProductReviewCount - a.product.sellingProductReviewCount;
         });
 
         // 총 필터링된 결과 수
