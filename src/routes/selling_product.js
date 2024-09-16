@@ -63,9 +63,9 @@ router.get('/list', async (req, res) => {
                 if (productPlaces[0] === '전체') {
                     //똑같이 PlaceList가 '전체'이더라도 region이 같으면 더 위로
                     if (product.sellingProductRegion == query.region) {
-                        sellingProducts.push({ product, matchCount: 0 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
+                        sellingProducts.push({ product, matchCount: 0, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     } else {
-                        sellingProducts.push({ product, matchCount: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
+                        sellingProducts.push({ product, matchCount: -1, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     }
                     return;
                 }
@@ -76,7 +76,7 @@ router.get('/list', async (req, res) => {
 
                 // 겹치는 원소가 있을 경우 배열에 추가
                 if (matchCount > 0) {
-                    filteredProducts.push({ product, matchCount });
+                    filteredProducts.push({ product, matchCount, similarity: matchCount / query.placeList.length });
                 }
             });
         } else {
