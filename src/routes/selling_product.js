@@ -84,7 +84,7 @@ router.get('/list', async (req, res) => {
                     if (regionList.includes(product.sellingProductRegion)) {
                         sellingProducts.push({ product, matchCount: 0, similarity: 0 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     } else {
-                        sellingProducts.push({ product, matchCount: -1, similarity: 0 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
+                        sellingProducts.push({ product, matchCount: -1, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     }
                 } else {
                     // query.placeList 와 겹치는 원소 찾기
@@ -104,13 +104,13 @@ router.get('/list', async (req, res) => {
                     }
                 }
 
-                // similarity가 많은 순으로 정렬하고, 같으면 rating이 높은 순으로 정렬
+                // similarity 가 많은 순으로 정렬하고, 같으면 rating이 높은 순으로 정렬
                 sellingProducts.sort((a, b) => {
-                    // matchCount가 다를 경우
+                    // similarity 가 다를 경우
                     if (b.similarity !== a.similarity) {
                         return b.similarity - a.similarity;
                     }
-                    // matchCount가 같을 경우 sellingProductReviewCount 으로 정렬
+                    // similarity 가 같을 경우 sellingProductReviewCount 으로 정렬
                     return b.product.sellingProductReviewCount - a.product.sellingProductReviewCount;
                 });
             });
