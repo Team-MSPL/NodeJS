@@ -92,7 +92,10 @@ router.get('/list', async (req, res) => {
                     const matchCount = matchingPlaces.length;
 
                     // similarity 는 두 경우 중 높은 쪽으로 넣기
-                    similarity;
+                    similarity =
+                        matchCount / placeList.length > matchCount / productPlaces.length
+                            ? matchCount / placeList.length
+                            : matchCount / productPlaces.length;
 
                     // 겹치는 원소가 있을 경우 배열에 추가 + 설정한 여행 기간 >= 패키지 상품 기간
                     if (matchCount > 0 && period >= product.sellingProductPeriod) {
