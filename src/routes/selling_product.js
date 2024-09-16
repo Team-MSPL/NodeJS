@@ -103,8 +103,16 @@ router.get('/list', async (req, res) => {
         } else {
             return res.status(403).json({ message: 'type 이 적절한 값이 아닙니다.' });
         }
-        // matchCount가 많은 순으로 정렬
-        sellingProducts.sort((a, b) => b.matchCount - a.matchCount);
+
+        // matchCount가 많은 순으로 정렬하고, 같으면 rating이 높은 순으로 정렬
+        sellingProducts.sort((a, b) => {
+            // matchCount가 다를 경우
+            if (b.matchCount !== a.matchCount) {
+                return b.matchCount - a.matchCount;
+            }
+            // matchCount가 같을 경우 rating으로 정렬
+            return b.product.sellingProductRating - a.product.sellingProductRating;
+        });
 
         // 총 필터링된 결과 수
         const resultsLength = sellingProducts.length;
