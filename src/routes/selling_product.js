@@ -61,6 +61,16 @@ router.get('/list', async (req, res) => {
                     }
                 }
             });
+
+            // matchCount가 많은 순으로 정렬하고, 같으면 rating이 높은 순으로 정렬
+            sellingProducts.sort((a, b) => {
+                // matchCount가 다를 경우
+                if (b.matchCount !== a.matchCount) {
+                    return b.matchCount - a.matchCount;
+                }
+                // matchCount가 같을 경우 sellingProductReviewCount 으로 정렬
+                return b.product.sellingProductReviewCount - a.product.sellingProductReviewCount;
+            });
         }
         //2. 패키지 상품, 유사도 리턴 o
         else if (type == 'package') {
@@ -72,23 +82,17 @@ router.get('/list', async (req, res) => {
                 if (productPlaces[0] === '전체') {
                     //똑같이 PlaceList가 '전체'이더라도 region이 같으면 더 위로
                     if (regionList.includes(product.sellingProductRegion)) {
-                        sellingProducts.push({ product, matchCount: 0, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
+                        sellingProducts.push({ product, matchCount: 0, similarity: 0 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     } else {
-                        sellingProducts.push({ product, matchCount: -1, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
+                        sellingProducts.push({ product, matchCount: -1, similarity: 0 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     }
                 } else {
                     // query.placeList 와 겹치는 원소 찾기
                     const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
                     const matchCount = matchingPlaces.length;
 
-                    console.log('placeList');
-                    console.log(placeList);
-                    console.log(productPlaces);
-                    console.log(matchingPlaces);
-                    console.log(matchCount > 0);
-                    console.log(period);
-                    console.log(product.period);
-                    console.log(period >= product.period);
+                    // similarity 는 두 경우 중 높은 쪽으로 넣기
+                    similarity;
 
                     // 겹치는 원소가 있을 경우 배열에 추가 + 설정한 여행 기간 >= 패키지 상품 기간
                     if (matchCount > 0 && period >= product.sellingProductPeriod) {
@@ -99,20 +103,20 @@ router.get('/list', async (req, res) => {
                         });
                     }
                 }
+
+                // similarity가 많은 순으로 정렬하고, 같으면 rating이 높은 순으로 정렬
+                sellingProducts.sort((a, b) => {
+                    // matchCount가 다를 경우
+                    if (b.similarity !== a.similarity) {
+                        return b.similarity - a.similarity;
+                    }
+                    // matchCount가 같을 경우 sellingProductReviewCount 으로 정렬
+                    return b.product.sellingProductReviewCount - a.product.sellingProductReviewCount;
+                });
             });
         } else {
             return res.status(403).json({ message: 'type 이 적절한 값이 아닙니다.' });
         }
-
-        // matchCount가 많은 순으로 정렬하고, 같으면 rating이 높은 순으로 정렬
-        sellingProducts.sort((a, b) => {
-            // matchCount가 다를 경우
-            if (b.matchCount !== a.matchCount) {
-                return b.matchCount - a.matchCount;
-            }
-            // matchCount가 같을 경우 sellingProductReviewCount 으로 정렬
-            return b.product.sellingProductReviewCount - a.product.sellingProductReviewCount;
-        });
 
         // 총 필터링된 결과 수
         const resultsLength = sellingProducts.length;
