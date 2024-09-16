@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
 
+//링크 클릭 로그 타입
+let clickLogType = {
+    id: String,
+    date: Date,
+};
+
 const sellingProductSchema = new Schema({
     //판매 상품 이름
     sellingProductName: {
@@ -28,7 +34,7 @@ const sellingProductSchema = new Schema({
         type: Number,
         default: 0,
     },
-    //판매 상품 여행 기간 ( 패키지의 경우만 존재 )
+    //판매 상품 여행 기간 ( 투어의 경우 -1 )
     sellingProductPeriod: {
         type: Number,
         default: 0,
@@ -50,8 +56,8 @@ const sellingProductSchema = new Schema({
     },
     //판매 상품 지역
     sellingProductRegion: {
-        type: String,
-        default: '',
+        type: [String],
+        default: [''],
     },
     //판매 상품 관광지 리스트 ( 투어 상품일 경우 원소 1개 / '전체'라면, 렌트카 상품 등 관광지 상관 없이 가능한 것 )
     sellingProductPlaceList: {
@@ -68,10 +74,10 @@ const sellingProductSchema = new Schema({
         type: String,
         required: true,
     },
-    //판매 상품 링크 클릭 횟수
-    sellingProductLinkClickCount: {
-        type: Number,
-        default: 0,
+    //판매 상품 링크 클릭 로그
+    sellingProductLinkClickLog: {
+        type: [clickLogType],
+        default: [],
     },
 });
 

@@ -14,10 +14,20 @@ router.get('/list', async (req, res) => {
         //const page = req.query.page || 1; // 페이지 번호를 쿼리 매개변수로 받아옵니다.
         //const perPage = 5; // 페이지당 게시물 수
 
-        // 해당 국가의 모든 판매 상품을 가져옴
+        const { country, company, regions, type, places, period } = req.query;
+
+        // places가 undefined가 아니면 쉼표로 분리하고 각 원소의 앞뒤 공백을 제거
+        const placeList = places ? places.split(',').map((place) => place.trim()) : [];
+
+        // region이 undefined가 아니면 쉼표로 분리하고 각 원소의 앞뒤 공백을 제거
+        const regionList = regions ? regions.split(',').map((r) => r.trim()) : [];
+
+        // 해당하는 모든 판매 상품을 가져옴
         const allProducts = await SellingProduct.find({
-            sellingProductCountry: query.country,
-            sellingProductCompany: query.company,
+            sellingProductCountry: country,
+            sellingProductCompany: company,
+            sellingProductRegion: { $in: regionList }, // 두 배열의 교집합을 찾음
+            // 다른 조건도 추가 가능
         });
 
         if (!allProducts || allProducts.length === 0) {
@@ -27,7 +37,7 @@ router.get('/list', async (req, res) => {
         let sellingProducts = [];
 
         //1. 투어 상품일 경우, 유사도 리턴 x
-        if (req.query.sellingProductType == 'tour') {
+        if (type == 'tour') {
             // 각 상품에 대해 필터링 작업 수행
             allProducts.forEach((product) => {
                 const productPlaces = product.sellingProductPlaceList;
@@ -35,26 +45,25 @@ router.get('/list', async (req, res) => {
                 // '전체'가 첫 번째 원소일 경우
                 if (productPlaces[0] === '전체') {
                     //똑같이 PlaceList가 '전체'이더라도 region이 같으면 더 위로
-                    if (product.sellingProductRegion == query.region) {
+                    if (regionList.includes(product.sellingProductRegion)) {
                         sellingProducts.push({ product, matchCount: 0 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     } else {
                         sellingProducts.push({ product, matchCount: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     }
-                    return;
-                }
+                } else {
+                    // query.placeList 와 겹치는 원소 찾기
+                    const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
+                    const matchCount = matchingPlaces.length;
 
-                // query.placeList 와 겹치는 원소 찾기
-                const matchingPlaces = productPlaces.filter((place) => query.placeList.includes(place));
-                const matchCount = matchingPlaces.length;
-
-                // 겹치는 원소가 있을 경우 배열에 추가
-                if (matchCount > 0) {
-                    filteredProducts.push({ product, matchCount });
+                    // 겹치는 원소가 있을 경우 배열에 추가 + type이 투어 상품인 경우만
+                    if (matchCount > 0 && product.sellingProductType == type) {
+                        sellingProducts.push({ product, matchCount });
+                    }
                 }
             });
         }
         //2. 패키지 상품, 유사도 리턴 o
-        else if (req.query.sellingProductType == 'package') {
+        else if (type == 'package') {
             // 각 상품에 대해 필터링 작업 수행
             allProducts.forEach((product) => {
                 const productPlaces = product.sellingProductPlaceList;
@@ -62,52 +71,68 @@ router.get('/list', async (req, res) => {
                 // '전체'가 첫 번째 원소일 경우
                 if (productPlaces[0] === '전체') {
                     //똑같이 PlaceList가 '전체'이더라도 region이 같으면 더 위로
-                    if (product.sellingProductRegion == query.region) {
+                    if (regionList.includes(product.sellingProductRegion)) {
                         sellingProducts.push({ product, matchCount: 0, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     } else {
                         sellingProducts.push({ product, matchCount: -1, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     }
-                    return;
-                }
+                } else {
+                    // query.placeList 와 겹치는 원소 찾기
+                    const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
+                    const matchCount = matchingPlaces.length;
 
-                // query.placeList 와 겹치는 원소 찾기
-                const matchingPlaces = productPlaces.filter((place) => query.placeList.includes(place));
-                const matchCount = matchingPlaces.length;
+                    console.log('placeList');
+                    console.log(placeList);
+                    console.log(productPlaces);
+                    console.log(matchingPlaces);
+                    console.log(matchCount > 0);
+                    console.log(period);
+                    console.log(product.period);
+                    console.log(period >= product.period);
 
-                // 겹치는 원소가 있을 경우 배열에 추가
-                if (matchCount > 0) {
-                    filteredProducts.push({ product, matchCount, similarity: matchCount / query.placeList.length });
+                    // 겹치는 원소가 있을 경우 배열에 추가 + 설정한 여행 기간 >= 패키지 상품 기간
+                    if (matchCount > 0 && period >= product.sellingProductPeriod) {
+                        sellingProducts.push({
+                            product,
+                            matchCount,
+                            similarity: matchCount / placeList.length,
+                        });
+                    }
                 }
             });
         } else {
-            return res.status(403).json({ message: 'sellingProductType가 적절한 값이 아닙니다.' });
+            return res.status(403).json({ message: 'type 이 적절한 값이 아닙니다.' });
         }
         // matchCount가 많은 순으로 정렬
-        filteredProducts.sort((a, b) => b.matchCount - a.matchCount);
+        sellingProducts.sort((a, b) => b.matchCount - a.matchCount);
 
         // 총 필터링된 결과 수
-        const resultsLength = filteredProducts.length;
+        const resultsLength = sellingProducts.length;
 
         // 페이지네이션 적용: 필터링된 상품에서 필요한 페이지의 데이터만 추출 (어차피 AI 실행 때 같이 실행하면 한 번에 받아올 수 있음)
-        // const paginatedResults = filteredProducts
+        // const paginatedResults = sellingProducts
         //     .slice((page - 1) * perPage, page * perPage)
         //     .map((item) => item.product);
 
+        if (sellingProducts.length === 0) {
+            return res.status(404).json({ message: '저장된 판매 상품이 없습니다.' });
+        }
+
         //페이지 수를 알 수 있게, 필터링 된 관광지의 총 갯수를 리턴해줌
         res.status(200).json({
-            results: filteredProducts,
+            results: sellingProducts,
             resultsLength: resultsLength,
         });
     } catch (error) {
-        console.error('/sellingProducts/sellingProducts - GET 함수에 문제 발생 : ', error);
+        console.error('/sellingProducts/list - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });
 
-// 2. 판매 상품 링크 클릭 횟수 저장하기
-router.patch('/countLinkClick', async (req, res) => {
+// 2. 판매 상품 링크 클릭 로그 저장하기
+router.patch('/linkClickLog', async (req, res) => {
     try {
-        const { sellingProductId } = req.body;
+        const { sellingProductId, clickLog } = req.body;
 
         //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
         SellingProduct.findOne({ _id: sellingProductId })
@@ -117,18 +142,18 @@ router.patch('/countLinkClick', async (req, res) => {
                     return res.status(404).json({ message: '저장된 판매 상품이 없습니다.' });
                 }
 
-                sellingProduct.sellingProductLinkClickCount += 1;
+                sellingProduct.sellingProductLinkClickLog.push(clickLog);
 
                 await sellingProduct.save();
 
-                res.status(200).json({ message: '판매 상품 링크 클릭 횟수 저장 완료.' });
+                res.status(200).json({ message: '판매 상품 링크 클릭 로그 저장 완료.' });
             })
             .catch((error) => {
                 console.error('SellingProduct.findOne() 함수에 문제 발생 : ', error);
                 res.status(403).json({ message: '잘못된 sellingProductId 입니다.' });
             });
     } catch (error) {
-        console.error('/sellingProduct/save - PATCH 함수에 문제 발생 : ', error);
+        console.error('/sellingProduct/countLinkClick - PATCH 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });
