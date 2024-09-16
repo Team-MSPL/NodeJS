@@ -11,8 +11,8 @@ var _ = require('lodash');
 router.get('/list', async (req, res) => {
     // JWT 토큰 필요 X
     try {
-        const page = req.query.page || 1; // 페이지 번호를 쿼리 매개변수로 받아옵니다.
-        const perPage = 5; // 페이지당 게시물 수
+        //const page = req.query.page || 1; // 페이지 번호를 쿼리 매개변수로 받아옵니다.
+        //const perPage = 5; // 페이지당 게시물 수
 
         // 해당 국가의 모든 판매 상품을 가져옴
         const allProducts = await SellingProduct.find({
@@ -88,14 +88,14 @@ router.get('/list', async (req, res) => {
         // 총 필터링된 결과 수
         const resultsLength = filteredProducts.length;
 
-        // 페이지네이션 적용: 필터링된 상품에서 필요한 페이지의 데이터만 추출
-        const paginatedResults = filteredProducts
-            .slice((page - 1) * perPage, page * perPage)
-            .map((item) => item.product);
+        // 페이지네이션 적용: 필터링된 상품에서 필요한 페이지의 데이터만 추출 (어차피 AI 실행 때 같이 실행하면 한 번에 받아올 수 있음)
+        // const paginatedResults = filteredProducts
+        //     .slice((page - 1) * perPage, page * perPage)
+        //     .map((item) => item.product);
 
         //페이지 수를 알 수 있게, 필터링 된 관광지의 총 갯수를 리턴해줌
         res.status(200).json({
-            results: paginatedResults,
+            results: filteredProducts,
             resultsLength: resultsLength,
         });
     } catch (error) {
