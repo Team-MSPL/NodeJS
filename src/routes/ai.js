@@ -8,6 +8,9 @@ const AI = require('../schemas/ai.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const axios = require('axios');
 
+const url_v1 = 'http://3.39.14.168:8081/ai/run';
+const url_v2 = 'http://3.37.228.174/ai/run';
+
 // 여행 코스 추천
 router.post('/run', async (req, res) => {
     // 클라이언트에서 전달한 JWT 토큰 추출
@@ -21,6 +24,16 @@ router.post('/run', async (req, res) => {
     dotenv.config(); // .env 파일의 환경 변수 로드
 
     const freeTicket = req.body.hasOwnProperty('freeTicket') ? req.body.freeTicket : false;
+
+    const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
+
+    let url = '';
+
+    if (version == 2) {
+        url = url_v2;
+    } else {
+        url = url_v1;
+    }
 
     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
@@ -86,7 +99,7 @@ router.post('/run', async (req, res) => {
             // ai 서버에 요청
             result = await axios({
                 method: 'post',
-                url: 'http://3.39.14.168:8081/ai/run',
+                url: url,
                 data: req.body,
             });
 
