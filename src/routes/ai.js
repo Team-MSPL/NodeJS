@@ -102,8 +102,11 @@ router.post('/run', async (req, res) => {
                 url: url,
                 data: req.body,
             });
-
-            res.json({ status: 'success', data: result.data });
+            if (result.data.hasOwnProperty('resultData')) {
+                res.json({ status: 'success', data: result.data });
+            } else {
+                res.json({ status: 'failed', message: 'failed' });
+            }
             console.log('--- log end ---');
             return;
         } catch (e) {
