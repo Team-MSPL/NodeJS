@@ -17,9 +17,12 @@ router.post('/saveEvent', async (req, res) => {
     try {
         const { eventImage, eventEndDate } = req.body;
 
+        const eventLink = req.body.eventLink || '';
+
         const newEvent = new Event({
             eventImage: eventImage,
             eventEndDate: eventEndDate,
+            eventLink: eventLink,
         });
 
         const savedEvent = await newEvent.save();
