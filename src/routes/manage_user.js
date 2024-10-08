@@ -119,6 +119,48 @@ router.get('/sumUseTokenTime', async (req, res) => {
     }
 });
 
+// 탈퇴 사유  확인하기
+router.get('/checkWithdrawReasonList', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        // 1. 탈퇴 사유별 개수 구하기
+        const reasonCounts = await ManageUser.aggregate([
+            {
+                $unwind: '$withdrawReasonList', // 배열을 펼쳐 각 값을 개별 문서로 생성
+            },
+            {
+                $group: {
+                    _id: '$withdrawReasonList', // 각 사유별로 그룹화
+                    count: { $sum: 1 }, // 각 사유의 발생 횟수 카운트
+                },
+            },
+            {
+                $sort: { count: -1 }, // 선택사항: 가장 빈번한 사유부터 내림차순 정렬
+            },
+        ]);
+
+        // 2. withdrawReasonList 값이 1개 이상 있는 문서 개수 구하기
+        const docsWithReasonsCount = await ManageUser.countDocuments({
+            withdrawReasonList: { $exists: true, $not: { $size: 0 } }, // 배열이 존재하고, 크기가 0이 아닌 문서
+        });
+
+        // 결과를 함께 반환
+        res.json({
+            reasonCounts,
+            docsWithReasonsCount,
+        });
+    } catch (error) {
+        console.error('/manageUser/checkWithdrawReasonList - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'leternal server error' });
+    }
+});
+
 // 댓글 신고하기
 router.post('/reportComment', async (req, res) => {
     // 클라이언트에서 전달한 JWT 토큰 추출
