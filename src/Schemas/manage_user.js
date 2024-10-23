@@ -63,6 +63,11 @@ const manageUserSchema = new Schema({
         type: [String], // 자료형
         default: [],
     },
+    //탈퇴 시간사유
+    withdrawDate: {
+        type: Date,
+        default: new Date('2024-01-01'),
+    },
 });
 
 module.exports = mongoose.model('ManageUser', manageUserSchema);

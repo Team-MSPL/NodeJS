@@ -327,6 +327,11 @@ router.delete('/withdraw', async (req, res) => {
             //ManageUser에 유저 정보 남겨두기
             await ManageUser.findOne({ userId: userId })
                 .then(async (manageUser) => {
+                    const now = new Date(); // 현재 날짜 및 시간
+                    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+                    const koreaTimeDiff = 9 * 60 * 60 * 1000;
+                    const korNow = new Date(utc + koreaTimeDiff);
+
                     if (!manageUser) {
                         // 없으면 새로 만들어야함 - 회원가입때 manageUser 만드는 로직을 만들기 전에 가입하여, 기능을 한 번도 안썼으면 이 객체가 없음
 
@@ -337,6 +342,7 @@ router.delete('/withdraw', async (req, res) => {
                             noteList: user.noteList,
                             blockUserList: user.blockUserList,
                             withdrawReasonList: withdrawReasonList,
+                            withdrawDate: korNow,
                         });
 
                         await newManageUser.save();
@@ -347,6 +353,7 @@ router.delete('/withdraw', async (req, res) => {
                         manageUser.noteList = user.noteList;
                         manageUser.blockUserList = user.blockUserList;
                         manageUser.withdrawReasonList = [...manageUser.withdrawReasonList, ...withdrawReasonList];
+                        manageUser.withdrawDate = korNow;
 
                         await manageUser.save();
                     }
