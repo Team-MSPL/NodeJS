@@ -6,6 +6,11 @@ require('dotenv').config();
 
 var _ = require('lodash');
 
+// 문자열에서 괄호와 그 안의 내용을 제거하는 함수
+function removeParentheses(str) {
+    return str.replace(/\s*\(.*?\)\s*/g, '').trim();
+}
+
 // 판매 상품 목록 가져오기 ( 5개씩 )
 // 프론트에서 다이어로그를 띄우기 전에 먼저 이 API를 쏘고, 결과가 있으면 띄움 ( AI 실행 로딩 때 같이 쏘면 될듯 )
 router.get('/list', async (req, res) => {
@@ -51,8 +56,14 @@ router.get('/list', async (req, res) => {
                         sellingProducts.push({ product, matchCount: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     }
                 } else {
-                    // query.placeList 와 겹치는 원소 찾기
-                    const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
+                    // // query.placeList 와 겹치는 원소 찾기
+                    // const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
+
+                    // query.placeList와 겹치는 원소 찾기 (괄호 제외 후 완전 일치)
+                    const matchingPlaces = productPlaces.filter((place) =>
+                        placeList.some((queryPlace) => removeParentheses(place) === removeParentheses(queryPlace))
+                    );
+
                     const matchCount = matchingPlaces.length;
 
                     // 겹치는 원소가 있을 경우 배열에 추가 + type이 투어 상품인 경우만
@@ -87,8 +98,14 @@ router.get('/list', async (req, res) => {
                         sellingProducts.push({ product, matchCount: -1, similarity: -1 }); // matchCount: Infinity로 수정하면 배열의 맨 앞으로 옮길 수 있음
                     }
                 } else {
-                    // query.placeList 와 겹치는 원소 찾기
-                    const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
+                    // // query.placeList 와 겹치는 원소 찾기
+                    // const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
+
+                    // query.placeList와 겹치는 원소 찾기 (괄호 제외 후 완전 일치)
+                    const matchingPlaces = productPlaces.filter((place) =>
+                        placeList.some((queryPlace) => removeParentheses(place) === removeParentheses(queryPlace))
+                    );
+
                     const matchCount = matchingPlaces.length;
 
                     // similarity 는 두 경우 중 높은 쪽으로 넣기
