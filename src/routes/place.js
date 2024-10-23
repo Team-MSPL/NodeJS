@@ -6,6 +6,7 @@ var { writeReviewOnPlace, deleteReviewOnPlace } = require('./firebase/firebase_w
 var { googleKeywordApi } = require('./firebase/google_place_api.js');
 var { googleGeoApi } = require('./google_geo_place_api.js');
 const RecommendPlace = require('../schemas/recommend_place.js');
+const ManageTravel = require('../schemas/manage_travel.js');
 const router = express.Router();
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
@@ -95,7 +96,24 @@ router.patch('/savePlaceReview', async (req, res) => {
                 reviewPhotoList: reviewPhotoList,
                 reviewId: reviewId,
             });
-            console.log(result);
+
+            // 몽고 DB에도 저장
+            const newReview = new ManageTravel({
+                userId: decoded._id,
+                travelId: name,
+                review: reviewContent,
+                point: -1,
+                tendencyPoint: [[]],
+                region: region,
+                day: [],
+                nDay: -1,
+                tendency: [[]],
+                timetable: [[]],
+                photoList: reviewPhotoList,
+            });
+
+            //DB에 저장
+            await newReview.save();
 
             if (result.status === 'success') {
                 return res.status(200).json({ message: '관광지 리뷰 추가 성공.' });

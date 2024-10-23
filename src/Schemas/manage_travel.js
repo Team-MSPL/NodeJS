@@ -73,6 +73,11 @@ const manageTravelSchema = new Schema({
             ],
         ],
     },
+    //여행 사진 - 여행지 리뷰에 사용
+    photoList: {
+        type: [String],
+        default: [],
+    },
 });
 
 module.exports = mongoose.model('ManageTravel', manageTravelSchema);
