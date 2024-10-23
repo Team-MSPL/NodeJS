@@ -8,7 +8,7 @@ var _ = require('lodash');
 
 // 문자열에서 괄호와 그 안의 내용을 제거하는 함수
 function removeParentheses(str) {
-    return str.replace(/\s*\(.*?\)\s*/g, '').trim();
+    return str.replace(/\(.*$/g, '').trim();
 }
 
 // 판매 상품 목록 가져오기 ( 5개씩 )
