@@ -1,0 +1,7 @@
+로그 보기
+cd ~/.pm2/logs
+cat ~~~~
+
+
+로그 초기화
+pm2 flush

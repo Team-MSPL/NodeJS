@@ -200,6 +200,9 @@ router.post('/saveAI', async (req, res) => {
                 bestPointList,
             } = req.body;
 
+            let presetCopy = preset.map((item, index) =>
+                item.map((value, idx) => value.map(({ id, key, ...rest }) => rest))
+            );
             const newAI = new AI({
                 userId: decoded._id,
                 travelName: travelName,
@@ -209,7 +212,7 @@ router.post('/saveAI', async (req, res) => {
                 nDay: nDay,
                 day: day,
                 transit: transit,
-                preset: preset,
+                preset: presetCopy,
                 enoughPlace: enoughPlace,
                 bestPointList: bestPointList,
             });
@@ -219,7 +222,7 @@ router.post('/saveAI', async (req, res) => {
             res.status(201).json({ aiId: savedAI._id });
         });
     } catch (error) {
-        console.error('/AI/saveAI - POST 함수에 문제 발생 : ', error);
+        //console.error('/AI/saveAI - POST 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });

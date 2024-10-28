@@ -4,7 +4,7 @@ var { readOneRegion } = require('./firebase/firebase_read_region.js');
 var { readOnePlaceInfo } = require('./firebase/firebase_read_place_info.js');
 var { writeReviewOnPlace, deleteReviewOnPlace } = require('./firebase/firebase_write.js');
 var { googleKeywordApi } = require('./firebase/google_place_api.js');
-var { googleGeoApi } = require('./google_geo_place_api.js');
+//var { googleGeoApi } = require('./google_geo_place_api.js');
 const RecommendPlace = require('../schemas/recommend_place.js');
 const ManageTravel = require('../schemas/manage_travel.js');
 const router = express.Router();
@@ -268,38 +268,38 @@ router.get('/regionInfo', async (req, res) => {
     }
 });
 
-// 장소 위도 경도 확인
-router.get('/placeGeoInfo', async (req, res) => {
-    // 클라이언트에서 전달한 JWT 토큰 추출
-    const token = req.header('Authorization').split(' ')[1];
+// // 장소 위도 경도 확인
+// router.get('/placeGeoInfo', async (req, res) => {
+//     // 클라이언트에서 전달한 JWT 토큰 추출
+//     const token = req.header('Authorization').split(' ')[1];
 
-    // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
+//     // JWT 토큰 검증
+//     dotenv.config(); // .env 파일의 환경 변수 로드
 
-    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
-        if (err) {
-            console.error('JWT 토큰 검증 에러:', err);
-            return res.status(401).json({ message: 'Unauthorized' });
-        }
+//     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+//         if (err) {
+//             console.error('JWT 토큰 검증 에러:', err);
+//             return res.status(401).json({ message: 'Unauthorized' });
+//         }
 
-        try {
-            const region = req.query.region;
-            const name = req.query.name;
+//         try {
+//             const region = req.query.region;
+//             const name = req.query.name;
 
-            result = await googleGeoApi({
-                name,
-                region,
-            });
-            if (result.status === 'failed') {
-                return res.status(404).json({ message: '장소 정보가 없습니다.' });
-            } else {
-                return res.status(201).json(result);
-            }
-        } catch (error) {
-            console.error('/place/placeGeoInfo - GET 함수에 문제 발생 : ', error);
-            res.status(500).json({ message: 'Internal server error' });
-        }
-    });
-});
+//             result = await googleGeoApi({
+//                 name,
+//                 region,
+//             });
+//             if (result.status === 'failed') {
+//                 return res.status(404).json({ message: '장소 정보가 없습니다.' });
+//             } else {
+//                 return res.status(201).json(result);
+//             }
+//         } catch (error) {
+//             console.error('/place/placeGeoInfo - GET 함수에 문제 발생 : ', error);
+//             res.status(500).json({ message: 'Internal server error' });
+//         }
+//     });
+// });
 
 module.exports = router;
