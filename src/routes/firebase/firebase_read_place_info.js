@@ -4,7 +4,12 @@ const User = require('../../schemas/user.js');
 async function readOnePlaceInfo(region, name) {
     let placeInfoData = {};
     try {
-        const documentPath = '관광지 정보/관광지 정보/' + region + '/' + name;
+        let documentPath = '';
+        if (region.startsWith('해외')) {
+            documentPath = region + '/관광지 정보/관광지 정보/' + name;
+        } else {
+            documentPath = '관광지 정보/관광지 정보/' + region + '/' + name;
+        }
 
         // Firestore에서 데이터 읽기
         const onePlaceSnapshot = await database.doc(documentPath).get();

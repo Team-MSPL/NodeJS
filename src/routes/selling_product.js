@@ -64,14 +64,14 @@ router.get('/list', async (req, res) => {
                     // // query.placeList 와 겹치는 원소 찾기
                     // const matchingPlaces = productPlaces.filter((place) => placeList.includes(place));
 
-                    console.log(placeList[0]);
+                    //console.log(placeList[0]);
 
                     // query.placeList와 겹치는 원소 찾기 (괄호 제외 + 공백 제외 후 완전 일치)
                     const matchingPlaces = productPlaces.filter((place) =>
                         placeList.some((queryPlace) => normalizePlaceName(place) === normalizePlaceName(queryPlace))
                     );
 
-                    console.log(normalizePlaceName(placeList[0]));
+                    //console.log(normalizePlaceName(placeList[0]));
                     const matchCount = matchingPlaces.length;
 
                     // 겹치는 원소가 있을 경우 배열에 추가 + type이 투어 상품인 경우만
@@ -127,7 +127,7 @@ router.get('/list', async (req, res) => {
                         sellingProducts.push({
                             product,
                             matchCount,
-                            similarity: matchCount / placeList.length,
+                            similarity: similarity,
                         });
                     }
                 }
