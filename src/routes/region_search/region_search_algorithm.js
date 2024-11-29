@@ -15,7 +15,7 @@ async function dataLoading(version, country) {
 
     if (version === 1) {
         collectionName = '전국 여행 지역';
-    } else if (country === 'korea') {
+    } else if (country === 'Korea') {
         collectionName = '전국 여행 지역 ver2';
     } else {
         collectionName = '전국 여행 지역 ver2/해외/' + country;
@@ -37,13 +37,12 @@ async function dataLoadingPopularPlace(cityList, country) {
     let placeListInTopRankRegion = [];
 
     for (let j = 0; j < cityList.length; j++) {
-        if (country === 'korea') {
+        if (country === 'Korea') {
             region = cityList[j];
         } else {
             region = '해외/' + country + '/' + cityList[j];
         }
-
-        await readAllPlace(region, false, j)
+        await readAllPlace(region.trim(), false, j)
             .then((res) => {
                 placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
             })
@@ -172,7 +171,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
         if (
             item.popular >= selectPopular[0] &&
             item.popular <= selectPopular[1] &&
-            distance2 <= distanceSensitivity * 50
+            (distance2 <= distanceSensitivity * 50 || country !== 'Korea') // 한국일 때 빼고는 distanceSensitivity 안쓰게
         ) {
             regionPointList.push({
                 name: item.name,
@@ -201,6 +200,8 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     });
 
     regionPointList = regionPointList.sort((a, b) => b.point - a.point);
+
+    console.log(regionPointList);
 
     let result = [];
 
@@ -282,7 +283,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
         }
 
         //해외의 경우 앞의 지역 범주명을 삭제
-        if (country !== 'korea') {
+        if (country !== 'Korea') {
             const match = topPankRegion.name.match(/!(.*)/);
             topPankRegion.name = match ? match[1] : topPankRegion.name;
         }
@@ -300,8 +301,10 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
                     topPankRegion.name + ' 서남권',
                     topPankRegion.name + ' 서북권',
                 ];
-            } else {
+            } else if (country === 'Korea') {
                 cityList = [topPankRegion.name + ' 전체'];
+            } else {
+                cityList = [topPankRegion.name];
             }
         } else if (topPankRegion.name === '제주도') {
             cityList = [topPankRegion.name + ' 제주시', topPankRegion.name + ' 서귀포시'];

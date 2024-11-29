@@ -24,7 +24,7 @@ router.post('/run', async (req, res) => {
         try {
             const { selectList, selectPopular, recentPosition, distanceSensitivity } = req.body;
 
-            const country = req.body.hasOwnProperty('country') ? req.body.country : 'korea';
+            const country = req.body.hasOwnProperty('country') ? req.body.country : 'Korea';
 
             const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
 
