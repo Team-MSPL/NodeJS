@@ -24,9 +24,11 @@ router.post('/run', async (req, res) => {
         try {
             const { selectList, selectPopular, recentPosition, distanceSensitivity } = req.body;
 
-            console.log('--- log start ---');
+            const country = req.body.hasOwnProperty('country') ? req.body.country : 'korea';
 
             const version = req.body.hasOwnProperty('version') ? req.body.version : 1;
+
+            console.log('--- log start ---');
 
             // 파싱된 데이터를 이용하여 처리 로직 수행
 
@@ -41,6 +43,7 @@ router.post('/run', async (req, res) => {
                         recentPosition: recentPosition,
                         distanceSensitivity: distanceSensitivity,
                         version: version,
+                        country: country,
                     },
                 }
             );
@@ -56,7 +59,7 @@ router.post('/run', async (req, res) => {
                         error: '추천드릴 수 있는 지역이 없습니다. 지역의 인기도와 여행 반경을 재설정 후, 다시 시도해주세요.',
                     });
                 } else {
-                    await countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity);
+                    await countLog(decoded, selectList, selectPopular, recentPosition, distanceSensitivity, country);
                     res.json(message.result);
                 }
             });

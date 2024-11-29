@@ -8,15 +8,17 @@ var count = [0, 0, 0, 0, 0]; //selectList 선택 개수 저장 배열
 var countNum = 0; // 한 줄당 count 총 갯수
 
 //Step 1. Data Loading
-async function dataLoading(version) {
+async function dataLoading(version, country) {
     let regionList = []; // reset the list
 
     let collectionName;
 
     if (version === 1) {
         collectionName = '전국 여행 지역';
-    } else {
+    } else if (country === 'korea') {
         collectionName = '전국 여행 지역 ver2';
+    } else {
+        collectionName = '전국 여행 지역 ver2/해외/' + country;
     }
 
     await readAllRegion(collectionName)
@@ -29,6 +31,28 @@ async function dataLoading(version) {
         });
 
     return regionList;
+}
+
+async function dataLoadingPopularPlace(cityList, country) {
+    let placeListInTopRankRegion = [];
+
+    for (let j = 0; j < cityList.length; j++) {
+        if (country === 'korea') {
+            region = cityList[j];
+        } else {
+            region = '해외/' + country + '/' + cityList[j];
+        }
+
+        await readAllPlace(region, false, j)
+            .then((res) => {
+                placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
+            })
+            .catch((err) => {
+                console.log(err);
+            });
+    }
+
+    return placeListInTopRankRegion;
 }
 
 // 지역 점수 계산 프로세스
@@ -104,7 +128,7 @@ function distance(departure, arrival) {
 }
 
 //RegionSearch를 실행시키는 비동기 함수
-async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition, version) {
+async function regionSearch(selectList, selectPopular, distanceSensitivity, recentPosition, version, country) {
     console.log('여행 지역 알고리즘 시작!');
     let recentPositionFlag = false;
     if (recentPosition.lat !== 0 || recentPosition.lng !== 0) {
@@ -118,7 +142,7 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
     const startTime = performance.now();
 
     //데이터 로딩
-    let regionList = await dataLoading(version);
+    let regionList = await dataLoading(version, country);
     console.log('전체 지역 수', regionList.length);
 
     //selectList 선순회 - placePoint에서 평균 구할 때 사용 - 내부에서 계산하면 시간 오래 걸리니까
@@ -257,6 +281,12 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
             }
         }
 
+        //해외의 경우 앞의 지역 범주명을 삭제
+        if (country !== 'korea') {
+            const match = topPankRegion.name.match(/!(.*)/);
+            topPankRegion.name = match ? match[1] : topPankRegion.name;
+        }
+
         //지역의 인기 관광지 저장
         let cityList = [];
         if (topPankRegion.name.length === 2) {
@@ -279,18 +309,8 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
             cityList = [topPankRegion.name];
         }
 
-        let placeListInTopRankRegion = [];
-
         //지역 내 관광지 읽어오기
-        for (let j = 0; j < cityList.length; j++) {
-            await readAllPlace(cityList[j], false, j)
-                .then((res) => {
-                    placeListInTopRankRegion = [...placeListInTopRankRegion, ...res];
-                })
-                .catch((err) => {
-                    console.log(err);
-                });
-        }
+        let placeListInTopRankRegion = await dataLoadingPopularPlace(cityList, country);
 
         //popular 순으로 재배열 ( 내림차순? - 확인 필요 )
         placeListInTopRankRegion = placeListInTopRankRegion.sort((a, b) => b.popular - a.popular);
@@ -355,7 +375,8 @@ if (isMainThread) {
         workerData.selectPopular,
         workerData.distanceSensitivity,
         workerData.recentPosition,
-        workerData.version
+        workerData.version,
+        workerData.country
     );
 }
 

@@ -30,6 +30,10 @@ const regionSearchLogSchema = new Schema({
     distanceSensitivity: {
         type: Number,
     },
+    // 국가
+    country: {
+        type: String,
+    },
 });
 
 module.exports = mongoose.model('RegionSearchLog', regionSearchLogSchema);
