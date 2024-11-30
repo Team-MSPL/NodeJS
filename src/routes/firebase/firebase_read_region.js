@@ -22,7 +22,7 @@ async function readAllRegion(collectionName) {
             let play = item.play;
             let tour = item.tour;
             let season = item.season;
-            let photo = item.photo;
+            let photo = Array.isArray(item.photo) ? item.photo[0] : item.photo;
             let regionData = {
                 name: name,
                 lat: latitude,
