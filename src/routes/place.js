@@ -57,6 +57,7 @@ router.get('/placeInfo', async (req, res) => {
             //파베에서 정상적으로 불러오지 못 했을 경우 - 구글 Place API
             else {
                 result = await googleKeywordApi({
+                    region: region,
                     name: name,
                     lat: lat,
                     lng: lng,

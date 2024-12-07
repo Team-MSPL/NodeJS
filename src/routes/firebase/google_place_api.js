@@ -8,9 +8,36 @@ const axiosGoogle = axios.create({
 
 async function getPlaceID(place) {
     let placeID;
+    let country;
+    let region;
+    let name;
+
+    // https://en.wikipedia.org/wiki/Country_code_top-level_domain#Lists
+    const COUNTRY_TO_REGION = {
+        Korea: 'kr',
+        Japan: 'jp',
+        China: 'cn',
+        Philippines: 'ph',
+        Thailand: 'th',
+        Vietnam: 'vn',
+        Singapore: 'sg',
+    };
+    if (place.region.startsWith('해외')) {
+        // 입력값에서 나라 추출
+        const parts = place.region.split('/');
+
+        // 나라에 해당하는 region 값 찾기
+        region = COUNTRY_TO_REGION[parts[1] || 'Korea'];
+        country = parts[1];
+        name = place.name + ', ' + parts[2];
+    } else {
+        region = 'kr';
+        country = 'Korea';
+        name = place.name;
+    }
 
     const response = await axiosGoogle.get(
-        `/place/textsearch/json?location=${place.lng}%2C${place.lat}&query=${place.name}&language=ko&radius=10000&key=${process.env.GOOGLE_API_KEY}`
+        `/place/textsearch/json?location=${place.lng}%2C${place.lat}&query=${name}&language=ko&region=${region}&radius=10000&key=${process.env.GOOGLE_API_KEY}`
     );
 
     if (response.statusCode < 200 || response.statusCode > 400) {
@@ -18,7 +45,12 @@ async function getPlaceID(place) {
     } else if (response.data.status === 'ZERO_RESULTS') {
         placeID = ''; // Error 반환
     } else {
-        placeID = response.data.results[0].place_id;
+        const filteredResults = response.data.results.filter((result) => result.formatted_address.includes(country));
+        if (filteredResults.length > 0) {
+            placeID = filteredResults[0].place_id;
+        } else {
+            placeID = response.data.results[0].place_id;
+        }
     }
     return placeID;
 }

@@ -201,8 +201,6 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
 
     regionPointList = regionPointList.sort((a, b) => b.point - a.point);
 
-    console.log(regionPointList);
-
     let result = [];
 
     //여행 지역 성향
