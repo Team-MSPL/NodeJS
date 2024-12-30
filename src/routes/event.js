@@ -54,4 +54,25 @@ router.get('/eventList', async (req, res) => {
     }
 });
 
+// 이벤트 로그 기록 - 클릭하면 True, 닫기나 오늘 안보기는 False
+router.patch('/loggingEvent', async (req, res) => {
+    try {
+        const { eventId, eventLog } = req.body;
+
+        let event = await Event.findOne({ _id: eventId }).catch((error) => {
+            console.error('Event.findOne() 함수에 문제 발생 : ', error);
+            res.status(403).json({ message: '잘못된 eventId 입니다.' });
+        });
+
+        event.eventClickLog.push(eventLog);
+
+        await event.save();
+
+        res.status(200).json({ message: '이벤트 로그 기록 완료' });
+    } catch (error) {
+        console.error('/event/loggingEvent - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 module.exports = router;

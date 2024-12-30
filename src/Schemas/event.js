@@ -19,6 +19,11 @@ const eventSchema = new Schema({
         type: String,
         default: '',
     },
+    //이벤트 클릭 로그
+    eventClickLog: {
+        type: [Boolean],
+        default: [],
+    },
 });
 
 module.exports = mongoose.model('Event', eventSchema);
