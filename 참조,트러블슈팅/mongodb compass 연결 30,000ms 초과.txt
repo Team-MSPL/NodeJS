@@ -1,0 +1,2 @@
+용량 문제
+용량 비우고 systemctl restart mongod

@@ -37,7 +37,7 @@ async function getPlaceID(place) {
     }
 
     const response = await axiosGoogle.get(
-        `/place/textsearch/json?location=${place.lng}%2C${place.lat}&query=${name}&language=ko&region=${region}&radius=10000&key=${process.env.GOOGLE_API_KEY}`
+        `/place/textsearch/json?location=${place.lng}%2C${place.lat}&query=${name}&language=ko&region=${region}&radius=100&key=${process.env.GOOGLE_API_KEY}`
     );
 
     if (response.statusCode < 200 || response.statusCode > 400) {

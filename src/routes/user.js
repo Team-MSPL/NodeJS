@@ -596,6 +596,46 @@ router.get('/retention', async (req, res, next) => {
     res.json({ retentionUserNum: usersWithLargeInterval.length, retentionUserList: usersWithLargeInterval });
 });
 
+// 10. 쪽지함 내용 수정하기 - 읽은 쪽지인지 확인하기 위함. ( 기존에 String 배열로 해두어서, 이를 바꾸려면 기존에 쏜 쪽지 데이터도 다 바꿔야 함 )
+// noteCheckList 라는 [Boolean]을 만들기엔 DB 낭비임. 그래서 기존 문자열에 변형을 주는 방식으로 제작
+router.patch('/modifyNoteList', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { modifiedNoteList } = req.body;
+
+            //분해 하고, 나온 id로
+            // Update the travel functionToken
+            User.findOne({ _id: decoded._id })
+                .then(async (profile) => {
+                    if (!profile) {
+                        console.log(profile);
+                        return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+                    }
+
+                    // 새 배열로 수정
+                    profile.noteList = modifiedNoteList;
+
+                    await profile.save();
+                    res.status(200).json({ message: '쪽지 수정 완료.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 입력입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/modifyNoteList - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 // ms를 mm월 dd일 hh시간 mm분 형식으로 변환하는 함수
 function formatInterval(ms) {
     const seconds = Math.floor(ms / 1000);

@@ -1,0 +1,7 @@
+MongoDB - 몽구스는 내가 자체적으로 ec2상에서 로컬 용량 써서 하는거라 무료임
+따라서, ec2 로컬 용량만 확보하면 됨
+
+로컬 용량이 t3.medium 기준으로 8기가, 이걸 알림 설정 해두고 로그들 지워서 용량 늘려야 함
+
+용량 알림 받는 법
+https://systorage.tistory.com/entry/AWS-CloudWatch%EB%A1%9C-EC2-%EB%94%94%EC%8A%A4%ED%81%AC-%EC%82%AC%EC%9A%A9%EB%9F%89-%EB%AA%A8%EB%8B%88%ED%84%B0%EB%A7%81-%EB%B0%8F-%EC%95%8C%EB%A6%BC%EB%B0%9B%EA%B8%B0#AWS%20EC2%20%EC%9D%B8%EC%8A%A4%ED%84%B4%EC%8A%A4%EC%97%90%20CloudWatch%EB%A5%BC%20%EB%B6%99%EC%9D%B4%EB%8A%94%20%EB%B0%A9%EB%B2%95-1
