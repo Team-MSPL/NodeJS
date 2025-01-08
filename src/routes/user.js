@@ -299,30 +299,30 @@ router.delete('/withdraw', async (req, res) => {
             // 사용자의 travelCourse 데이터 삭제
             await TravelCourse.deleteMany({ userId: userId });
 
-            if (signUpFirebase) {
-                try {
-                    // 파이어베이스에서 사용자 인증 정보 삭제 - 이건 firebase-admin써야함
-                    const auth = admin.auth();
+            // if (signUpFirebase) {
+            //     try {
+            //         // 파이어베이스에서 사용자 인증 정보 삭제 - 이건 firebase-admin써야함
+            //         const auth = admin.auth();
 
-                    // 사용자 삭제
-                    auth.deleteUser(user.userToken)
-                        .then(() => {
-                            console.log(`Successfully deleted user with UID: ${user.userToken}`);
-                        })
-                        .catch((error) => {
-                            console.error('Error deleting user:', error);
-                            res.status(405).json({
-                                message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
-                            });
-                            return;
-                        });
-                } catch (error) {
-                    console.error('Error deleting user:', error);
-                    res.status(405).json({
-                        message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
-                    });
-                }
-            }
+            //         // 사용자 삭제
+            //         auth.deleteUser(user.userToken)
+            //             .then(() => {
+            //                 console.log(`Successfully deleted user with UID: ${user.userToken}`);
+            //             })
+            //             .catch((error) => {
+            //                 console.error('Error deleting user:', error);
+            //                 res.status(405).json({
+            //                     message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
+            //                 });
+            //                 return;
+            //             });
+            //     } catch (error) {
+            //         console.error('Error deleting user:', error);
+            //         res.status(405).json({
+            //             message: '회원 탈퇴는 완료되었으나, Firebase에서 사용자를 찾을 수 없습니다.',
+            //         });
+            //     }
+            // }
 
             //ManageUser에 유저 정보 남겨두기
             await ManageUser.findOne({ userId: userId })
