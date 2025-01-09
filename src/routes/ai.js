@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const ManageUser = require('../schemas/manage_user.js');
 const RecommendPlace = require('../schemas/recommend_place.js');
 const AI = require('../schemas/ai.js');
+const AIRecommendPlaceLog = require('../schemas/ai_recommend_place_log.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const axios = require('axios');
 
@@ -133,6 +134,54 @@ async function runWorkerThread(workerData) {
         });
     });
 }
+
+// 여행 추천 장소 리스트
+router.post('/recommendPlace', async (req, res) => {
+    // 클라이언트에서 전달한 JWT 토큰 추출
+
+    let url_recommend_place = 'http://3.37.228.174/ai/recommendPlace';
+
+    console.log('--- log start - recommendPlace ---');
+
+    let result = null;
+
+    // 로그 남겨두기
+    try {
+        const newAIRecommendPlaceLog = new AIRecommendPlaceLog({
+            userId: req.body.hasOwnProperty('userId') ? req.body.userId : 'unknown',
+            region: req.body.regionList,
+            transit: req.body.transit,
+            tendency: req.body.selectList,
+            distanceSensitivity: req.body.distanceSensitivity,
+            bandwidth: req.body.bandwidth,
+            lat: req.body.lat,
+            lng: req.body.lng,
+            password: req.body.password,
+        });
+        await newAIRecommendPlaceLog.save();
+        console.log('로그 기록 완료');
+    } catch (e) {
+        console.log(e);
+        console.log('AI 장소 추천 로그 기록 중 에러 발생');
+    }
+
+    try {
+        // ai 서버에 요청
+        result = await axios({
+            method: 'post',
+            url: url_recommend_place,
+            data: req.body,
+        });
+        res.json(result.data);
+        console.log('--- log end - recommendPlace ---');
+        return;
+    } catch (e) {
+        console.log(e);
+        res.json({ status: 'failed', message: 'failed' });
+        console.log('--- log end - recommendPlace ---');
+        return;
+    }
+});
 
 // AI 결과 목록 불러오기
 router.get('/aiList', async (req, res) => {

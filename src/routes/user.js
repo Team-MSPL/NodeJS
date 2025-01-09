@@ -213,7 +213,7 @@ router.post('/signUpAndIn', async (req, res) => {
             });
         }
     } catch (error) {
-        console.log(req.body);
+        console.error(req.body);
         console.error('/users - POST 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
     }

@@ -23,21 +23,21 @@ router.post('/reviewAndPoint', async (req, res) => {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
+        let saveTravelCourse;
+
         // JWT 토큰 검증 성공 시 요청 처리
         try {
             const { travelId, review, point, tendencyPoint } = req.body;
 
             //TravelCourse 스키마에서 리뷰 유무 업데이트
 
-            let saveTravelCourse = await TravelCourse.findOneAndUpdate({ _id: travelId }, { reviewCheck: true }).catch(
+            saveTravelCourse = await TravelCourse.findOneAndUpdate({ _id: travelId }, { reviewCheck: true }).catch(
                 (error) => {
                     console.error('TravelCourse.findOneAndUpdate() 함수에 문제 발생 : ', error);
                     res.status(403).json({ message: '잘못된 travelId 입니다.' });
                     return;
                 }
             );
-
-            console.log(saveTravelCourse);
 
             // 여행 코스에 대한 별점과 리뷰 정보 저장
             const newReview = new ManageTravel({
@@ -67,6 +67,7 @@ router.post('/reviewAndPoint', async (req, res) => {
             //내가 찾아서 하는게 아니라, 클라이언트에서 보내주는 것이 맞다
             // TravelCourse.findOne({ _id: travelId })
         } catch (error) {
+            console.error(saveTravelCourse);
             console.error('/ManageTravel/reviewAndPoint - POST 함수에 문제 발생 : ', error);
             res.status(500).json({ message: 'leternal server error' });
         }
