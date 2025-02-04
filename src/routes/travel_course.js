@@ -311,7 +311,8 @@ router.delete('/deleteTravelCourse', async (req, res) => {
                 //삭제하려는 유저가 주 소유자인 경우
                 if (decoded._id.toString() === deletedTravelCourse.userId) {
                     //공유자 리스트 맨 뒤에 있던 사람이 주소유자가 됨 ( 어차피 누가 주소유자인지 유저는 알 방법이 없고, 영향도 없음 )
-                    deletedTravelCourse.userId = sharedUserList.at(-1);
+                    deletedTravelCourse.userId = deletedTravelCourse.sharedUserList.at(-1);
+                    deletedTravelCourse.sharedUserList.pop();
                     await deletedTravelCourse.save();
                     res.status(201).json({ message: '여행 코스 주소유자 변경 완료.' });
                 }
