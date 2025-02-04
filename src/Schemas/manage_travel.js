@@ -24,7 +24,7 @@ const manageTravelSchema = new Schema({
     travelId: {
         type: String, // 자료형
         required: true, // 필수 여부
-        unique: true, // 고유 값
+        //unique: true, // 고유 값 - 공유자도 리뷰를 남길 수가 있어서
     },
     review: {
         type: String, // 자료형

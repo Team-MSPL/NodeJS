@@ -138,6 +138,9 @@ router.get('/checkWithdrawReasonList', async (req, res) => {
                 $group: {
                     _id: '$withdrawReasonList', // 각 사유별로 그룹화
                     count: { $sum: 1 }, // 각 사유의 발생 횟수 카운트
+                    time: {
+                        $push: { $ifNull: ['$withdrawDate', '1980-01-08T11:16:00.000Z'] }, // 기본값 설정
+                    },
                 },
             },
             {
