@@ -10,7 +10,9 @@ async function getPlaceGeo(place) {
     let placeGeo;
 
     const response = await axiosGoogle.get(
-        `/place/findplacefromtext/json?input=${place.region}${place.name}&inputtype=textquery&fields=formatted_address%2Cname%2Cgeometry&key=${process.env.GOOGLE_API_KEY}`
+        `/place/findplacefromtext/json?input=${encodeURIComponent(
+            place.region + ' ' + place.name
+        )}&inputtype=textquery&fields=formatted_address%2Cname%2Cgeometry&key=${process.env.GOOGLE_API_KEY}`
     );
 
     if (response.statusCode < 200 || response.statusCode > 400) {
@@ -18,7 +20,7 @@ async function getPlaceGeo(place) {
     } else if (response.data.status === 'ZERO_RESULTS') {
         placeGeo = { lat: 0.0, lng: 0.0 }; // Error 반환
     } else {
-        placeGeo = response.data.candidates[0]?.geometry?.location;
+        placeGeo = response.data.candidates[0];
     }
     return placeGeo;
 }

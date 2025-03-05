@@ -30,6 +30,7 @@ router.get('/placeInfo', async (req, res) => {
             const name = req.query.name;
             const lat = req.query.lat;
             const lng = req.query.lng;
+            const version = req.query.version || ''; // "startPoint" 로 오면 시작점인 공항, 역 탐색 - 다른방식으로 수정함 일단
 
             let result = await readOnePlaceInfo(region, name);
 
@@ -61,6 +62,7 @@ router.get('/placeInfo', async (req, res) => {
                     name: name,
                     lat: lat,
                     lng: lng,
+                    version: version,
                 });
                 console.log(result);
                 if (result.status === 'failed') {
