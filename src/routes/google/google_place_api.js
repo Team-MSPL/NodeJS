@@ -36,9 +36,15 @@ async function getPlaceID(place) {
         name = place.name;
     }
 
-    const response = await axiosGoogle.get(
-        `/place/textsearch/json?location=${place.lng}%2C${place.lat}&query=${name}&language=ko&region=${region}&radius=100&key=${process.env.GOOGLE_API_KEY}`
-    );
+    let searchText = '';
+
+    if (place.lat && place.lng) {
+        searchText = `/place/textsearch/json?location=${place.lat}%2C${place.lng}&query=${name}&language=ko&region=${region}&radius=100&key=${process.env.GOOGLE_API_KEY}`;
+    } else {
+        searchText = `/place/textsearch/json?query=${name}&language=ko&region=${region}&key=${process.env.GOOGLE_API_KEY}`;
+    }
+
+    const response = await axiosGoogle.get(searchText);
 
     if (response.statusCode < 200 || response.statusCode > 400) {
         placeID = ''; // Error 반환
