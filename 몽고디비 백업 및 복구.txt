@@ -1,5 +1,6 @@
 백업
 mongodump --out ~/mongo_backup --host 127.0.0.1 --port 27017 -u danim -p danim0504
+- 용량 적다고 이 파일 지우면 현재 서버에 있는 DB 다 날라감
 
 or
 //이 방법 ㄱㄱ -> 이러고 mongo_backup 폴더를 로컬에 한번더 백업

@@ -4,9 +4,13 @@ const { Schema } = mongoose;
 
 //프리셋 타입
 let PresetType = {
+    category: Number,
+    id: String,
     name: String,
     lat: Number,
     lng: Number,
+    x: Number,
+    y: Number,
     takenTime: Number,
     popular: Number,
     category: Number,
