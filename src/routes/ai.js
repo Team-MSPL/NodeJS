@@ -9,7 +9,6 @@ const AIRecommendPlaceLog = require('../schemas/ai_recommend_place_log.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const axios = require('axios');
 
-const url_v1 = 'http://3.39.14.168:8081/ai/run';
 const url_v2 = 'http://3.37.228.174/ai/run';
 
 // 여행 코스 추천
@@ -30,11 +29,7 @@ router.post('/run', async (req, res) => {
 
     let url = '';
 
-    if (version == 2) {
-        url = url_v2;
-    } else {
-        url = url_v1;
-    }
+    url = url_v2;
 
     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
