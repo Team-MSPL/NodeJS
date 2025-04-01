@@ -309,8 +309,6 @@ router.patch('/sendNote', async (req, res) => {
                         //await admin.messaging().sendToDevice(user.fcmToken, payload);
                         await admin.messaging().send(payload);
                     } catch (error) {
-                        console.error('FCM 전송 에러:', error);
-
                         // fcmToken이 유효하지 않은 경우 삭제
                         if (
                             error.code === 'messaging/registration-token-not-registered' ||
@@ -319,6 +317,8 @@ router.patch('/sendNote', async (req, res) => {
                             console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
                             user.fcmToken = null;
                             await user.save();
+                        } else {
+                            console.error('FCM 전송 에러:', error);
                         }
                     }
                 }
