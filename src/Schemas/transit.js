@@ -13,6 +13,10 @@ const transitSchema = new Schema({
         type: [String],
         required: true,
     },
+    //방향 : "out" or "back"
+    direction: {
+        type: String,
+    },
     //공항, 역 [출발, 도착]
     port: {
         type: [String],

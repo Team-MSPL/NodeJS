@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken'); // jsonwebtoken 라이브러리 추가
 const User = require('../schemas/user.js');
 const TravelCourse = require('../schemas/travel_course.js');
+const Transit = require('../schemas/transit.js');
 const admin = require('firebase-admin');
 const cron = require('node-cron');
 require('dotenv').config();
@@ -114,9 +115,30 @@ router.post('/saveTravelCourse', async (req, res) => {
 
             const savedTravelCourse = await newTravelCourse.save();
 
-            res.status(201).json({
-                travelId: savedTravelCourse._id.toString(),
-            });
+            const mode = req.body.mode || ''; // transitPlus 일 경우 이동편도 저장
+            if (mode === 'transitPlus') {
+                const { travelId, transitDay, direction, port, line, regNum } = req.body;
+
+                const newTransit = new Transit({
+                    travelId,
+                    transitDay,
+                    direction,
+                    port,
+                    line,
+                    regNum,
+                });
+
+                const savedTransit = await newTransit.save();
+
+                res.status(200).json({
+                    travelId: savedTravelCourse._id.toString(),
+                    transitId: savedTransit._id.toString(),
+                });
+            } else {
+                res.status(201).json({
+                    travelId: savedTravelCourse._id.toString(),
+                });
+            }
         });
     } catch (error) {
         console.error('/travelCourse - POST 함수에 문제 발생 : ', error);
