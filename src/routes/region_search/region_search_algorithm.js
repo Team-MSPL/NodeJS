@@ -30,6 +30,32 @@ async function dataLoading(version, country) {
             console.log(err);
         });
 
+    if (version === 3) {
+        regionList.map((item, idx) => {
+            regionData = item;
+            // '레저 스포츠', '산책', '드라이브코스', '이색체험', '쇼핑', '시티투어', '역사 여행'
+            regionList[idx].play = [
+                regionData.play[0],
+                regionData.tour[3],
+                regionData.tour[2],
+                regionData.play[3],
+                regionData.tour[4],
+                regionData.tour[6],
+                regionData.play[4],
+            ];
+
+            // '바다', '산', '자연경관', '문화시설', '사진 명소', '전통'
+            regionList[idx].tour = [
+                regionData.tour[0],
+                regionData.tour[1],
+                regionData.tour[5],
+                regionData.play[1],
+                regionData.play[2],
+                regionData.tour[7],
+            ];
+        });
+    }
+
     return regionList;
 }
 
@@ -213,7 +239,16 @@ async function regionSearch(selectList, selectPopular, distanceSensitivity, rece
             ['바다', '산', '드라이브코스', '산책', '쇼핑', '자연경관', '시티투어', '지역축제', '전통'],
             ['봄꽃', '여름피서', '가을단풍', '겨울스포츠.설경', '온천'],
         ];
-    } else {
+    } else if (version == 3) {
+        tendencyData = [
+            ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
+            ['힐링', '활동적인', '배움이 있는', '맛있는', '교통이 편한', '알뜰한'],
+            ['레저 스포츠', '산책', '드라이브코스', '이색체험', '쇼핑', '시티투어', '역사 여행'],
+            ['바다', '산', '자연경관', '문화시설', '사진 명소', '전통'],
+            ['봄', '여름', '가을', '겨울'],
+        ];
+    }
+    {
         tendencyData = [
             ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
             ['힐링', '활동적인', '배움이 있는', '맛있는', '교통이 편한', '알뜰한'],
