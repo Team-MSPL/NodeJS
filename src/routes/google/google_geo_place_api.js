@@ -9,20 +9,26 @@ const axiosGoogle = axios.create({
 async function getPlaceGeo(place) {
     let placeGeo;
 
-    const response = await axiosGoogle.get(
-        `/place/findplacefromtext/json?input=${encodeURIComponent(
-            place.region + ' ' + place.name
-        )}&inputtype=textquery&fields=formatted_address%2Cname%2Cgeometry&key=${process.env.GOOGLE_API_KEY}`
-    );
+    try {
+        const response = await axiosGoogle.get(
+            `/place/findplacefromtext/json?input=${encodeURIComponent(
+                place.region + ' ' + place.name
+            )}&inputtype=textquery&fields=formatted_address%2Cname%2Cgeometry&key=${process.env.GOOGLE_API_KEY}`
+        );
 
-    if (response.statusCode < 200 || response.statusCode > 400) {
-        placeGeo = { lat: 0.0, lng: 0.0 }; // Error 반환
-    } else if (response.data.status === 'ZERO_RESULTS') {
-        placeGeo = { lat: 0.0, lng: 0.0 }; // Error 반환
-    } else {
-        placeGeo = response.data.candidates[0];
+        if (response.statusCode < 200 || response.statusCode > 400) {
+            placeGeo = { status: 'failed', lat: 0.0, lng: 0.0 }; // Error 반환
+        } else if (response.data.status === 'ZERO_RESULTS') {
+            placeGeo = { status: 'failed', lat: 0.0, lng: 0.0 }; // Error 반환
+        } else {
+            placeGeo = response.data.candidates[0];
+        }
+        return placeGeo;
+    } catch (error) {
+        console.error(`[Google Geo API Error]: ${error.message}`);
+        placeGeo = { status: 'failed', lat: 0.0, lng: 0.0 };
+        return placeGeo;
     }
-    return placeGeo;
 }
 
 async function googleGeoApi(place) {
