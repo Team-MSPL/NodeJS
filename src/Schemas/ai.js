@@ -7,7 +7,10 @@ let PresetType = {
     category: Number,
     id: String,
     name: String,
-    address: String,
+    address: {
+        type: String,
+        default: '',
+    },
     lat: Number,
     lng: Number,
     x: Number,
