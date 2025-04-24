@@ -347,15 +347,24 @@ router.delete('/withdraw', async (req, res) => {
 
                         await newManageUser.save();
                     } else {
-                        manageUser.userId = user._id.toString();
-                        manageUser.userToken = user.userToken;
-                        manageUser.functionToken = user.functionToken;
-                        manageUser.noteList = user.noteList;
-                        manageUser.blockUserList = user.blockUserList;
-                        manageUser.withdrawReasonList = [...manageUser.withdrawReasonList, ...withdrawReasonList];
-                        manageUser.withdrawDate = korNow;
-
-                        await manageUser.save();
+                        // 기존 코드는 __v가 달라서 수정이 안되는 경우가 존재 - id 값 수정
+                        await ManageUser.findOneAndUpdate(
+                            { _id: manageUser._id },
+                            {
+                                $set: {
+                                    userId: user._id.toString(),
+                                    userToken: user.userToken,
+                                    functionToken: user.functionToken,
+                                    noteList: user.noteList,
+                                    blockUserList: user.blockUserList,
+                                    withdrawDate: korNow,
+                                },
+                                $push: {
+                                    withdrawReasonList: { $each: withdrawReasonList },
+                                },
+                            },
+                            { new: true }
+                        );
                     }
 
                     // 사용자 삭제
