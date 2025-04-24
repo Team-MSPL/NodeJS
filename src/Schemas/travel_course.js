@@ -8,6 +8,7 @@ let TimetableType = {
     lat: Number,
     lng: Number,
     name: String,
+    address: String,
     takenTime: Number,
     x: Number,
     y: Number,
