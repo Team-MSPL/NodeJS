@@ -42,12 +42,14 @@ router.get('/:travelId', async (req, res) => {
 router.post('/', async (req, res) => {
     // JWT 토큰 필요 X
     try {
-        const { travelId, transitDay, direction, port, line, regNum } = req.body;
+        const { travelId, transitDay, direction, port, line, regNum, lat, lng } = req.body;
 
         const newTransit = new Transit({
             travelId,
             transitDay,
             direction,
+            lat,
+            lng,
             port,
             line,
             regNum,

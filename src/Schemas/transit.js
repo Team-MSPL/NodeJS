@@ -17,6 +17,14 @@ const transitSchema = new Schema({
     direction: {
         type: String,
     },
+    //위도
+    lat: {
+        type: Number,
+    },
+    //경도
+    lng: {
+        type: Number,
+    },
     //공항, 역 [출발, 도착]
     port: {
         type: [String],
