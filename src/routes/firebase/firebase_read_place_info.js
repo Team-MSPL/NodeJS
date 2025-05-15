@@ -25,6 +25,10 @@ async function readOnePlaceInfo(region, name) {
             operationTime: item.operationTime,
             photo: item.photo,
             review: item.review || [], //review 필드 없는 경우 예외 처리
+            rating: null,
+            address: null,
+            number: null,
+            open: null,
         };
         if (placeInfoData.review.length === 0) {
             return placeInfoData;
@@ -59,7 +63,7 @@ async function readOnePlaceInfo(region, name) {
 
         return placeInfoData;
     } catch (error) {
-        console.log('관광지 정보 데이터를 읽어오는 중에 오류가 발생했습니다:', error);
+        console.log('관광지 정보 데이터를 읽어오는 중 오류 발생 OR 데이터 없음 :', error);
         return null;
     }
 }

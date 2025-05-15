@@ -307,12 +307,12 @@ router.get('/placeGeoInfo', async (req, res) => {
 
 // 장소 위도경도 확인 - 배열 처리 버전
 router.post('/placeGeoInfoList', async (req, res) => {
-    const token = req.header('Authorization')?.split(' ')[1];
+    const token = req.header('Authorization').split(' ')[1];
     dotenv.config();
 
     if (!token) return res.status(401).json({ message: 'No token provided' });
 
-    jwt.verify(token, process.env.SECRET_KEY, async (err, decoded) => {
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
             return res.status(401).json({ message: 'Unauthorized' });
@@ -320,6 +320,8 @@ router.post('/placeGeoInfoList', async (req, res) => {
 
         try {
             const places = req.body.places;
+
+            console.log(places);
 
             if (!Array.isArray(places) || places.length === 0) {
                 return res.status(400).json({ message: '유효한 장소 배열이 필요합니다.' });
