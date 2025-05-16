@@ -140,11 +140,19 @@ router.post('/recommendPlace', async (req, res) => {
 
     let result = null;
 
+    let regionList = req.body.regionList;
+
+    if (regionList[0] === '서울 전체') {
+        regionList = ['서울 도심권', '서울 동북권', '서울 동남권', '서울 서북권', '서울 서남권'];
+    } else if (regionList[0] === '제주 전체') {
+        regionList = ['제주 제주시', '제주 서귀포시'];
+    }
+
     // 로그 남겨두기
     try {
         const newAIRecommendPlaceLog = new AIRecommendPlaceLog({
             userId: req.body.hasOwnProperty('userId') ? req.body.userId : 'unknown',
-            region: req.body.regionList,
+            region: regionList,
             transit: req.body.transit,
             tendency: req.body.selectList,
             distanceSensitivity: req.body.distanceSensitivity,

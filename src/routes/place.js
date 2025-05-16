@@ -252,10 +252,9 @@ router.get('/regionInfo', async (req, res) => {
             }
 
             const region = req.query.region;
+            let cleanedRegion = region.replace('전체', '').trim();
 
-            let result = await readOneRegion(region);
-
-            console.log(result);
+            let result = await readOneRegion(cleanedRegion);
 
             if (result != undefined && result != null) {
                 return res.status(200).json(result);
@@ -321,7 +320,7 @@ router.post('/placeGeoInfoList', async (req, res) => {
         try {
             const places = req.body.places;
 
-            console.log(places);
+            //console.log(places);
 
             if (!Array.isArray(places) || places.length === 0) {
                 return res.status(400).json({ message: '유효한 장소 배열이 필요합니다.' });
