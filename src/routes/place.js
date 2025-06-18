@@ -254,6 +254,8 @@ router.get('/regionInfo', async (req, res) => {
             const region = req.query.region;
             let cleanedRegion = region.replace('전체', '').trim();
 
+            // 해외가 포함되어 있을 경우, 지역 대분류를 앞에 추가해줘야함 - 간토 (Kanto) !도쿄
+
             let result = await readOneRegion(cleanedRegion);
 
             if (result != undefined && result != null) {
