@@ -50,15 +50,4 @@ https.createServer(options, app).listen(443, () => {
 
     // 라우팅 설정
     app.use('/', indexRouter); // '/' 경로에 대한 라우팅 설정
-
-    indexRouter.get('/', (req, res, next) => {
-        User.find()
-            .then((users) => {
-                //res.json(users);
-            })
-            .catch((err) => {
-                console.error(err);
-                next(err);
-            });
-    });
 })();

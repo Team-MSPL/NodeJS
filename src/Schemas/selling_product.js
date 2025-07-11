@@ -24,18 +24,34 @@ const sellingProductSchema = new Schema({
         type: String,
         default: '',
     },
+    //판매 상품 세부 내용
+    sellingProductContentDetail: {
+        type: String,
+        default: '',
+    },
     //판매 상품 사진
     sellingProductImage: {
         type: [String],
         default: [],
     },
-    //판매 상품 가격    //비공개로 할 경우 대비하여 필수 x, 0일 경우 처리 로직 구현할 것
+    //판매 상품 가격   //사용 X? //비공개로 할 경우 대비하여 필수 x, 0일 경우 처리 로직 구현할 것
     sellingProductPrice: {
         type: Number,
         default: 0,
     },
+    //판매 상품 세부가격    // 예) {“상하이 우전수향마을 야경투어” : { “대인” : 93,600, “소인” : 78000 }}
+    sellingProductPriceDetail: {
+        type: Map, // 1단계: 옵션명(문자열) → 서브‧오브젝트
+        of: Map, // 2단계: 구분(대인·소인 등) → 숫자
+        default: {}, // 기본값
+    },
     //판매 상품 여행 기간 ( 투어의 경우 -1 )
     sellingProductPeriod: {
+        type: Number,
+        default: 0,
+    },
+    //판매 상품 여행 시간 ( 9 -> 9시간 )
+    sellingProductHour: {
         type: Number,
         default: 0,
     },
@@ -49,10 +65,15 @@ const sellingProductSchema = new Schema({
         type: Number,
         default: 0,
     },
-    //판매 상품 국가
+    //판매 상품 국가 // 사용 안함
     sellingProductCountry: {
         type: String,
         default: '',
+    },
+    //판매 상품 국가 배열 // 여러 나라를 저장하기 위함
+    sellingProductCountryList: {
+        type: [String],
+        default: [''],
     },
     //판매 상품 지역
     sellingProductRegion: {
@@ -69,15 +90,30 @@ const sellingProductSchema = new Schema({
         type: String,
         default: '',
     },
-    //판매 상품 링크
+    //판매 상품 링크 // 사용 안함
     sellingProductLink: {
         type: String,
-        required: true,
+        default: '',
+    },
+    //판매 상품 링크 배열
+    sellingProductLinkList: {
+        type: [String],
+        default: [''],
     },
     //판매 상품 링크 클릭 로그
     sellingProductLinkClickLog: {
         type: [clickLogType],
         default: [],
+    },
+    //한국어가이드유무 : “Y” ( Y/N )
+    koreanGuide: {
+        type: String,
+        default: 'N',
+    },
+    //추천 상품 ( 요즘뜨는 여행 상품 )
+    recommend: {
+        type: String,
+        default: 'N',
     },
 });
 

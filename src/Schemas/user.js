@@ -1,9 +1,29 @@
 const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
-/**
- * 닉네임, 프로필이미지, 식별 토큰
- */
+
+//여권 정보 타입
+let passportType = {
+    korName: {
+        // 한글 이름
+        type: String,
+        default: '',
+    },
+    engFirstName: String, // 영문 이름
+    engLastName: String, // 영문 성
+    country: String,
+    passportNum: String,
+    gender: String,
+    birthday: String,
+    passportIssueDate: String,
+    passportExpirationDate: String,
+    passportCountry: String,
+    passportImage: {
+        type: String,
+        default: '',
+    },
+};
+
 const userSchema = new Schema({
     //유저 ID - id는 기본 제공 되는 _id (ObjectId) 사용하자
     //닉네임
@@ -56,6 +76,16 @@ const userSchema = new Schema({
     //차단리스트
     blockUserList: {
         type: [String], // 자료형
+        default: [],
+    },
+    //여행상품 찜 목록 - _id 저장
+    productLikeList: {
+        type: [String], // 자료형
+        default: [],
+    },
+    //여권 정보 등록 목록 - 여러명 여권 등록할 수도 있으니
+    passportList: {
+        type: [passportType], // 자료형
         default: [],
     },
 });

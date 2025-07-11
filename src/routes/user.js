@@ -645,6 +645,122 @@ router.patch('/modifyNoteList', async (req, res) => {
     }
 });
 
+// 11. 여행 상품 찜 목록 수정하기
+router.patch('/productLikeList', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        dotenv.config();
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { productLikeList } = req.body;
+
+            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+            User.findOne({ _id: decoded._id })
+                .then(async (user) => {
+                    if (!user) {
+                        console.log(user);
+                        return res.status(404).json({ message: '저장된 유저가 없습니다.' });
+                    }
+
+                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
+                    user.productLikeList = productLikeList;
+
+                    await user.save();
+
+                    res.status(200).json({ message: '여행 상품 찜 목록이 수정되었습니다.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 postId 입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/productLikeList - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 12. 여권 목록 가져오기
+router.get('/passportList', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        dotenv.config();
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+            User.findOne({ _id: decoded._id })
+                .then(async (user) => {
+                    if (!user) {
+                        console.log(user);
+                        return res.status(404).json({ message: '저장된 유저가 없습니다.' });
+                    }
+
+                    res.status(200).json({ passportList: user.productLikeList });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 postId 입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/passportList - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 13. 여권 목록 수정하기
+router.patch('/passportList', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        dotenv.config();
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { passportList } = req.body;
+
+            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+            User.findOne({ _id: decoded._id })
+                .then(async (user) => {
+                    if (!user) {
+                        console.log(user);
+                        return res.status(404).json({ message: '저장된 유저가 없습니다.' });
+                    }
+
+                    //배열을 받아와서 그대로 저장하면, 여러곳에서 동시에 커뮤니티를 할 경우, 업데이트 문제가 생길 수 있음
+                    user.passportList = passportList;
+
+                    await user.save();
+
+                    res.status(200).json({ message: '여권 목록이 수정되었습니다.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 postId 입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/passportList - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 // ms를 mm월 dd일 hh시간 mm분 형식으로 변환하는 함수
 function formatInterval(ms) {
     const seconds = Math.floor(ms / 1000);
