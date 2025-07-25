@@ -509,25 +509,25 @@ cron.schedule(
             today.setHours(3, 0, 0, 0); // 어제 03:00:00 - 여행 코스 스키마 day 배열 내의 뒷부분 값이 다 이렇게 되어 있음
             const yesterdayToString = today.toISOString();
 
-            // matchingTravelCourses = await TravelCourse.find({
-            //     $expr: {
-            //         $eq: [{ $arrayElemAt: ['$day', -1] }, today.toISOString()],
-            //     },
-            // });
-
-            // TODO 업데이트 후 바꾸기 - 위에거로
-            let travelCourses = await TravelCourse.find();
-
-            matchingTravelCourses = [];
-
-            travelCourses.map((item, idx) => {
-                if (item.day[item.nDay - 1] === today.toISOString()) {
-                    // console.log(item.day[item.nDay - 1]);
-                    // console.log(item.nDay - 1);
-                    matchingTravelCourses.push(item);
-                }
+            matchingTravelCourses = await TravelCourse.find({
+                $expr: {
+                    $eq: [{ $arrayElemAt: ['$day', -1] }, today.toISOString()],
+                },
             });
-            // TODO 업데이트 후 바꾸기 - 위에거로
+
+            // // TODO 업데이트 후 바꾸기 - 위에거로
+            // let travelCourses = await TravelCourse.find();
+
+            // matchingTravelCourses = [];
+
+            // travelCourses.map((item, idx) => {
+            //     if (item.day[item.nDay - 1] === today.toISOString()) {
+            //         // console.log(item.day[item.nDay - 1]);
+            //         // console.log(item.nDay - 1);
+            //         matchingTravelCourses.push(item);
+            //     }
+            // });
+            // // TODO 업데이트 후 바꾸기 - 위에거로
 
             // 조회된 여행 코스에 대해 푸시 알림을 보내는 함수 호출
             matchingTravelCourses.forEach((travelCourse) => {

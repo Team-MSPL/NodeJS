@@ -650,8 +650,6 @@ router.patch('/productLikeList', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
 
-        dotenv.config();
-
         jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
@@ -691,8 +689,6 @@ router.get('/passportList', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
 
-        dotenv.config();
-
         jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
                 console.error('JWT 토큰 검증 에러:', err);
@@ -707,7 +703,7 @@ router.get('/passportList', async (req, res) => {
                         return res.status(404).json({ message: '저장된 유저가 없습니다.' });
                     }
 
-                    res.status(200).json({ passportList: user.productLikeList });
+                    res.status(200).json({ passportList: user.passportList });
                 })
                 .catch((error) => {
                     console.error('User.findOne() 함수에 문제 발생 : ', error);
@@ -724,8 +720,6 @@ router.get('/passportList', async (req, res) => {
 router.patch('/passportList', async (req, res) => {
     try {
         const token = req.header('Authorization').split(' ')[1];
-
-        dotenv.config();
 
         jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
             if (err) {
@@ -752,7 +746,7 @@ router.patch('/passportList', async (req, res) => {
                 })
                 .catch((error) => {
                     console.error('User.findOne() 함수에 문제 발생 : ', error);
-                    res.status(403).json({ message: '잘못된 postId 입니다.' });
+                    res.status(403).json({ message: '잘못된 Id 입니다.' });
                 });
         });
     } catch (error) {

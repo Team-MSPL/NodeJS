@@ -181,6 +181,9 @@ router.patch('/:id', async (req, res) => {
 
             if (!updatedBooking) {
                 return res.status(404).json({ message: '예약을 찾을 수 없거나 권한이 없습니다.' });
+            } else {
+                await sendPushNotification(decoded._id.toString(), savedBookingProduct._id);
+                await sendEmailToAdmin('wayfarers0814@gmail.com', savedBookingProduct);
             }
 
             res.status(200).json(updatedBooking);

@@ -29,6 +29,11 @@ const sellingProductSchema = new Schema({
         type: String,
         default: '',
     },
+    //판매 상품 세부 내용_html
+    sellingProductContentDetailHTML: {
+        type: String,
+        default: '',
+    },
     //판매 상품 사진
     sellingProductImage: {
         type: [String],
@@ -104,6 +109,14 @@ const sellingProductSchema = new Schema({
     sellingProductLinkClickLog: {
         type: [clickLogType],
         default: [],
+    },
+    tourCode: {
+        type: String,
+        default: '',
+    },
+    menuCode: {
+        type: String,
+        default: '',
     },
     //한국어가이드유무 : “Y” ( Y/N )
     koreanGuide: {

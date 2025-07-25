@@ -99,7 +99,6 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
     ];
 
     //count가 0이면 스킵되게 바꿔버림 + selectList[0].length만큼 반복대신, 고정값만큼 반복되게하여 속도 향상
-    //TODO for문이 더 빠르다길래 if + for 조합으로 하였음. 차후 && + map 조합으로도 테스트해볼 것
     for (let x = 0; x < 5; x++) {
         listSum = 0;
         const targetregionNow = targetregionList[x]; //x까지 찾아가는 연산시간 절약
@@ -113,7 +112,6 @@ function regionPoint(targetregion, selectList, distanceSensitivity, recentPositi
             });
             //평균을 계산하는 코드, 원래는 뒤에서 따로 계산하였으나, if (count[0] > 0)를 넣었기에 내부에 추가함
             //각 테마별 평균을 계산하는 것임. count 이용(routeSearch 시작때 미리 계산해 두었음)
-            //TODO 유지할지, 수정할지 고민
             sum += listSum / count[x];
             //sum += listSum;
             //Math.ceil도 제거 - JavaScript에서는 int와 double의 구분이 없기 때문에!!

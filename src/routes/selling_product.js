@@ -381,4 +381,72 @@ router.post('/save', async (req, res) => {
     }
 });
 
+// 가격 문자열 → 숫자 변환
+function parsePriceStringToNumber(str) {
+    if (!str) return 0;
+    return Number(str.replace(/[^\d]/g, ''));
+}
+
+// JSON을 모델 스키마 형식으로 변환
+function transformDataToSellingProduct(data) {
+    const priceEntries = Object.entries(data['가격'] || {}).map(([key, value]) => [
+        key,
+        parsePriceStringToNumber(value),
+    ]);
+
+    return {
+        sellingProductName: data['판매상품이름'],
+        sellingProductType: data['타입'],
+        sellingProductContent: data['내용'],
+        sellingProductContentDetail: data['세부내용'] || '',
+        sellingProductContentDetailHTML: data['세부내용_raw_html'] || '',
+        sellingProductImage: data['사진'] || [],
+        sellingProductPrice: priceEntries.length > 0 ? Math.max(...priceEntries.map(([_, price]) => price)) : 0, // 가격 정보가 없을 경우 0으로 처리
+        sellingProductPriceDetail: Object.fromEntries(
+            Object.entries(data['가격'] || {}).map(([key, value]) => [
+                key.replace(/\s/g, ''), // 필요에 따라 key 정제
+                parsePriceStringToNumber(value),
+            ])
+        ),
+
+        sellingProductPeriod: data['여행기간'] || 0,
+        sellingProductHour: data['소요시간'] || 0,
+        sellingProductRating: data['별점'] || 0.0,
+        sellingProductReviewCount: data['리뷰'] || 0,
+        sellingProductCountry: data['국가']?.[0] || '',
+        sellingProductCountryList: data['국가'] || [],
+        sellingProductRegion: data['지역'] || [],
+        sellingProductPlaceList: data['관광지 리스트'] || ['전체'],
+        sellingProductCompany: data['출처'] || '',
+        sellingProductLink: data['링크'] || '',
+        sellingProductLinkList: [data['링크'] || ''],
+        koreanGuide: data['한국어 가이드 유무'] || 'N',
+    };
+}
+
+router.post('/json', async (req, res) => {
+    const password = req.query.password || 'wrong';
+
+    if (password !== process.env.ADMIN_KEY) {
+        res.status(404).json({ message: '비밀번호가 틀림' });
+        return;
+    }
+
+    try {
+        const rawData = req.body;
+
+        if (!Array.isArray(rawData)) {
+            return res.status(400).json({ error: 'JSON 배열을 보내주세요.' });
+        }
+
+        const transformed = rawData.map(transformDataToSellingProduct);
+
+        const result = await SellingProduct.insertMany(transformed);
+
+        res.status(201).json({ message: '저장 성공', count: result.length });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: '서버 오류' });
+    }
+});
 module.exports = router;

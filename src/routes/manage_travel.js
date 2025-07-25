@@ -58,7 +58,7 @@ router.post('/reviewAndPoint', async (req, res) => {
 
             //파이어베이스에서 데이터셋 업데이트
             if (point !== -1 || tendencyPoint.length !== 0) {
-                // TODO 정식 오픈때 주석처리 해제. 디버깅하는 동안 데이터셋 유지
+                // 강화학습 방식으로 바꾸면서 포인트 업데이트는 안하게 수정
                 //await updatePoint(point, tendencyPoint, region, tendency, timetable);
             }
 

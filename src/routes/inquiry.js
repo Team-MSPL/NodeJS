@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Inquiry = require('../schemas/inquiry.js');
+const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
@@ -32,6 +33,47 @@ router.post('/inquiry', async (req, res) => {
 
             //DB에 저장
             await newInquiry.save();
+
+            //관리자에게 알림 보내기
+
+            try {
+                const userId = '6609f7a4faac39d8516b25b2'; // 관리자 _id
+                const user = await User.findOne({ _id: userId });
+
+                if (user && user.fcmToken) {
+                    const payload = {
+                        notification: {
+                            title: '문의 접수',
+                            body: inquire,
+                        },
+                        data: {
+                            // 여기에 필요한 데이터를 추가할 수 있습니다.
+                            // 예: noteId, senderId 등
+                        },
+                        token: user.fcmToken,
+                    };
+
+                    try {
+                        //await admin.messaging().sendToDevice(user.fcmToken, payload);
+                        await admin.messaging().send(payload);
+                    } catch (error) {
+                        // fcmToken이 유효하지 않은 경우 삭제
+                        if (
+                            error.code === 'messaging/registration-token-not-registered' ||
+                            (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
+                        ) {
+                            console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
+                            user.fcmToken = null;
+                            await user.save();
+                        } else {
+                            console.error('FCM 전송 에러:', error);
+                        }
+                    }
+                }
+                // }
+            } catch (error) {
+                console.error('푸시 알림 전송 중 에러:', error);
+            }
 
             res.status(201).json({ message: '문의 완료.' });
         } catch (error) {
