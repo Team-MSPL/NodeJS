@@ -583,9 +583,11 @@ async function sendNotificationOnPreviousDay(travelCourseId) {
                     error.code === 'messaging/registration-token-not-registered' ||
                     (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
                 ) {
-                    console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
-                    user.fcmToken = null;
-                    await user.save();
+                    // console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
+                    // user.fcmToken = null;
+                    // await user.save();
+                    // VersionError: No matching document found for id - 에러 때문에 수정
+                    await User.findByIdAndUpdate(userId, { fcmToken: null }, { new: true });
                 } else {
                     console.error('FCM 전송 에러:', error);
                 }
@@ -633,9 +635,11 @@ async function sendNotificationOnAfterDay(travelCourseId) {
                     error.code === 'messaging/registration-token-not-registered' ||
                     (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
                 ) {
-                    console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
-                    user.fcmToken = null;
-                    await user.save();
+                    // console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
+                    // user.fcmToken = null;
+                    // await user.save();
+                    // VersionError: No matching document found for id - 에러 때문에 수정
+                    await User.findByIdAndUpdate(userId, { fcmToken: null }, { new: true });
                 } else {
                     console.error('FCM 전송 에러:', error);
                 }

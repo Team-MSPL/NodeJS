@@ -142,10 +142,18 @@ router.post('/recommendPlace', async (req, res) => {
 
     let regionList = req.body.regionList;
 
-    if (regionList[0] === '서울 전체') {
-        regionList = ['서울 도심권', '서울 동북권', '서울 동남권', '서울 서북권', '서울 서남권'];
-    } else if (regionList[0] === '제주 전체') {
-        regionList = ['제주 제주시', '제주 서귀포시'];
+    if (Array.isArray(regionList) && regionList.length > 0) {
+        if (regionList[0] === '서울 전체') {
+            regionList = ['서울 도심권', '서울 동북권', '서울 동남권', '서울 서북권', '서울 서남권'];
+        } else if (regionList[0] === '제주 전체') {
+            regionList = ['제주 제주시', '제주 서귀포시'];
+        }
+    } else {
+        // 예외 처리: regionList가 없을 경우 기본값 설정 또는 에러 응답
+        return res.status(400).json({
+            status: 'failed',
+            message: 'regionList가 누락되었습니다.',
+        });
     }
 
     // 로그 남겨두기

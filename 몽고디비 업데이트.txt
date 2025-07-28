@@ -1,0 +1,128 @@
+MongoDB는 featureCompatibilityVersion 이슈 때문에 **순차적 업그레이드(4.2→4.4→5.0→6.0)**가 필요합니다.
+반드시 4.4나 5.0 버전에서 정상 구동 후, featureCompatibilityVersion을 변경하고 6.0으로 올려야 합니다.
+
+4.4 -> 5.0
+
+백업 먼저
+
+sudo systemctl stop mongod
+
+//libssl1.1 수동 설치 (Ubuntu 22.04)
+wget https://launchpad.net/ubuntu/+archive/primary/+files/libssl1.1_1.1.1f-1ubuntu2.16_amd64.deb
+sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2.16_amd64.deb
+
+wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+sudo apt update
+
+sudo apt install -y mongodb-org=5.0.26 mongodb-org-server=5.0.26 mongodb-org-shell=5.0.26 mongodb-org-mongos=5.0.26 mongodb-org-tools=5.0.26
+// 중간에 뭐 물어보면 y 말고 n !! conf 파일 관련
+
+sudo apt --fix-broken install
+mongo --version
+mongod --version
+sudo systemctl start mongod
+sudo systemctl status mongod
+
+//임시로 conf 쪽 인증 끄기 - 아래 주석처리
+sudo nano /etc/mongod.conf
+
+security:
+  authorization: enabled
+
+
+//fcv 올리기 (중요)
+mongo
+use admin
+db.adminCommand({ setFeatureCompatibilityVersion: "5.0" })
+db.adminCommand({ getParameter: 1, featureCompatibilityVersion: 1 })
+-> 5.0 나와야해
+
+6.0
+
+sudo rm /etc/apt/sources.list.d/mongodb-org-5.0.list
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+sudo apt update
+
+
+sudo apt install -y mongodb-org=6.0.12 mongodb-org-server=6.0.12 mongodb-org-shell=6.0.12 mongodb-org-mongos=6.0.12 mongodb-org-tools=6.0.12
+// 중간에 뭐 물어보면 y 말고 n !! conf 파일 관련
+
+
+ㅜ
+
+
+// 더이상 mongo가 기본 제공 X - mongosh 설치
+curl -fsSL https://pgp.mongodb.com/server-6.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg --dearmor
+echo "deb [ arch=amd64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+sudo apt update
+
+sudo apt install -y mongodb-mongosh
+
+
+
+// !! /etc/mongod.conf - 파일 설정 다시 - 아까 설치때 y 누른 경우
+sudo sed -i 's/bindIp: 127.0.0.1/bindIp: 0.0.0.0/' /etc/mongod.conf
+
+MongoDB가 admin 데이터베이스에서 "danim"이라는 유저를 찾지 못하고 있습니다.
+
+// 캐시 삭제
+sudo rm -f /var/lib/mongodb/mongod.lock
+sudo systemctl restart mongod
+
+
+mongosh
+
+use admin
+
+//fcv 올리기 (중요)
+mongosh
+use admin
+db.adminCommand({ setFeatureCompatibilityVersion: "6.0" })
+db.adminCommand({ getParameter: 1, featureCompatibilityVersion: 1 })
+-> 6.0 나와야해
+
+db.createUser({
+  user: "danim",
+  pwd: "danim0504",
+  roles: [ { role: "readWrite", db: "admin" } ]
+})
+
+
+mongod --version
+
+
+
+// 1. 소켓 파일 수동 삭제 - mongosh 안될때
+sudo rm -f /tmp/mongodb-27017.sock
+
+// 2. /tmp의 권한 확인
+ls -ld /tmp
+
+// 방화벽 해제
+sudo iptables -L -n | grep 27017
+sudo ufw status
+
+//conf 쪽 인증 켜기
+
+sudo nano /etc/mongod.conf
+
+security:
+  authorization: enabled
+
+
+
+결국 안되서 ec2 인스턴스 재부팅 후
+
+pm2 재시작
+mongod 재시작
+
+포트포워딩
+sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 3000
+sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 3000
+
+데이터 복구
+mongorestore --host 127.0.0.1 --port 27017 -u danim -p danim0504 /home/ubuntu/mongo_backup
+
+이후 정상 작동!

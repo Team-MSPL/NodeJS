@@ -418,8 +418,8 @@ function transformDataToSellingProduct(data) {
         sellingProductRegion: data['지역'] || [],
         sellingProductPlaceList: data['관광지 리스트'] || ['전체'],
         sellingProductCompany: data['출처'] || '',
-        sellingProductLink: data['링크'] || '',
-        sellingProductLinkList: [data['링크'] || ''],
+        sellingProductLink: data['링크'][0] || '',
+        sellingProductLinkList: data['링크'] || [],
         koreanGuide: data['한국어 가이드 유무'] || 'N',
     };
 }

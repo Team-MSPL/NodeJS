@@ -493,9 +493,11 @@ async function sendNotificationToPostWriter(post, comment, recentCommentWriter) 
                     error.code === 'messaging/registration-token-not-registered' ||
                     (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
                 ) {
-                    console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
-                    user.fcmToken = null;
-                    await user.save();
+                    // console.log('유효하지 않은 FCM 토큰 삭제:', postWriter.fcmToken);
+                    // postWriter.fcmToken = null;
+                    // await postWriter.save();
+                    // VersionError: No matching document found for id - 에러 때문에 수정
+                    await User.findByIdAndUpdate(post.postWriterUserId, { fcmToken: null }, { new: true });
                 }
             }
 
@@ -534,9 +536,11 @@ async function sendNotificationToPostWriter(post, comment, recentCommentWriter) 
                         error.code === 'messaging/registration-token-not-registered' ||
                         (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
                     ) {
-                        console.log('유효하지 않은 FCM 토큰 삭제:', commentWriter.fcmToken);
-                        commentWriter.fcmToken = null;
-                        await commentWriter.save();
+                        // console.log('유효하지 않은 FCM 토큰 삭제:', commentWriter.fcmToken);
+                        // commentWriter.fcmToken = null;
+                        // await commentWriter.save();
+                        // VersionError: No matching document found for id - 에러 때문에 수정
+                        await User.findByIdAndUpdate(item.commentWriterUserId, { fcmToken: null }, { new: true });
                     } else {
                         console.error('FCM 전송 에러:', error);
                     }
