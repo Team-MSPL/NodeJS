@@ -189,6 +189,13 @@ router.get('/placeRecommendInMainScreen', async (req, res) => {
         for (const item of targetPlaceList) {
             let place = await readOnePlace(item.region, item.name);
 
+            let place_info = await readOnePlaceInfo(item.region, item.name);
+
+            // infoContent만 추가
+            if (place_info && place_info.infoContent) {
+                place.subTitle = place_info.infoContent;
+            }
+
             //대전 전체 등 "전체"라는 단어를 제거함
             place.region = item.region.replace(' 전체', '');
 

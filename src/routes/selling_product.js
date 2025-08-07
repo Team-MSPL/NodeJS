@@ -3,8 +3,8 @@ const router = express.Router();
 const SellingProduct = require('../schemas/selling_product.js');
 const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
-
+const dotenv = require('dotenv');
+const axios = require('axios');
 var _ = require('lodash');
 
 // 문자열에서 괄호와 그 안의 내용을 제거하는 함수
@@ -449,4 +449,89 @@ router.post('/json', async (req, res) => {
         res.status(500).json({ error: '서버 오류' });
     }
 });
+
+// kkday api 테스트
+router.post('/kkday/test', async (req, res) => {
+    const {
+        keywords = '후시미이나리', // 🔍 키워드 기본값
+        locale = 'ko', // 🌐 언어 설정
+        cat_keys, // 🏷️ 카테고리 키
+        city_keys, // 🏙️ 도시 키
+        country_keys, // 🌍 국가 키 기본값
+        date_from, // 📅 시작일
+        date_to, // 📅 종료일
+        durations, // ⏱️ 소요 시간 범위
+        facets, // 📊 통계 필드
+        guide_langs, // 🗣️ 가이드 언어
+        has_pkg = true, // 📦 패키지 포함 여부
+        have_translate = true, // 🌐 번역 여부
+        instant_booking, // ⚡ 실시간 예약 여부
+        page_size = 20, // 📄 페이지당 상품 수
+        price_from, // 💰 최소 가격
+        price_to, // 💰 최대 가격
+        product_categories, // 🧩 신 카테고리 키
+        sort = 'DEFAULT', // 🔽 정렬 기준 - PDESC 등
+        start = '0', // ⏩ 시작 인덱스
+        state = 'JP', // 🗾 지역 코드
+        stats, // 📈 가격 통계
+        tourism = '01', // 🎒 관광 유형 (01: 일반여행, 00: 기념품)
+    } = req.body;
+
+    // JWT 토큰 검증
+    dotenv.config(); // .env 파일의 환경 변수 로드
+
+    const toArray = (val) => {
+        if (!val) return null;
+        if (Array.isArray(val)) return val;
+        return val.split(','); // 문자열이면 쉼표로 분리
+    };
+
+    const requestBody = {
+        locale,
+        ...(keywords && { keywords }),
+        ...(cat_keys && { cat_keys: toArray(cat_keys) }),
+        ...(city_keys && { city_keys: toArray(city_keys) }),
+        ...(country_keys && { country_keys: toArray(country_keys) }),
+        ...(date_from && { date_from }),
+        ...(date_to && { date_to }),
+        ...(durations && { durations: toArray(durations) }),
+        ...(facets && { facets: toArray(facets) }),
+        ...(guide_langs && { guide_langs: toArray(guide_langs) }),
+        ...(has_pkg !== undefined && { has_pkg: has_pkg === true || has_pkg === 'true' }),
+        ...(have_translate !== undefined && { have_translate: have_translate === true || have_translate === 'true' }),
+        ...(instant_booking && { instant_booking }),
+        ...(page_size && { page_size: parseInt(page_size) }),
+        ...(price_from && { price_from: parseFloat(price_from) }),
+        ...(price_to && { price_to: parseFloat(price_to) }),
+        ...(product_categories && { product_categories: toArray(product_categories) }),
+        ...(sort && { sort }),
+        ...(start && { start }),
+        ...(state && { state }),
+        ...(stats && { stats: toArray(stats) }),
+        ...(tourism && { tourism }),
+    };
+
+    try {
+        const response = await axios.post(
+            'https://api-b2d.kkday.com/v4/Search',
+            // 호출하는 requestBody 따로 분리
+            requestBody,
+            {
+                headers: {
+                    Authorization: process.env.KKDAY_API_KEY,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        res.json(response.data);
+    } catch (error) {
+        console.error('KKday API Error:', error?.response?.data || error.message);
+        res.status(500).json({
+            message: 'KKday API 호출 실패',
+            error: error.response?.data || error.message,
+        });
+    }
+});
+
 module.exports = router;
