@@ -25,5 +25,6 @@ router.use('/hikingSearch', require('./hiking_search'));
 router.use('/news', require('./news'));
 router.use('/transit', require('./transit'));
 router.use('/sellingProduct', require('./selling_product'));
+router.use('/toss', require('./toss/toss'));
 
 module.exports = router;

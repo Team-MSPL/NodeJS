@@ -39,12 +39,6 @@ https.createServer(options, app).listen(443, () => {
     //     console.log(`server is listening`);
     //     //console.log(`server is listening at ${url}:${port}`);
     // });
-    //app.use(express.json());
-
-    // // loader.io 검증 라우트
-    // app.get('/loaderio-e330badb94b23dd21f034767014545bd', (req, res) => {
-    //     res.send('loaderio-e330badb94b23dd21f034767014545bd');
-    // });
 
     app.use(express.json({ limit: '10mb' })); // JSON 데이터 파싱을 위한 미들웨어
 
