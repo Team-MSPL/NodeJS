@@ -26,5 +26,6 @@ router.use('/news', require('./news'));
 router.use('/transit', require('./transit'));
 router.use('/sellingProduct', require('./selling_product'));
 router.use('/toss', require('./toss/toss'));
+router.use('/kkday', require('./kkday'));
 
 module.exports = router;

@@ -23,25 +23,21 @@ const options = {
     cert: fs.readFileSync('/etc/letsencrypt/live/danimdatabase.com/cert.pem'),
 };
 
-https.createServer(options, app).listen(443, () => {
-    console.log(`server is listening on ` + 443);
-    //console.log(`server is listening at ${url}:${port}`);
-});
-
 (async () => {
-    await connect(); //MongoDB 연결
-    app.listen(port, () => {
-        console.log(`server is listening on ` + port);
-    });
-    // Error: listen EADDRINUSE: address already in use :::27017 해결?
-    //아래는 포트 번호가 없어서 Error: connect ECONNREFUSED 54.180.92.25:80 뜨는듯?
-    // app.listen(() => {
-    //     console.log(`server is listening`);
-    //     //console.log(`server is listening at ${url}:${port}`);
-    // });
+    try {
+        await connect(); // MongoDB 연결 성공해야만 서버 실행
+        console.log('✅ MongoDB connected');
 
-    app.use(express.json({ limit: '10mb' })); // JSON 데이터 파싱을 위한 미들웨어
+        app.use(express.json({ limit: '10mb' }));
+        app.use('/', indexRouter);
 
-    // 라우팅 설정
-    app.use('/', indexRouter); // '/' 경로에 대한 라우팅 설정
+        https.createServer(options, app).listen(443, () => {
+            console.log(`HTTPS server listening on 443`);
+        });
+        // 개발용 포트 따로 쓰고 싶으면:
+        //app.listen(3000, () => console.log(`HTTP server on 3000`));
+    } catch (err) {
+        console.error('❌ MongoDB connection failed:', err);
+        process.exit(1);
+    }
 })();
