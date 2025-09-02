@@ -75,6 +75,20 @@ async function refreshAccessToken(refreshToken) {
     return response.data; // { accessToken, refreshToken, ... }
 }
 
+// Toss 사용자 정보
+async function userInfo(accessToken) {
+    const response = await axios.get(
+        'https://apps-in-toss-api.toss.im/api-partner/v1/apps-in-toss/user/oauth2/login-me',
+        {
+            httpsAgent,
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        }
+    );
+    return response.data; // { accessToken, refreshToken, ... }
+}
+
 // JWT 만료 체크
 function isTokenExpired(token) {
     try {
@@ -93,25 +107,29 @@ router.post('/login', async (req, res) => {
     try {
         const { authorizationCode, referrer, existingRefreshToken } = req.body;
         let tokens;
+        let data;
 
         if (existingRefreshToken) {
             // 기존 RefreshToken으로 AccessToken 재발급
             tokens = await refreshAccessToken(existingRefreshToken);
+            tokens = tokens.success;
             console.log('Final Tokens1:', tokens);
         } else {
             // 새로 AuthorizationCode로 AccessToken 발급
             tokens = await getAccessToken(authorizationCode, referrer);
+            tokens = tokens.success;
             console.log('Final Tokens2:', tokens);
         }
 
         // AccessToken 만료 여부 체크
         if (isTokenExpired(tokens.accessToken) && tokens.refreshToken) {
             tokens = await refreshAccessToken(tokens.refreshToken);
+            tokens = tokens.success;
             console.log('Final Tokens3:', tokens);
         }
 
-        console.log('Final Tokens:', tokens);
-        res.json(tokens);
+        data = await userInfo(tokens.accessToken);
+        res.status(200).json(data);
     } catch (error) {
         console.error('Toss API Error:', error.response ? error.response.data : error.message);
         res.status(500).json({ error: error.response ? error.response.data : error.message });
