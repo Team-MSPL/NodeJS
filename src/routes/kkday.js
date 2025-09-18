@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const SellingProduct = require('../schemas/selling_product.js');
+const BookingProduct = require('../schemas/booking_product.js');
 const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
@@ -284,10 +284,10 @@ router.post('/Booking/QueryAmount', async (req, res) => {
     }
 });
 
-// 10. Booking API - 예약 요청
+// 10. Booking API - 예약 요청  - 몽고디비 bookingProduct에서 같이 저장
 router.post('/Booking', async (req, res) => {
     try {
-        const { prod_no, pkg_no } = req.body;
+        const { prod_no, pkg_no, userId, passportList } = req.body;
 
         const data = await kkdayPost('Booking', {
             prod_no,
@@ -295,6 +295,30 @@ router.post('/Booking', async (req, res) => {
             locale: 'ko',
             ...req.body,
         });
+
+        const QueryProductData = await kkdayPost('Product/QueryProduct', {
+            prod_no,
+            locale: 'ko',
+        });
+
+        // 몽고디비 bookingProduct에서 Booking + Product 저장
+        const newBookingProduct = new BookingProduct({
+            userId: userId,
+            passportList: passportList ?? [],
+            guid: bookingRes.guid,
+            partner_order_no: bookingRes.partner_order_no,
+            order_no: bookingRes.order_no,
+            prod_no: prod_no,
+            pkg_no: pkg_no,
+            s_date: req.body.s_date,
+            e_date: req.body.e_date,
+            total_price: req.body.total_price,
+            product: QueryProductData, // 전체 JSON or 필요한 필드
+        });
+
+        //DB에 저장
+        await newBookingProduct.save();
+
         res.status(200).json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -339,11 +363,26 @@ router.get('/Order/QueryOrderDtlInfo/:order_no', async (req, res) => {
     }
 });
 
-// 14. Cancel API
+// 14. Cancel API - 몽고디비 bookingProduct에서 같이 삭제
 router.post('/Order/Cancel', async (req, res) => {
     try {
+        const { userId, guid } = req.body;
+
         const data = await kkdayPost('Order/Cancel', req.body);
-        res.status(200).json(data);
+
+        // 몽고디비 bookingProduct에서 같이 삭제
+        BookingProduct.findOneAndDelete({ guid: guid })
+            .then((deletedBookingProduct) => {
+                if (!deletedBookingProduct) {
+                    return res.status(404).json({ message: '삭제할 예약 상품을 찾을 수 없습니다.' });
+                }
+
+                res.status(200).json(data);
+            })
+            .catch((error) => {
+                console.error('BookingProduct.findOneAndDelete() 함수에 문제 발생 : ', error);
+                res.status(500).json({ error: error.message });
+            });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -406,28 +445,28 @@ router.get('/Common/QueryIsoCountryInfo', async (req, res) => {
 function findKKdayCode(countryData, { countryInput, cityInput }) {
     if (!countryInput) return { country_code: null, city_code: null };
 
-    // 이미 코드 형태(A01-###)인지 판별
     const isCodeFormat = (str) => /^A\d{2}-\d{3,}$/.test(str);
 
-    // 국가 코드 직접 입력 시
+    // 국가 코드 직접 입력
     if (isCodeFormat(countryInput)) {
         if (!cityInput) return { country_code: countryInput };
         if (Array.isArray(cityInput)) {
-            return { country_code: countryInput, city_code: cityInput };
+            const codes = cityInput.filter((c) => c); // 존재 여부는 API에서 체크
+            return { country_code: countryInput, city_code: codes.length ? codes : undefined };
         }
         return { country_code: countryInput, city_code: [cityInput] };
     }
 
-    // 국가명으로 검색
+    // 국가명 검색
     const country = countryData.countries.find(
         (c) => c.country_name.trim().toLowerCase() === countryInput.trim().toLowerCase()
     );
     if (!country) return { error: `국가 "${countryInput}"를 찾을 수 없습니다.` };
 
-    // 도시명이 없으면 국가 코드만 반환
+    // 도시 입력 없으면 국가 코드만 반환
     if (!cityInput) return { country_code: country.country_code };
 
-    // 도시가 배열이면 변환 처리
+    // 도시 배열이면 매칭되는 것만 반환
     if (Array.isArray(cityInput)) {
         const codes = cityInput
             .map((cityName) => {
@@ -439,17 +478,17 @@ function findKKdayCode(countryData, { countryInput, cityInput }) {
             })
             .filter(Boolean);
 
-        return { country_code: country.country_code, city_code: codes };
+        // 매칭되는 도시가 하나도 없으면 undefined → 국가 전체 검색
+        return { country_code: country.country_code, city_code: codes.length ? codes : undefined };
     }
 
-    // 단일 도시 코드 직접 입력 시
-    if (isCodeFormat(cityInput)) {
-        return { country_code: country.country_code, city_code: [cityInput] };
-    }
+    // 단일 도시명
+    if (isCodeFormat(cityInput)) return { country_code: country.country_code, city_code: [cityInput] };
 
-    // 단일 도시명 검색
     const city = country.cities.find((ct) => ct.city_name.trim().toLowerCase() === cityInput.trim().toLowerCase());
-    if (!city) return { error: `도시 "${cityInput}"를 찾을 수 없습니다.` };
+
+    // 매칭 안 되면 도시 코드 없이 국가 코드만 반환
+    if (!city) return { country_code: country.country_code };
 
     return { country_code: country.country_code, city_code: [city.city_code] };
 }
@@ -461,12 +500,8 @@ function findKKdayCode(countryData, { countryInput, cityInput }) {
 // ---------------------------
 async function createBooking(bookingData) {
     try {
-        const response = await axios.post(`${KKDAY_API_BASE}/Booking`, bookingData, {
-            headers: {
-                Authorization: `Bearer ${KKDAY_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-        });
+        const response = await kkdayPost('Booking', bookingData);
+        console.log(response);
         return response.data;
     } catch (err) {
         console.error('Booking API Error:', err.response?.data || err.message);
@@ -479,10 +514,7 @@ async function createBooking(bookingData) {
 // ---------------------------
 async function getVoucherList(orderNo) {
     try {
-        const response = await axios.get(`${KKDAY_API_BASE}/Voucher/QueryVoucherList`, {
-            headers: { Authorization: `Bearer ${KKDAY_API_KEY}` },
-            params: { order_no: orderNo },
-        });
+        const response = await kkdayPost('Voucher/QueryVoucherList', { order_no: orderNo });
         return response.data.item || [];
     } catch (err) {
         console.error('Voucher API Error:', err.response?.data || err.message);
@@ -524,18 +556,39 @@ async function processBooking(data) {
 
     try {
         // 2) 예약 생성
-        const bookingResult = await createBooking(bookingData);
-        const orderNo = bookingResult.order_no; // 실제 필드 확인 필요
+        const bookingResult = await createBooking(data);
 
-        // 3) 바우처 조회
-        const vouchers = await getVoucherList(orderNo);
+        console.log('bookingResult');
+        console.log(bookingResult);
 
-        // 4) 이메일 발송
-        await sendVoucherEmail('danimtest1234@gmail.com', orderNo, vouchers);
-        return { vouchers: vouchers, success: `구매해주셔서 감사드립니다!` };
+        const orderNo = bookingResult.order_no;
     } catch (err) {
         console.error('Error in booking process:', err);
         return { error: `구매에 실패하였습니다.` };
+    }
+
+    /*
+    0|server | {
+0|server |   result: '00',
+0|server |   result_msg: 'OK',
+0|server |   order_no: '25KK217710796',
+0|server |   order_oid: '40018788',
+0|server |   order_master_mid: '25MM293002260'
+0|server | }
+    */
+
+    try {
+        // 3) 바우처 조회
+        const vouchers = await getVoucherList(orderNo);
+        console.log('vouchers');
+        console.log(vouchers);
+
+        // 4) 이메일 발송
+        await sendVoucherEmail(data.buyer_Email, orderNo, vouchers);
+        return { vouchers: vouchers, success: `구매해주셔서 감사드립니다!` };
+    } catch (err) {
+        console.error('Error in booking process:', err);
+        return { error: `이메일 발송에 실패하였습니다.` };
     }
 }
 

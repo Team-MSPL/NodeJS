@@ -25,76 +25,56 @@ let passportType = {
 };
 
 const bookingProductSchema = new Schema({
-    //판매 상품 id
-    sellingProductId: {
-        type: String, // 자료형
-        required: true, // 필수 여부
-    },
     //유저 id
     userId: {
         type: String, // 자료형
         required: true, // 필수 여부
     },
+
     //여권 정보 등록 목록 - 재활용
     passportList: {
         type: [passportType], // 자료형
         default: [],
     },
-    // 연락수단 Map  (키 = 수단 이름, 값 = 문자열)
-    contact: {
-        type: Map,
-        of: String,
-        default: {}, // 기본값은 빈 객체
-        required: true, // 최소한 하나는 있어야 한다면 true
+
+    guid: { type: String, required: true, unique: true }, // booking 고유값
+    partner_order_no: String,
+    order_no: String,
+    prod_no: { type: Number, required: true },
+    pkg_no: Number,
+    item_no: Number,
+    locale: String,
+    state: String,
+    buyer: {
+        first_name: String,
+        last_name: String,
+        email: String,
+        tel_country_code: String,
+        tel_number: String,
+        country: String,
     },
-    //여행 시작일
-    startDate: {
-        type: Date, // 자료형
+    s_date: Date,
+    e_date: Date,
+    event_time: String,
+    guide_lang: String,
+    skus: [
+        {
+            sku_id: String,
+            qty: Number,
+            price: Number,
+        },
+    ],
+    order_note: String,
+    total_price: Number,
+    pay_type: String,
+
+    // 상품 정보 (QueryProduct API 결과 일부 저장) - pkg 제외
+    product: {
+        type: mongoose.Schema.Types.Mixed,
+        required: true,
     },
-    //여행 종료일
-    endDate: {
-        type: Date, // 자료형
-    },
-    //인원 - 예) {"대인":1, "소인":1}
-    personCount: {
-        type: Map,
-        of: Number,
-        default: {},
-    },
-    //총 비용
-    totalCost: {
-        type: Number, // 자료형
-        default: 0,
-    },
-    //픽업장소
-    pickupPlace: {
-        type: String, // 자료형
-        default: '',
-    },
-    //드랍장소
-    dropPlace: {
-        type: String, // 자료형
-        default: '',
-    },
-    //요청사항
-    request: {
-        type: String, // 자료형
-        default: '',
-    },
-    // 별점
-    reviewPoint: {
-        type: Number, // 자료형
-        default: 0.0,
-    },
-    // 후기
-    review: {
-        type: String, // 자료형
-        default: '',
-    },
-    //확정취소여부
-    confirm: {
-        type: Boolean, // 자료형
-    },
+
+    created_at: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('bookingProduct', bookingProductSchema);

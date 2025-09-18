@@ -3,6 +3,7 @@ const router = express.Router();
 const Inquiry = require('../schemas/inquiry.js');
 const User = require('../schemas/user.js');
 const jwt = require('jsonwebtoken');
+const admin = require('firebase-admin');
 require('dotenv').config();
 
 var _ = require('lodash');

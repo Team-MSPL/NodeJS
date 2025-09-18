@@ -17,7 +17,6 @@ const sellingProductSchema = new Schema({
     //판매 상품 타입 (tour, package)
     sellingProductType: {
         type: String,
-        required: true,
     },
     //판매 상품 내용
     sellingProductContent: {
