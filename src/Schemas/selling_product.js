@@ -12,7 +12,6 @@ const sellingProductSchema = new Schema({
     //판매 상품 이름
     sellingProductName: {
         type: String, // 자료형
-        required: true, // 필수 여부
     },
     //판매 상품 타입 (tour, package)
     sellingProductType: {
@@ -127,6 +126,30 @@ const sellingProductSchema = new Schema({
         type: String,
         default: 'N',
     },
+    prod_no: { type: Number }, // 숫자 그대로
+    prod_name: { type: String },
+    introduction: { type: String },
+    prod_img_url: { type: String },
+    prod_type: { type: String },
+    prod_currency: { type: String },
+    b2c_price: { type: Number },
+    b2b_price: { type: Number },
+    order_count: { type: Number },
+    rating_count: { type: Number },
+    avg_rating_star: { type: Number },
+    earliest_sale_date: { type: String },
+    countries: { type: Array, default: [] },
+    cities: { type: Array, default: [] },
+    isNationwide: { type: Boolean, default: false },
+    normalizedPlaces: { type: [String], default: [] },
+    productPlaces: { type: [String], default: [] },
+    tendencyScores: { type: Object, default: {} },
+    embedding: {
+        type: [Number],
+        //index: 'cosine', // MongoDB Atlas Vector Search용
+    },
+    introduction: { type: String },
+    needLLM: { type: Boolean, default: false },
 });
 
 module.exports = mongoose.model('sellingProduct', sellingProductSchema);

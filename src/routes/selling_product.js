@@ -131,6 +131,30 @@ async function embedText(texts) {
     return embeddings;
 }
 
+async function safeEmbedText(texts) {
+    if (!Array.isArray(texts)) texts = [texts];
+
+    // 빈 문자열 제거
+    const filteredTexts = texts.filter((t) => typeof t === 'string' && t.trim() !== '');
+
+    const BATCH_SIZE = 50;
+    const embeddings = [];
+
+    for (let i = 0; i < filteredTexts.length; i += BATCH_SIZE) {
+        const batch = filteredTexts.slice(i, i + BATCH_SIZE);
+        if (batch.length === 0) continue;
+
+        const res = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: batch,
+        });
+
+        embeddings.push(...res.data.map((d) => d.embedding));
+    }
+
+    return embeddings;
+}
+
 // asyncPool 유틸
 async function asyncPool(poolLimit, array, iteratorFn) {
     const ret = [];
@@ -149,24 +173,6 @@ async function asyncPool(poolLimit, array, iteratorFn) {
         }
     }
     return Promise.all(ret);
-}
-
-// 코스 벡터 생성 (MongoDB에서 place 임베딩 가져오기)
-async function getCourseEmbedding(normCourse) {
-    const embeddings = [];
-
-    for (const place of normCourse) {
-        const doc = await placeEmbedding.findOne({ place: place.name });
-        if (doc && doc.embedding) embeddings.push(doc.embedding);
-    }
-
-    if (embeddings.length === 0) return null;
-
-    return averageVectors(embeddings); // 단순 평균 or 가중 평균
-}
-async function getPlaceEmbedding(place) {
-    const doc = await placeEmbedding.findOne({ place: place.name });
-    return doc ? doc.embedding : null;
 }
 
 async function getPlaceEmbeddingsBulk(placeNames) {
@@ -251,13 +257,18 @@ async function isNationwideProduct(product) {
 상품명: ${product.prod_name}
 상품 설명: ${product.introduction || ''}
 
-이 상품이 해당 나라 전역에서 사용할 수 있는 상품(예: 전철 패스, eSIM 등)인지 0 또는 1로 알려줘.
-0: 아니오
-1: 전국용
+질문: 이 상품은 특정 도시/지역에 한정되지 않고, 한 나라의 전역에서 사용할 수 있는 상품입니까?
+
+판단 기준:
+- 1 (전국용): JR Pass, 전국 교통 패스, eSIM, 통신 요금제, 전국 체인 이용권처럼 한 나라 어디서든 쓸 수 있는 상품
+- 0 (지역용): 특정 도시 투어, 공항 픽업/샌딩 서비스, 특정 테마파크 입장권, 지역 한정 교통권처럼 특정 지역에서만 쓸 수 있는 상품
+
+정답은 반드시 0 또는 1 숫자만 출력하세요.
 `;
+
     try {
         const completion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4.1-nano',
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 1,
         });
@@ -283,16 +294,34 @@ router.post('/recommend', async (req, res) => {
             console.log(selectedTendencies);
         }
 
-        // 1. 국가/도시 필터링
-        let filteredProducts = productCache.filter((p) => p.countries.some((c) => c.name === country));
-        // cities 배열 중에 cityList에 포함된 게 하나라도 있으면 통과
-        if (cityList && cityList.length > 0 && !cityList.includes('전체')) {
-            filteredProducts = filteredProducts.filter((product) =>
-                product.countries.some((country) =>
-                    country.cities.some((city) => city.name === '모든 도시' || cityList.includes(city.name))
-                )
-            );
+        // TODO - 느릴 경우 MongoDB Atlas Vector Search로 진행
+
+        // // 1. 국가/도시 필터링
+        // let filteredProducts = productCache.filter((p) => p.countries.some((c) => c.name === country));
+        // // cities 배열 중에 cityList에 포함된 게 하나라도 있으면 통과
+        // if (cityList && cityList.length > 0 && !cityList.includes('전체')) {
+        //     filteredProducts = filteredProducts.filter((product) =>
+        //         product.countries.some((country) =>
+        //             country.cities.some((city) => city.name === '모든 도시' || cityList.includes(city.name))
+        //         )
+        //     );
+        // }
+
+        // 1. MongoDB에서 상품 불러오기 (필터링 가능)
+        let mongoFilter = {};
+        if (country) {
+            mongoFilter['countries'] = country;
         }
+        if (cityList && cityList.length > 0 && !cityList.includes('전체')) {
+            mongoFilter['$or'] = [
+                { cities: { $in: cityList } }, // cityList에 있는 도시가 하나라도 포함된 경우
+                { cities: ['모든 도시'] }, // cities 배열이 정확히 ["모든 도시"]만인 경우
+            ];
+        }
+
+        console.time('product_load_time');
+        let filteredProducts = await SellingProduct.find(mongoFilter).lean();
+        console.timeEnd('product_load_time');
 
         // 전국용 상품 따로 빼두고 나중에 추가
         const nationwideProducts = filteredProducts.filter((p) => p.isNationwide);
@@ -340,6 +369,9 @@ router.post('/recommend', async (req, res) => {
                         nameMatchScore = commonPlaces.length / nonEssentialPlaces.length; // 단순 비율
                     }
 
+                    console.log('nameMatchScore');
+                    console.log(nameMatchScore);
+
                     let vectorScoreCourse = nameMatchScore;
 
                     if (essentialPlaces.length > 0) {
@@ -349,9 +381,7 @@ router.post('/recommend', async (req, res) => {
                         const validEmbeddings = essentialEmbeddings.filter(Boolean);
 
                         if (validEmbeddings.length > 0) {
-                            const scores = validEmbeddings.map((emb) =>
-                                cosineSimilarity(emb, product.productEmbedding)
-                            );
+                            const scores = validEmbeddings.map((emb) => cosineSimilarity(emb, product.embedding));
                             const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
                             const maxScore = Math.max(...scores);
                             const embScore = avgScore * 0.2 + maxScore * 0.8;
@@ -411,11 +441,17 @@ router.post('/recommend', async (req, res) => {
             // 5. 점수 순 정렬
             results.sort((a, b) => b.finalScore - a.finalScore);
 
+            nationwideProducts.sort((a, b) => {
+                const aCount = a?.sellingProductReviewCount || 0;
+                const bCount = b?.sellingProductReviewCount || 0;
+                return bCount - aCount; // 내림차순
+            });
+
             // topK + 전국용 상품 추가
             let topResults = results.slice(0, topK).concat(nationwideProducts.slice(0, 5));
 
-            // productEmbedding 제거
-            recommendProducts.push(topResults.map(({ productEmbedding, ...rest }) => rest));
+            // embedding 제거
+            recommendProducts.push(topResults.map(({ embedding, ...rest }) => rest));
         }
         res.json(recommendProducts);
     } catch (error) {
@@ -791,77 +827,130 @@ async function extractPlacesFromSchedule(product, dbPlaces, placeEmbedding) {
     // 중복 제거
     const uniqueRaw = [...new Set(rawResult)];
 
+    if (uniqueRaw.length == 0) {
+        // 스케줄 없으면 prod_name + introduction 사용
+        if (product.prod.prod_name) uniqueRaw.push(product.prod.prod_name);
+        if (product.prod.introduction) uniqueRaw.push(product.prod.introduction);
+    }
+
     if (uniqueRaw.length == 0)
+        // 그래도 없으면 리턴
         return {
             extractedPlaces: [],
             normalizedPlaces: [],
         };
 
-    // === DB 장소명 임베딩 목록 준비 ===
-    // dbPlaces: [{ name: "서울타워"... }, ...]
-    // placeEmbedding: dbPlaces의 임베딩 배열
-
+    // === [1] 모든 rawPlace 후보 확장 ===
+    const expandedMap = {}; // rawPlace → expanded list
+    const expandedAll = []; // 전체 후보 모음
     for (const rawPlace of uniqueRaw) {
-        try {
-            // 0) 괄호 확장 (ex: "에펠탑 (Eiffel Tower)" → ["에펠탑 (Eiffel Tower)", "에펠탑", "Eiffel Tower"])
-            const expanded = expandPlaceName(rawPlace);
-
-            let bestCandidate = null;
-            let bestScore = -Infinity;
-
-            for (const candidate of expanded) {
-                // 1) candidate 임베딩 계산
-                const [candidateEmbedding] = await embedText(candidate);
-
-                // 2-1) 모든 점수 계산
-                const scoredPlaces = await Promise.all(
-                    dbPlaces.map(async (place, idx) => {
-                        return { ...place, score: cosineSimilarity(candidateEmbedding, placeEmbedding[idx]) };
-                    })
-                );
-
-                // 2-2) 가장 높은 점수 후보 찾기
-                const topCandidate = scoredPlaces.sort((a, b) => b.score - a.score)[0];
-
-                if (topCandidate.score > bestScore) {
-                    bestScore = topCandidate.score;
-                    bestCandidate = { candidate, match: topCandidate };
-                }
-            }
-
-            // 3) LLM 최종 판별
-            const prompt = `
-            입력된 장소명: "${rawPlace}"
-            후보 장소명: ${bestCandidate ? `"${bestCandidate.match.name}" (score: ${bestScore.toFixed(3)})` : '없음'}
-
-            위 입력된 장소명과 후보가 같은 실제 관광지를 가리킨다면
-            해당 후보의 이름만 정확히 반환하세요. 
-            없으면 "NONE"이라고만 답변하세요.
-            `;
-
-            const completion = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 1000,
-            });
-
-            const answer = completion.choices[0].message.content.trim();
-
-            if (answer !== 'NONE') {
-                normalizedResult.push(answer);
-                extractPlaceSuccess += 1;
-            } else {
-                extractPlaceFail += 1;
-            }
-        } catch (err) {
-            console.log('매칭 실패:', rawPlace, err.message);
-        }
+        const expanded = expandPlaceName(rawPlace);
+        expandedMap[rawPlace] = expanded;
+        expandedAll.push(...expanded);
     }
 
-    console.log('extractPlaceSuccess');
+    // === [2] 임베딩 배치 요청 ===
+    const embeddingResp = await openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: expandedAll,
+    });
+
+    const embeddingMap = {};
+    embeddingResp.data.forEach((item, idx) => {
+        embeddingMap[expandedAll[idx]] = item.embedding;
+    });
+
+    // === [3] rawPlace별 bestCandidate 계산 ===
+    const matchCandidates = [];
+    for (const rawPlace of uniqueRaw) {
+        const expanded = expandedMap[rawPlace];
+        let bestCandidate = null;
+        let bestScore = -Infinity;
+
+        for (const candidate of expanded) {
+            const candidateEmbedding = embeddingMap[candidate];
+
+            const scoredPlaces = dbPlaces.map((place, idx) => ({
+                ...place,
+                score: cosineSimilarity(candidateEmbedding, placeEmbedding[idx]),
+            }));
+
+            const topCandidate = scoredPlaces.sort((a, b) => b.score - a.score)[0];
+            if (topCandidate.score > bestScore) {
+                bestScore = topCandidate.score;
+                bestCandidate = { candidate, match: topCandidate, score: bestScore };
+            }
+        }
+
+        matchCandidates.push({ raw: rawPlace, bestCandidate });
+    }
+
+    // === [4] LLM 다중 판별 ===
+    const prompt = `
+    다음은 입력된 장소명과 후보 매칭 점수입니다.
+    각 줄은 "입력 → 후보(score)" 형식입니다.
+    
+    규칙:
+    - 입력과 후보가 같은 실제 관광지를 가리키면 후보의 이름만 반환
+    - 다르면 "NONE"
+    - 반드시 JSON 배열 형식으로 출력
+    - 다른 설명, 코드블록, 텍스트 절대 포함하지 않기
+    - 중간에 끊기지 않도록 최대한 짧게 출력
+    
+    예시 출력: ["서울타워","NONE","에펠탑"]
+    
+    입력 목록:
+    ${matchCandidates
+        .map(
+            (p) =>
+                `- ${p.raw} → ${p.bestCandidate?.match?.name || '없음'} (score: ${
+                    p.bestCandidate?.score?.toFixed(3) || '0'
+                })`
+        )
+        .join('\n')}
+    `;
+
+    let answers = [];
+    let rawAnswer = '';
+    try {
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-5-mini',
+            messages: [
+                { role: 'system', content: '당신은 JSON 출력 전용 엔진입니다. 반드시 JSON 배열만 출력하세요.' },
+                { role: 'user', content: prompt },
+            ],
+            max_completion_tokens: 1500,
+        });
+
+        rawAnswer = completion.choices[0].message.content.trim();
+
+        // 백틱/코드블록 제거
+        rawAnswer = rawAnswer
+            .replace(/```json/gi, '')
+            .replace(/```/g, '')
+            .trim();
+
+        answers = JSON.parse(rawAnswer);
+    } catch (err) {
+        console.error('LLM 판별 실패 (파싱 오류):', err.message);
+        console.error('원본 응답:', rawAnswer);
+        // fallback: NONE으로 채우기
+        answers = matchCandidates.map(() => 'NONE');
+    }
+
+    // === [5] 결과 집계 ===
+    answers.forEach((ans, idx) => {
+        if (ans !== 'NONE') {
+            normalizedResult.push(ans);
+            extractPlaceSuccess += 1;
+        } else {
+            extractPlaceFail += 1;
+        }
+    });
+
+    console.log(product.prod.prod_name);
+    console.log('extractPlaceSuccess : ', extractPlaceSuccess, ' / ', extractPlaceFail);
     console.log([...new Set(normalizedResult)]);
-    console.log(extractPlaceSuccess);
-    console.log(extractPlaceFail);
 
     // 최종 결과 반환: 원본과 DB 정규화 버전 모두
     return {
@@ -889,6 +978,45 @@ function isValidPlace(text) {
     // 너무 일반적인 문구 제외
     const stopWords = ['출발일', '여행', '자유', '식사', '미정', '포함', 'KKday'];
     return !stopWords.some((w) => text.includes(w));
+}
+
+async function kkdayPostWithRetry(path, body, retries = 3, delayMs = 2000) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const response = await kkdayPost(path, body);
+            return response; // 성공하면 바로 반환
+        } catch (err) {
+            if (err.response?.status === 529 && attempt < retries) {
+                console.warn(`[WARN] ${path} 실패(${err.message}), ${delayMs}ms 후 재시도 ${attempt}/${retries}`);
+                await new Promise((r) => setTimeout(r, delayMs));
+                delayMs *= 2; // 지수적 backoff
+            } else {
+                console.error(`[ERROR] ${path} 실패: ${err.message}`);
+                throw err; // 더 이상 재시도 불가 시 에러 던짐
+            }
+        }
+    }
+}
+
+// 스트리밍 저장 함수
+async function saveProductsStream(products, batchSize = 500) {
+    // 파일 새로 만들고 [ 여는 대괄호 먼저 씀
+    await fs.writeFile(CACHE_FILE, '[\n');
+
+    for (let i = 0; i < products.length; i += batchSize) {
+        const batch = products.slice(i, i + batchSize);
+
+        // stringify 후 마지막 콤마 처리
+        const batchString = batch.map((p) => JSON.stringify(p)).join(',\n');
+
+        // 마지막 배치가 아니면 콤마 추가
+        const suffix = i + batchSize < products.length ? ',\n' : '\n';
+
+        await fs.appendFile(CACHE_FILE, batchString + suffix);
+    }
+
+    // 마지막 닫는 대괄호
+    await fs.appendFile(CACHE_FILE, ']\n');
 }
 
 // ======================
@@ -920,15 +1048,6 @@ async function updateProductCache() {
             country_codes.push(country_code);
         }
 
-        // 기존 캐시 로딩
-        let existingCache = [];
-        try {
-            existingCache = JSON.parse(await fs.readFile(CACHE_FILE, 'utf-8'));
-        } catch (e) {
-            existingCache = [];
-        }
-        const existingCacheMap = new Map(existingCache.map((p) => [p.prod_name, p]));
-
         let page = 0;
         const pageSize = 50;
 
@@ -943,8 +1062,21 @@ async function updateProductCache() {
             const dbNamesFiltered = dbPlacesFiltered.map((p) => p.name);
 
             console.time('db_embed_time');
-            const placeEmbeddingFiltered = await embedText(dbNamesFiltered);
+            const placeEmbeddingFiltered = await safeEmbedText(dbNamesFiltered);
             console.timeEnd('db_embed_time');
+
+            // 기존 DB 로딩
+            console.time('product_load_time');
+            let mongoFilter = {};
+            mongoFilter['countries'] = targetCountries[i];
+            let products = await SellingProduct.find(mongoFilter).lean();
+            console.log('products 갯수 - ', products.length);
+            console.timeEnd('product_load_time');
+
+            const existingCacheMap = new Map(products.map((p) => [p.prod_name, p]));
+
+            page = 0;
+            allProducts = [];
 
             while (true) {
                 const response = await kkdayPost('Search', {
@@ -962,7 +1094,7 @@ async function updateProductCache() {
                     // 먼저 국가 2개 이상인 상품은 아예 제외
                     .filter((p) => !p.countries || p.countries.length <= 1)
                     .map((p) => {
-                        const cached = existingCacheMap.get(p.prod_no);
+                        const cached = existingCacheMap.get(p.prod_name);
 
                         const alwaysUpdate = {
                             b2c_price: p.b2c_price,
@@ -983,17 +1115,35 @@ async function updateProductCache() {
 
                 const processedProducts = await asyncPool(3, newProducts, async (product) => {
                     if (!product.needLLM) return product;
+                    else console.log('LLM  필요 - ', product.prod_name);
 
                     // 세부 정보 조회 (상품 스케줄 포함)
-                    let fullProduct;
+                    let fullProduct = null;
                     try {
-                        fullProduct = await kkdayPost('/Product/QueryProduct', {
-                            prod_no: product.prod_no,
-                            locale: 'ko',
-                        });
+                        fullProduct = await kkdayPostWithRetry(
+                            '/Product/QueryProduct',
+                            {
+                                prod_no: product.prod_no,
+                                locale: 'ko',
+                            },
+                            3,
+                            2000
+                        ); // 최대 3회, 초기 2초 대기
                     } catch (err) {
                         console.error(`[ERROR] QueryProduct 실패: ${product.prod_no}`, err.message);
                         fullProduct = null;
+                    }
+
+                    if (!fullProduct) {
+                        console.warn(`[WARN] fullProduct 없음: ${product.prod_no} - LLM 처리 건너뜀`);
+                        return {
+                            ...product,
+                            productPlaces: [],
+                            normalizedPlaces: [],
+                            tendencyScores: Object.fromEntries(tendencyData.flat().map((t) => [t, 0])),
+                            embedding: [],
+                            isNationwide: false,
+                        };
                     }
 
                     // 관광지 배열 뽑기
@@ -1034,19 +1184,20 @@ async function updateProductCache() {
                         tendencyScores = Object.fromEntries(tendencyData.flat().map((t) => [t, 0]));
                     }
 
-                    let productEmbedding = [];
+                    let embedding = [];
+                    let embeddingRes = [];
 
                     // 상품 텍스트 기반 임베딩 계산
-                    if (productPlaces.length > 0) {
-                        const normProduct = productPlaces.map((pl) => normalizePlaceName(pl));
-                        productEmbedding = await embedText(normProduct.join(', '));
-                    }
+                    embeddingRes = await embedText(productText);
+
+                    // OpenAI는 항상 2차원 배열 리턴 → 첫 번째 요소만 꺼냄
+                    embedding = embeddingRes[0];
 
                     return {
                         ...product,
                         isNationwide,
                         tendencyScores,
-                        productEmbedding,
+                        embedding,
                         productPlaces,
                         normalizedPlaces,
                         ...product.alwaysUpdate,
@@ -1057,14 +1208,46 @@ async function updateProductCache() {
                 page++;
                 console.log(`[CACHE] 상품 수집 완료 (누적: ${allProducts.length})`);
             }
+
+            // MongoDB에 bulk 업서트
+            const bulkOps = allProducts.map((p) => {
+                // 국가 이름 배열
+                const simplifiedCountries = (p.countries || []).map((c) => c.name);
+
+                // 도시 이름 배열 (국가 배열 안의 모든 city.name 평탄화)
+                const simplifiedCities = (p.countries || []).flatMap((c) => (c.cities || []).map((city) => city.name));
+
+                return {
+                    updateOne: {
+                        filter: { prod_no: p.prod_no },
+                        update: {
+                            $set: {
+                                ...p,
+                                countries: simplifiedCountries, // ["베트남", "태국", ...]
+                                cities: simplifiedCities, // ["모든 도시", "다낭", ...]
+                                sellingProductRating: p.avg_rating_star,
+                                sellingProductReviewCount: p.rating_count,
+                            },
+                        },
+                        upsert: true,
+                    },
+                };
+            });
+
+            await SellingProduct.bulkWrite(bulkOps);
+
+            console.log(`[CACHE] 총 ${allProducts.length}개 상품 DB에 업서트`);
+
+            // 끝나고 한 번에 넣어서 끊기지 않게!
+            // productCache = allProducts;
+
+            // // JSON 파일로 저장
+            // await fs.writeFile(CACHE_FILE, JSON.stringify(productCache, null, 2));
+            // console.log(`[CACHE] KKday 상품 캐시 갱신 완료 (총 ${productCache.length}개)`);
+            // productCache 대신 allProducts 스트리밍 저장
+            // await saveProductsStream(allProducts, 500);
+            // console.log(`[CACHE] KKday 상품 캐시 스트리밍 저장 완료 (총 ${allProducts.length}개)`);
         }
-
-        // 끝나고 한 번에 넣어서 끊기지 않게!
-        productCache = allProducts;
-
-        // JSON 파일로 저장
-        await fs.writeFile(CACHE_FILE, JSON.stringify(productCache, null, 2));
-        console.log(`[CACHE] KKday 상품 캐시 갱신 완료 (총 ${productCache.length}개)`);
     } catch (error) {
         console.error('[CACHE] 상품 캐시 갱신 실패:', error);
     }
@@ -1072,16 +1255,10 @@ async function updateProductCache() {
 
 // ======================
 // 서버 시작 시 캐시 초기화
+// TODO - 본서버에서 초기화 후 삭제
 // ======================
 (async () => {
-    try {
-        const productData = await fs.readFile(CACHE_FILE, 'utf-8');
-        productCache = JSON.parse(productData);
-        console.log(`[CACHE] 캐시 파일 로딩 완료 (${productCache.length}개)`);
-    } catch {
-        console.log('[CACHE] 캐시 파일 없음, 최초 전체 상품 조회 시작...');
-        await updateProductCache();
-    }
+    await updateProductCache();
 })();
 
 // ======================

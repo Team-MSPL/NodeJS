@@ -110,8 +110,8 @@ router.post('/signUpAndIn', async (req, res) => {
                         loginLogList: [korNow],
                         recentLogin: korNow,
                         fcmToken: fcmToken,
-                        //기존 정보 가져오기
-                        userToken: existedUser.userToken,
+                        // loginProvider가 toss일 때는 새 userToken, 아니면 기존 userToken
+                        userToken: loginProvider === 'toss' ? userToken : existedUser.userToken,
                         functionToken: existedUser.functionToken,
                         noteList: existedUser.noteList,
                         blockUserList: existedUser.blockUserList,

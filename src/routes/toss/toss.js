@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const https = require('https');
 const axios = require('axios');
+const User = require('../../schemas/user.js');
+const ManageUser = require('../../schemas/manage_user.js');
 const fs = require('fs');
 require('dotenv').config();
 
@@ -133,6 +135,64 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error('Toss API Error:', error.response ? error.response.data : error.message);
         res.status(500).json({ error: error.response ? error.response.data : error.message });
+    }
+});
+
+// 토스 회원 탈퇴
+router.post('/withdraw', async (req, res) => {
+    try {
+        const { userKey, referrer } = req.body;
+
+        // 사용자 찾기
+        const user = await User.findOne({ userToken: userKey });
+        if (!user) {
+            return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+        }
+
+        // // TravelCourse 데이터 삭제
+        // await TravelCourse.deleteMany({ user._id });
+
+        // ManageUser 업데이트 or 생성
+        const now = new Date();
+        const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+        const korNow = new Date(utc + 9 * 60 * 60 * 1000);
+
+        let manageUser = await ManageUser.findOne({ userId: user._id.toString() });
+        if (!manageUser) {
+            manageUser = new ManageUser({
+                userId: user._id.toString(),
+                userToken: user.userToken,
+                functionToken: user.functionToken,
+                noteList: user.noteList,
+                blockUserList: user.blockUserList,
+                withdrawReasonList: [],
+                withdrawDate: korNow,
+            });
+            await manageUser.save();
+        } else {
+            await ManageUser.findOneAndUpdate(
+                { _id: manageUser._id },
+                {
+                    $set: {
+                        userId: user._id.toString(),
+                        userToken: user.userToken,
+                        functionToken: user.functionToken,
+                        noteList: user.noteList,
+                        blockUserList: user.blockUserList,
+                        withdrawDate: korNow,
+                    },
+                },
+                { new: true }
+            );
+        }
+
+        // User 삭제
+        await User.deleteOne({ userToken: userKey });
+
+        res.status(200).json({ message: '토스 회원 탈퇴가 완료되었습니다.' });
+    } catch (error) {
+        console.error('/withdraw/toss - DELETE 함수 에러:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 

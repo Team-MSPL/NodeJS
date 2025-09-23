@@ -51,8 +51,8 @@ async function getPlaceID(place) {
     } else if (response.data.status === 'ZERO_RESULTS') {
         placeID = ''; // Error 반환
     } else {
-        const filteredResults = response.data.results.filter((result) => result.formatted_address.includes(country));
-        if (filteredResults.length > 0) {
+        const filteredResults = response.data.results.filter((result) => result.formatted_address?.includes(country));
+        if (filteredResults && filteredResults.length > 0) {
             placeID = filteredResults[0].place_id;
         } else {
             placeID = response.data.results[0].place_id;
