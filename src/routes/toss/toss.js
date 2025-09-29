@@ -115,19 +115,19 @@ router.post('/login', async (req, res) => {
             // 기존 RefreshToken으로 AccessToken 재발급
             tokens = await refreshAccessToken(existingRefreshToken);
             tokens = tokens.success;
-            console.log('Final Tokens1:', tokens);
+            //console.log('Final Tokens1:', tokens);
         } else {
             // 새로 AuthorizationCode로 AccessToken 발급
             tokens = await getAccessToken(authorizationCode, referrer);
             tokens = tokens.success;
-            console.log('Final Tokens2:', tokens);
+            //console.log('Final Tokens2:', tokens);
         }
 
         // AccessToken 만료 여부 체크
         if (isTokenExpired(tokens.accessToken) && tokens.refreshToken) {
             tokens = await refreshAccessToken(tokens.refreshToken);
             tokens = tokens.success;
-            console.log('Final Tokens3:', tokens);
+            //console.log('Final Tokens3:', tokens);
         }
 
         data = await userInfo(tokens.accessToken);

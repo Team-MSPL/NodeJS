@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const SellingProduct = require('../schemas/selling_product.js');
 const placeEmbedding = require('../schemas/place_embedding.js');
 const User = require('../schemas/user.js');
 var { fetchPlaces } = require('./firebase/firebase_place_embedding.js');
+const RegionMap = require('./region_mapping/region_mapping.js');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const axios = require('axios');
@@ -12,6 +14,7 @@ const fuzz = require('fuzzball');
 const fs = require('fs').promises;
 const cron = require('node-cron');
 const CACHE_FILE = '/home/ubuntu/danim_database/kkday_products_cache.json';
+const CACHE_FILE2 = '/home/ubuntu/danim_database/place_cache.json';
 const OpenAI = require('openai');
 
 const KKDAY_BASE_URL = 'https://api-b2d.kkday.com/v4';
@@ -260,8 +263,8 @@ async function isNationwideProduct(product) {
 질문: 이 상품은 특정 도시/지역에 한정되지 않고, 한 나라의 전역에서 사용할 수 있는 상품입니까?
 
 판단 기준:
-- 1 (전국용): JR Pass, 전국 교통 패스, eSIM, 통신 요금제, 전국 체인 이용권처럼 한 나라 어디서든 쓸 수 있는 상품
-- 0 (지역용): 특정 도시 투어, 공항 픽업/샌딩 서비스, 특정 테마파크 입장권, 지역 한정 교통권처럼 특정 지역에서만 쓸 수 있는 상품
+- 1 (전국용): 공항 픽업/샌딩 서비스, JR Pass, 전국 교통 패스, eSIM, 통신 요금제, 전국 체인 이용권처럼 한 나라 어디서든 쓸 수 있는 상품
+- 0 (지역용): 특정 도시 투어, 특정 테마파크 입장권, 지역 한정 교통권처럼 특정 지역에서만 쓸 수 있는 상품
 
 정답은 반드시 0 또는 1 숫자만 출력하세요.
 `;
@@ -278,14 +281,41 @@ async function isNationwideProduct(product) {
     }
 }
 
+function normalizeCities(country, cityList) {
+    const filteredCityList = cityList.filter((city) => city !== '홍콩' && city !== '마카오');
+
+    const map = RegionMap[country];
+    if (!map) return [];
+
+    const normalized = [];
+
+    for (const city of filteredCityList) {
+        const val = map[city];
+        if (!val) continue; // null 또는 undefined → 매칭 제외
+        if (Array.isArray(val)) normalized.push(...val);
+        else normalized.push(val);
+    }
+    if (cityList.includes('홍콩')) {
+        normalized.push('홍콩');
+    }
+    if (cityList.includes('마카오')) {
+        normalized.push('마카오');
+    }
+
+    // TODO - 매칭 안되는 도시들이 많을 경우 이 함수 안에서 "모든 도시"를 넣어볼 것! + 위에서 매칭 안되어도 넘기는 대신 모든 도시로 해버리기?
+    // if (normalized.length == 0) {
+    //     normalized.push('모든 도시');
+    // }
+
+    // 중복 제거
+    return [...new Set(normalized)];
+}
+
 // 판매 상품 목록 추천받기 ( 5개씩 )
 // 프론트에서 다이어로그를 띄우기 전에 먼저 이 API를 쏘고, 결과가 있으면 띄움 ( AI 실행 로딩 때 같이 쏘면 될듯 )
 router.post('/recommend', async (req, res) => {
     try {
-        const { pathList, country, cityList, selectList, topK = 5 } = req.body;
-
-        console.log('productCache.length');
-        console.log(productCache.length);
+        const { pathList, country, cityList, selectList, topK = 10 } = req.body;
 
         let selectedTendencies = [];
 
@@ -312,10 +342,14 @@ router.post('/recommend', async (req, res) => {
         if (country) {
             mongoFilter['countries'] = country;
         }
-        if (cityList && cityList.length > 0 && !cityList.includes('전체')) {
+        // cityList 정규화
+        // TODO - 매칭 안되는 도시들이 많을 경우 이 함수 안에서 "모든 도시"를 넣어볼 것!
+        const normalizedCities = normalizeCities(country, cityList);
+
+        if (normalizedCities && normalizedCities.length > 0) {
             mongoFilter['$or'] = [
-                { cities: { $in: cityList } }, // cityList에 있는 도시가 하나라도 포함된 경우
-                { cities: ['모든 도시'] }, // cities 배열이 정확히 ["모든 도시"]만인 경우
+                { cities: { $in: normalizedCities } }, // cityList에 있는 도시가 하나라도 포함
+                { cities: ['모든 도시'] }, // cities 배열이 정확히 ["모든 도시"]인 경우
             ];
         }
 
@@ -338,46 +372,51 @@ router.post('/recommend', async (req, res) => {
 
             const pathFlat = flattenPath(path);
 
-            // 코스 장소 임베딩 미리 한번에 가져오기 - 어차피 코스는 다 같음
-            const placeMap = await getPlaceEmbeddingsBulk(pathFlat);
+            // // 코스 장소 임베딩 미리 한번에 가져오기 - 어차피 코스는 다 같음
+            // const placeMap = await getPlaceEmbeddingsBulk(pathFlat);
 
-            const placeEmbeddings = pathFlat.map((p) => placeMap[p]).filter(Boolean);
-            if (!placeEmbeddings.length) return 0;
+            // const placeEmbeddings = pathFlat.map((p) => placeMap[p]).filter(Boolean);
+            // if (!placeEmbeddings.length) return 0;
+
+            // is_essential or p.category === 5 인 경우만 임베딩으로 추가 가중치
+            // // TODO - API 실행 시간이 여유있다면 category가 0이 아닌 경우로 바꾸기?
+            const essentialPlaces = path
+                .flatMap((day) => day.filter((p) => p.is_essential || (p.category && p.category !== 0)))
+                .map((p) => p.name);
+
+            // essential 비율 계산
+            const essentialRatio = essentialPlaces.length / pathFlat.length; // 0 ~ 1
+
+            // essential 제외한 non-essential 장소들만 추출
+            const nonEssentialPlaces = pathFlat.filter((p) => !essentialPlaces.includes(p));
+
+            // essential 장소들에 대해 임베딩 직접 계산
+            const essentialEmbeddings = await embedText(essentialPlaces);
 
             // 1. 캐싱된 normalizedPlaces를 활용한 빠른 매칭
             const results = await asyncPool(5, filteredProducts, async (product) => {
                 try {
-                    // is_essential or p.category === 5 인 경우만 임베딩으로 추가 가중치
-                    // TODO - API 실행 시간이 여유있다면 category가 0이 아닌 경우로 바꾸기?
-                    const essentialPlaces = path
-                        .flatMap((day) => day.filter((p) => p.is_essential || (p.category && p.category === 5)))
-                        .map((p) => p.name);
-
-                    // essential 비율 계산
-                    const essentialRatio = essentialPlaces.length / pathFlat.length; // 0 ~ 1
-
-                    // essential 제외한 non-essential 장소들만 추출
-                    const nonEssentialPlaces = pathFlat.filter((p) => !essentialPlaces.includes(p));
-
                     // pathFlat vs product.normalizedPlaces 매칭 (non-essential만)
                     const commonPlaces = nonEssentialPlaces.filter((place) =>
                         product.normalizedPlaces?.includes(place)
                     );
+                    console.log(nonEssentialPlaces);
+                    console.log(product.normalizedPlaces);
+                    console.log(commonPlaces);
 
                     let nameMatchScore = 0;
                     if (commonPlaces.length > 0) {
-                        nameMatchScore = commonPlaces.length / nonEssentialPlaces.length; // 단순 비율
+                        //nameMatchScore = commonPlaces.length / nonEssentialPlaces.length; // 단순 비율
+                        nameMatchScore = commonPlaces.length / product.normalizedPlaces?.length; // 단순 비율
                     }
-
-                    console.log('nameMatchScore');
                     console.log(nameMatchScore);
+
+                    // console.log('nameMatchScore');
+                    // console.log(nameMatchScore);
 
                     let vectorScoreCourse = nameMatchScore;
 
                     if (essentialPlaces.length > 0) {
-                        // essential 장소들에 대해 임베딩 직접 계산
-                        const essentialEmbeddings = await embedText(essentialPlaces);
-
                         const validEmbeddings = essentialEmbeddings.filter(Boolean);
 
                         if (validEmbeddings.length > 0) {
@@ -397,8 +436,8 @@ router.post('/recommend', async (req, res) => {
                           selectedTendencies.length
                         : 0;
 
-                    console.log(product.prod_name);
-                    console.log(vectorScoreCourse);
+                    // console.log(product.prod_name);
+                    // console.log(vectorScoreCourse);
 
                     return { ...product, vectorScoreCourse, avgPrefScore };
                 } catch (err) {
@@ -413,30 +452,31 @@ router.post('/recommend', async (req, res) => {
             const vectorScores = results.map((p) => p.vectorScoreCourse);
             const prefScores = results.map((p) => p.avgPrefScore);
 
-            // 3. softmax 스케일링
-            const softmaxVectorScores = softmax(vectorScores);
-            const softmaxPrefScores = softmax(prefScores);
+            // 3. minMax 스케일링
+            const normVectorScores = minMaxScale(vectorScores);
+            const normPrefScores = minMaxScale(prefScores);
 
             // 4. finalScore 계산 (임계값 반영)
             const VECTOR_THRESHOLD = 0.4; // 코사인 유사도 최소 기준
 
-            results.forEach((p, idx) => {
-                const rawVector = vectorScores[idx]; // 절대 코사인 값
-                const softVector = softmaxVectorScores[idx];
-                const softPref = softmaxPrefScores[idx];
+            results
+                .forEach((p, idx) => {
+                    const rawVector = vectorScores[idx];
+                    const normVector = normVectorScores[idx];
+                    const normPref = normPrefScores[idx];
 
-                // 임계값 미만이면 점수 0
-                if (rawVector < VECTOR_THRESHOLD) {
-                    p.finalScore = 0;
-                } else {
-                    // 절대 유사도와 softmax 랭킹 혼합
-                    const vectorCombined = rawVector * 0.7 + softVector * 0.3;
-                    const prefCombined = softPref; // 성향 점수는 softmax만 반영
+                    if (rawVector < VECTOR_THRESHOLD) {
+                        p.finalScore = 0;
+                        return null; // 임계값 미달 → 제외
+                    } else {
+                        // 절대값 + 정규화된 점수 혼합
+                        const vectorCombined = rawVector * 0.6 + normVector * 0.4;
+                        const prefCombined = normPref; // 성향은 min-max 반영
 
-                    // 최종 점수 (가중치 적용)
-                    p.finalScore = vectorCombined * 0.8 + prefCombined * 0.2;
-                }
-            });
+                        p.finalScore = vectorCombined * 0.7 + prefCombined * 0.3;
+                    }
+                })
+                .filter(Boolean); // null 제거
 
             // 5. 점수 순 정렬
             results.sort((a, b) => b.finalScore - a.finalScore);
@@ -465,18 +505,18 @@ router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
         //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
-        SellingProduct.findOne({ _id: id })
-            .then(async (sellingProduct) => {
-                if (!sellingProduct) {
-                    return res.status(404).json({ message: '저장된 판매 상품이 없습니다.' });
-                }
+        // SellingProduct.findOne({ _id: id })
+        //     .then(async (sellingProduct) => {
+        //         if (!sellingProduct) {
+        //             return res.status(404).json({ message: '저장된 판매 상품이 없습니다.' });
+        //         }
 
-                res.status(200).json(sellingProduct);
-            })
-            .catch((error) => {
-                console.error('SellingProduct.findOne() 함수에 문제 발생 : ', error);
-                res.status(403).json({ message: '잘못된 sellingProductId 입니다.' });
-            });
+        //         res.status(200).json(sellingProduct);
+        //     })
+        //     .catch((error) => {
+        //         console.error('SellingProduct.findOne() 함수에 문제 발생 : ', error);
+        //         res.status(403).json({ message: '잘못된 sellingProductId 입니다.' });
+        //     });
     } catch (error) {
         console.error('/sellingProduct/:id - GET 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -488,23 +528,23 @@ router.patch('/linkClickLog', async (req, res) => {
     try {
         const { sellingProductId, clickLog } = req.body;
 
-        //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
-        SellingProduct.findOne({ _id: sellingProductId })
-            .then(async (sellingProduct) => {
-                if (!sellingProduct) {
-                    return res.status(404).json({ message: '저장된 판매 상품이 없습니다.' });
-                }
+        // //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+        // SellingProduct.findOne({ _id: sellingProductId })
+        //     .then(async (sellingProduct) => {
+        //         if (!sellingProduct) {
+        //             return res.status(404).json({ message: '저장된 판매 상품이 없습니다.' });
+        //         }
 
-                sellingProduct.sellingProductLinkClickLog.push(clickLog);
+        //         sellingProduct.sellingProductLinkClickLog.push(clickLog);
 
-                await sellingProduct.save();
+        //         await sellingProduct.save();
 
-                res.status(200).json({ message: '판매 상품 링크 클릭 로그 저장 완료.' });
-            })
-            .catch((error) => {
-                console.error('SellingProduct.findOne() 함수에 문제 발생 : ', error);
-                res.status(403).json({ message: '잘못된 sellingProductId 입니다.' });
-            });
+        //         res.status(200).json({ message: '판매 상품 링크 클릭 로그 저장 완료.' });
+        //     })
+        //     .catch((error) => {
+        //         console.error('SellingProduct.findOne() 함수에 문제 발생 : ', error);
+        //         res.status(403).json({ message: '잘못된 sellingProductId 입니다.' });
+        //     });
     } catch (error) {
         console.error('/sellingProduct/countLinkClick - PATCH 함수에 문제 발생 : ', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -827,10 +867,24 @@ async function extractPlacesFromSchedule(product, dbPlaces, placeEmbedding) {
     // 중복 제거
     const uniqueRaw = [...new Set(rawResult)];
 
-    if (uniqueRaw.length == 0) {
-        // 스케줄 없으면 prod_name + introduction 사용
-        if (product.prod.prod_name) uniqueRaw.push(product.prod.prod_name);
-        if (product.prod.introduction) uniqueRaw.push(product.prod.introduction);
+    if (uniqueRaw.length === 0) {
+        // product.prod 안전 체크
+        if (product && product.prod) {
+            if (product.prod.prod_name) uniqueRaw.push(product.prod.prod_name);
+            if (product.prod.introduction) uniqueRaw.push(product.prod.introduction);
+        } else {
+            console.log('[CACHE][WARN] product.prod is undefined', {
+                productId: product?.id || product?.prod_id || 'unknown',
+                product: product,
+            });
+            /*
+            product: {
+                result: '02',
+                result_msg: "MISSING_FIELD:These Product type can't support API. Please Go website to Order It."
+            }
+            위 경우에는 아예 몽고db에 저장도 안하게 외부에서 처리
+            */
+        }
     }
 
     if (uniqueRaw.length == 0)
@@ -860,12 +914,12 @@ async function extractPlacesFromSchedule(product, dbPlaces, placeEmbedding) {
         embeddingMap[expandedAll[idx]] = item.embedding;
     });
 
-    // === [3] rawPlace별 bestCandidate 계산 ===
+    // === [3] rawPlace별 top5 후보 계산 ===
     const matchCandidates = [];
     for (const rawPlace of uniqueRaw) {
         const expanded = expandedMap[rawPlace];
-        let bestCandidate = null;
-        let bestScore = -Infinity;
+
+        let bestCandidates = [];
 
         for (const candidate of expanded) {
             const candidateEmbedding = embeddingMap[candidate];
@@ -875,37 +929,44 @@ async function extractPlacesFromSchedule(product, dbPlaces, placeEmbedding) {
                 score: cosineSimilarity(candidateEmbedding, placeEmbedding[idx]),
             }));
 
-            const topCandidate = scoredPlaces.sort((a, b) => b.score - a.score)[0];
-            if (topCandidate.score > bestScore) {
-                bestScore = topCandidate.score;
-                bestCandidate = { candidate, match: topCandidate, score: bestScore };
-            }
+            // 상위 5개 후보 추출
+            const topCandidates = scoredPlaces
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5)
+                .map((p) => ({
+                    candidate,
+                    match: p,
+                    score: p.score,
+                }));
+
+            bestCandidates.push(...topCandidates);
         }
 
-        matchCandidates.push({ raw: rawPlace, bestCandidate });
+        // score 기준 상위 5개만 유지
+        bestCandidates = bestCandidates.sort((a, b) => b.score - a.score).slice(0, 5);
+
+        matchCandidates.push({ raw: rawPlace, candidates: bestCandidates });
     }
 
-    // === [4] LLM 다중 판별 ===
     const prompt = `
-    다음은 입력된 장소명과 후보 매칭 점수입니다.
-    각 줄은 "입력 → 후보(score)" 형식입니다.
-    
+    다음은 입력된 장소명과 상위 후보 매칭 점수입니다.
+    각 입력마다 최대 5개 후보가 있습니다.
+
     규칙:
-    - 입력과 후보가 같은 실제 관광지를 가리키면 후보의 이름만 반환
-    - 다르면 "NONE"
+    - 각 입력(rawPlace)에 대해 "가장 일치하는 후보의 이름"만 출력
+    - 후보 중 동일한 관광지가 없으면 "NONE"
     - 반드시 JSON 배열 형식으로 출력
-    - 다른 설명, 코드블록, 텍스트 절대 포함하지 않기
-    - 중간에 끊기지 않도록 최대한 짧게 출력
-    
+    - 다른 설명, 코드블록, 텍스트 절대 포함 금지
+
     예시 출력: ["서울타워","NONE","에펠탑"]
-    
+
     입력 목록:
     ${matchCandidates
         .map(
             (p) =>
-                `- ${p.raw} → ${p.bestCandidate?.match?.name || '없음'} (score: ${
-                    p.bestCandidate?.score?.toFixed(3) || '0'
-                })`
+                `- ${p.raw}:\n${p.candidates
+                    .map((c, i) => `   [${i + 1}] ${c.match.name} (score: ${c.score.toFixed(2)})`)
+                    .join('\n')}`
         )
         .join('\n')}
     `;
@@ -919,16 +980,22 @@ async function extractPlacesFromSchedule(product, dbPlaces, placeEmbedding) {
                 { role: 'system', content: '당신은 JSON 출력 전용 엔진입니다. 반드시 JSON 배열만 출력하세요.' },
                 { role: 'user', content: prompt },
             ],
-            max_completion_tokens: 1500,
+            max_completion_tokens: 10000,
         });
 
-        rawAnswer = completion.choices[0].message.content.trim();
+        rawAnswer = completion.choices[0].message.content.trim() || '';
+        console.log('=== RAW ANSWER ===');
+        console.log(rawAnswer);
 
         // 백틱/코드블록 제거
         rawAnswer = rawAnswer
             .replace(/```json/gi, '')
             .replace(/```/g, '')
             .trim();
+
+        if (!rawAnswer) {
+            console.warn('⚠️ 모델이 빈 응답을 반환했습니다.');
+        }
 
         answers = JSON.parse(rawAnswer);
     } catch (err) {
@@ -998,26 +1065,7 @@ async function kkdayPostWithRetry(path, body, retries = 3, delayMs = 2000) {
     }
 }
 
-// 스트리밍 저장 함수
-async function saveProductsStream(products, batchSize = 500) {
-    // 파일 새로 만들고 [ 여는 대괄호 먼저 씀
-    await fs.writeFile(CACHE_FILE, '[\n');
-
-    for (let i = 0; i < products.length; i += batchSize) {
-        const batch = products.slice(i, i + batchSize);
-
-        // stringify 후 마지막 콤마 처리
-        const batchString = batch.map((p) => JSON.stringify(p)).join(',\n');
-
-        // 마지막 배치가 아니면 콤마 추가
-        const suffix = i + batchSize < products.length ? ',\n' : '\n';
-
-        await fs.appendFile(CACHE_FILE, batchString + suffix);
-    }
-
-    // 마지막 닫는 대괄호
-    await fs.appendFile(CACHE_FILE, ']\n');
-}
+let isUpdating = false;
 
 // ======================
 // KKday 전체 상품 캐시 갱신 함수
@@ -1193,6 +1241,23 @@ async function updateProductCache() {
                     // OpenAI는 항상 2차원 배열 리턴 → 첫 번째 요소만 꺼냄
                     embedding = embeddingRes[0];
 
+                    /*
+                    product: {
+                        result: '02',
+                        result_msg: "MISSING_FIELD:These Product type can't support API. Please Go website to Order It."
+                    }
+                    위 경우에는 아예 몽고db에 저장도 안하게 외부에서 처리
+                    KKday API가 "MISSING_FIELD" 응답한 경우 → 저장 스킵
+                    */
+                    if (fullProduct?.result === '02' && fullProduct?.result_msg?.startsWith('MISSING_FIELD')) {
+                        // console.warn('[CACHE][WARN] API 미지원 상품 스킵', {
+                        //     productId: product?.prod_no || 'unknown',
+                        //     result: fullProduct.result,
+                        //     result_msg: fullProduct.result_msg,
+                        // });
+                        return null; // processedProducts에 저장 안 됨
+                    }
+
                     return {
                         ...product,
                         isNationwide,
@@ -1204,43 +1269,69 @@ async function updateProductCache() {
                     };
                 });
 
+                // 끝나고 한 번에 넣어서 끊기지 않게!
+                // productCache = allProducts;
+
+                // MongoDB에 bulk 업서트
+                const bulkOps = processedProducts
+                    .filter((p) => p) // null/undefined 제거 -> 미지원 상품 스킵
+                    .map((p) => {
+                        // 국가 이름 배열
+                        const simplifiedCountries = (p.countries || [])
+                            .map((c) => {
+                                if (typeof c === 'string') return c; // 이미 문자열일 때
+                                if (c && typeof c === 'object') return c.name; // 객체일 때
+                                return null;
+                            })
+                            .filter(Boolean); // null 제거
+
+                        // 도시 이름 배열 (국가 배열 안의 모든 city.name 평탄화)
+                        const simplifiedCities = (p.countries || []).flatMap((c) => {
+                            if (typeof c === 'string') return []; // 문자열이면 도시 정보 없음
+                            if (c && Array.isArray(c.cities)) {
+                                return c.cities
+                                    .map((city) => {
+                                        if (!city || !city.name) return null;
+                                        const parts = city.name.split(',');
+                                        return parts[parts.length - 1].trim();
+                                    })
+                                    .filter(Boolean); // null, "" 같은 값 제거
+                            }
+                            return [];
+                        });
+
+                        return {
+                            updateOne: {
+                                filter: { prod_no: p.prod_no },
+                                update: {
+                                    $set: {
+                                        ...p,
+                                        countries: simplifiedCountries, // ["베트남", "태국", ...]
+                                        cities: simplifiedCities, // ["모든 도시", "다낭", ...]
+                                        sellingProductRating: p.avg_rating_star,
+                                        sellingProductReviewCount: p.rating_count,
+                                    },
+                                },
+                                upsert: true,
+                            },
+                        };
+                    });
+
+                const prevDebug = mongoose.get('debug'); // 현재 debug 상태 저장
+                try {
+                    mongoose.set('debug', false); // bulkWrite 로그 끄기
+                    await SellingProduct.bulkWrite(bulkOps);
+                } catch (error) {
+                    console.error('bulkWrite 로그 끄기 실패');
+                    await SellingProduct.bulkWrite(bulkOps);
+                } finally {
+                    mongoose.set('debug', prevDebug); // 원래 상태 복원
+                }
+
                 allProducts.push(...processedProducts);
                 page++;
                 console.log(`[CACHE] 상품 수집 완료 (누적: ${allProducts.length})`);
             }
-
-            // MongoDB에 bulk 업서트
-            const bulkOps = allProducts.map((p) => {
-                // 국가 이름 배열
-                const simplifiedCountries = (p.countries || []).map((c) => c.name);
-
-                // 도시 이름 배열 (국가 배열 안의 모든 city.name 평탄화)
-                const simplifiedCities = (p.countries || []).flatMap((c) => (c.cities || []).map((city) => city.name));
-
-                return {
-                    updateOne: {
-                        filter: { prod_no: p.prod_no },
-                        update: {
-                            $set: {
-                                ...p,
-                                countries: simplifiedCountries, // ["베트남", "태국", ...]
-                                cities: simplifiedCities, // ["모든 도시", "다낭", ...]
-                                sellingProductRating: p.avg_rating_star,
-                                sellingProductReviewCount: p.rating_count,
-                            },
-                        },
-                        upsert: true,
-                    },
-                };
-            });
-
-            await SellingProduct.bulkWrite(bulkOps);
-
-            console.log(`[CACHE] 총 ${allProducts.length}개 상품 DB에 업서트`);
-
-            // 끝나고 한 번에 넣어서 끊기지 않게!
-            // productCache = allProducts;
-
             // // JSON 파일로 저장
             // await fs.writeFile(CACHE_FILE, JSON.stringify(productCache, null, 2));
             // console.log(`[CACHE] KKday 상품 캐시 갱신 완료 (총 ${productCache.length}개)`);
@@ -1253,20 +1344,508 @@ async function updateProductCache() {
     }
 }
 
+async function getDistinctCities() {
+    const cities = await SellingProduct.aggregate([
+        { $unwind: '$cities' },
+        { $match: { cities: { $ne: '모든 도시' } } }, // "모든 도시" 제외
+        { $group: { _id: { countries: '$countries', city: '$cities' } } },
+    ]);
+    // { country, city } 형태로 반환
+    return cities.map((c) => ({
+        country: c._id.countries[0], // 배열 첫 번째 원소 사용
+        city: c._id.city,
+    }));
+}
+
+function groupByCountry(cities) {
+    const grouped = {};
+    for (const { country, city } of cities) {
+        if (!grouped[country]) grouped[country] = [];
+        grouped[country].push(city);
+    }
+    // 중복 제거
+    for (const key of Object.keys(grouped)) {
+        grouped[key] = [...new Set(grouped[key])];
+    }
+    return grouped;
+}
+
+function buildPrompt(country, productCities) {
+    if (!domesticRegions[country]) {
+        console.warn(`[WARN] domesticRegions에 ${country} 키가 없습니다.`);
+        return null; // 혹은 빈 배열로 처리
+    }
+    return `
+  당신은 여행 상품의 지역명을 표준화하는 전문가입니다.
+  
+  [기준 지역명 리스트]
+  ${domesticRegions[country].join(', ')}
+  
+  [상품 지역명 리스트: ${country}]
+  ${productCities.join(', ')}
+  
+  기준 지역명 리스트의 각 항목을 상품 지역명 리스트 중 가장 적절한 것과 매칭해 주세요.
+  만약 매칭할 수 없으면 null로 표시하세요.
+  
+  출력 형식 (JSON):
+  {
+    "기준 지역명": "상품 지역명 또는 null",
+    ...
+  }
+  `;
+}
+async function createSynonymDict(country, productCities) {
+    const prompt = buildPrompt(country, productCities);
+
+    const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+    });
+
+    const content = completion.choices[0].message.content;
+
+    // JSON 파싱 시도
+    try {
+        return parseLLMJson(content);
+    } catch (e) {
+        console.error(`[ERROR] ${country} 응답 JSON 파싱 실패:\n`, e);
+        return {};
+    }
+}
+function parseLLMJson(llmContent) {
+    try {
+        // ```json ... ``` 제거
+        const cleaned = llmContent
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
+        return JSON.parse(cleaned);
+    } catch (e) {
+        console.warn('[WARN] LLM JSON 파싱 실패, fallback 처리');
+        // fallback: 간단하게 key-value 추출
+        const dict = {};
+        const lines = llmContent.split('\n').filter((l) => l.includes(':'));
+        for (const line of lines) {
+            const match = line.match(/"(.+?)"\s*:\s*(null|"(.+?)")/);
+            if (match) dict[match[1]] = match[3] || null;
+        }
+        return dict;
+    }
+}
+
+async function createRegionMap() {
+    const cities = await getDistinctCities();
+    const grouped = groupByCountry(cities);
+
+    const finalDict = {};
+
+    for (const [country, cityList] of Object.entries(grouped)) {
+        console.log(`👉 ${country} (${cityList.length}개 지역) 매핑 중...`);
+
+        const dict = await createSynonymDict(country, cityList);
+        finalDict[country] = dict;
+    }
+    await fs.writeFile(CACHE_FILE, JSON.stringify(finalDict, null, 2));
+    await fs.writeFile(CACHE_FILE2, JSON.stringify(grouped, null, 2));
+
+    console.log('✅ 모든 나라 처리 완료. 결과: region_synonyms.json 저장됨');
+    process.exit(0);
+}
+
 // ======================
 // 서버 시작 시 캐시 초기화
 // TODO - 본서버에서 초기화 후 삭제
 // ======================
-(async () => {
-    await updateProductCache();
-})();
+// (async () => {
+//     if (isUpdating) {
+//         console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
+//         return;
+//     }
+//     try {
+//         isUpdating = true;
+//         await updateProductCache();
+//     } finally {
+//         isUpdating = false;
+//     }
+// })();
 
 // ======================
 // 하루 1회 새벽 3시에 갱신 (cron: "0 3 * * *")
 // ======================
 cron.schedule('0 3 * * *', async () => {
     console.log('[CRON] KKday 상품 캐시 갱신 시작...');
-    await updateProductCache();
+    if (isUpdating) {
+        console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
+        return;
+    }
+    try {
+        isUpdating = true;
+        await updateProductCache();
+    } finally {
+        isUpdating = false;
+    }
 });
+
+const domesticRegions = {
+    한국: [
+        '강원 강릉시',
+        '강원 고성군',
+        '강원 동해시',
+        '강원 삼척시',
+        '강원 속초시',
+        '강원 양구군',
+        '강원 양양군',
+        '강원 영월군',
+        '강원 원주시',
+        '강원 인제군',
+        '강원 정선군',
+        '강원 철원군',
+        '강원 춘천시',
+        '강원 태백시',
+        '강원 평창군',
+        '강원 홍천군',
+        '강원 화천군',
+        '강원 횡성군',
+        '경기 가평군',
+        '경기 고양시',
+        '경기 과천시',
+        '경기 광명시',
+        '경기 광주시',
+        '경기 구리시',
+        '경기 군포시',
+        '경기 김포시',
+        '경기 남양주시',
+        '경기 동두천시',
+        '경기 부천시',
+        '경기 성남시',
+        '경기 수원시',
+        '경기 시흥시',
+        '경기 안산시',
+        '경기 안성시',
+        '경기 안양시',
+        '경기 양주시',
+        '경기 양평군',
+        '경기 여주시',
+        '경기 연천군',
+        '경기 오산시',
+        '경기 가평군',
+        '경기 고양시',
+        '경기 과천시',
+        '경기 광명시',
+        '경기 광주시',
+        '경기 구리시',
+        '경기 군포시',
+        '경기 김포시',
+        '경기 남양주시',
+        '경기 동두천시',
+        '경기 부천시',
+        '경기 성남시',
+        '경기 수원시',
+        '경기 시흥시',
+        '경기 안산시',
+        '경기 안성시',
+        '경기 안양시',
+        '경기 양주시',
+        '경기 양평군',
+        '경기 여주시',
+        '경기 연천군',
+        '경기 오산시',
+        '경기 용인시',
+        '경기 의왕시',
+        '경기 의정부시',
+        '경기 이천시',
+        '경기 파주시',
+        '경기 평택시',
+        '경기 포천시',
+        '경기 하남시',
+        '경기 화성시',
+        '경남 거제시',
+        '경남 거창군',
+        '경남 고성군',
+        '경남 김해시',
+        '경남 남해군',
+        '경남 밀양시',
+        '경남 사천시',
+        '경남 산청군',
+        '경남 양산시',
+        '경남 의령군',
+        '경남 진주시',
+        '경남 창녕군',
+        '경남 창원시',
+        '경남 통영시',
+        '경남 하동군',
+        '경남 함안군',
+        '경남 함양군',
+        '경남 합천군',
+        '경북 경산시',
+        '경북 경주시',
+        '경북 고령군',
+        '경북 구미시',
+        '경북 김천시',
+        '경북 문경시',
+        '경북 봉화군',
+        '경북 상주시',
+        '경북 성주군',
+        '경북 안동시',
+        '경북 영덕군',
+        '경북 영양군',
+        '경북 영주시',
+        '경북 영천시',
+        '경북 예천군',
+        '경북 울릉군',
+        '경북 울진군',
+        '경북 의성군',
+        '경북 청도군',
+        '경북 청송군',
+        '경북 칠곡군',
+        '경북 포항시',
+        '광주 전체',
+        '대구 전체',
+        '대전 전체',
+        '부산 전체',
+        '서울 도심권',
+        '서울 동남권',
+        '서울 동북권',
+        '서울 서남권',
+        '서울 서북권',
+        '세종 전체',
+        '울산 전체',
+        '인천 전체',
+        '전남 강진군',
+        '전남 고흥군',
+        '전남 곡성군',
+        '전남 광양시',
+        '전남 구례군',
+        '전남 나주시',
+        '전남 담양군',
+        '전남 목포시',
+        '전남 무안군',
+        '전남 보성군',
+        '전남 순천시',
+        '전남 신안군',
+        '전남 여수시',
+        '전남 영광군',
+        '전남 영암군',
+        '전남 완도군',
+        '전남 장성군',
+        '전남 장흥군',
+        '전남 진도군',
+        '전남 함평군',
+        '전남 해남군',
+        '전남 화순군',
+        '전북 고창군',
+        '전북 군산시',
+        '전북 김제시',
+        '전북 남원시',
+        '전북 무주군',
+        '전북 부안군',
+        '전북 순창군',
+        '전북 완주군',
+        '전북 익산시',
+        '전북 임실군',
+        '전북 장수군',
+        '전북 전주시',
+        '전북 정읍시',
+        '전북 진안군',
+        '제주 서귀포시',
+        '제주 제주시',
+        '충남 계룡시',
+        '충남 공주시',
+        '충남 금산군',
+        '충남 논산시',
+        '충남 당진시',
+        '충남 보령시',
+        '충남 부여군',
+        '충남 서산시',
+        '충남 서천군',
+        '충남 아산시',
+        '충남 예산군',
+        '충남 천안시',
+        '충남 청양군',
+        '충남 태안군',
+        '충남 홍성군',
+        '충북 괴산군',
+        '충북 단양군',
+        '충북 보은군',
+        '충북 영동군',
+        '충북 옥천군',
+        '충북 음성군',
+        '충북 제천시',
+        '충북 증평군',
+        '충북 진천군',
+        '충북 청주시',
+        '충북 충주시',
+    ],
+    일본: [
+        '도쿄',
+        '요코하마',
+        '가마쿠라',
+        '가나가와현',
+        '치바',
+        '치바현',
+        '군마현',
+        '이바라키현',
+        '나고야',
+        '나가노',
+        '후쿠이',
+        '다카야마',
+        '가루이자와마치',
+        '시즈오카현',
+        '야마나시현',
+        '오사카',
+        '교토',
+        '고베',
+        '나라',
+        '와카야마',
+        '와카야마현',
+        '후쿠오카',
+        '나가사키',
+        '유후',
+        '가고시마',
+        '오키나와',
+        '삿포로',
+        '오타루',
+        '하코다테',
+        '비에이',
+        '후라노',
+        '가미후라노',
+        '아사히카와',
+        '니세코',
+        '도오 지방',
+        '도난 지방',
+        '도호쿠 지방',
+        '도토 지방',
+        '센다이',
+        '미야기현',
+        '히로시마',
+        '오카야마',
+        '다카마쓰',
+    ],
+    중국: [
+        '베이징',
+        '톈진',
+        '하얼빈',
+        '다롄',
+        '상하이',
+        '난징',
+        '쑤저우',
+        '항저우',
+        '칭다오',
+        '옌타이',
+        '샤먼',
+        '홍콩',
+        '마카오',
+        '장가계',
+        '하이난',
+        '광저우',
+        '심천',
+        '계림',
+        '청두',
+        '충칭',
+        '리장',
+        '쿤밍',
+        '시안',
+        '둔황',
+    ],
+    베트남: [
+        '하노이',
+        '하이퐁',
+        '닌빈',
+        '박닌',
+        '빈푹',
+        '다낭',
+        '호이안',
+        '나트랑',
+        '판티엣',
+        '꾸이년',
+        '빈 투언',
+        '후에',
+        '꽝빈성',
+        '탄호아',
+        '호치민시',
+        '동나이',
+        '콘다오',
+        '하롱베이',
+        '하장',
+        '랑손',
+        '타이 응우옌',
+        '박장',
+        '사파',
+        '라오까이',
+        '달랏',
+        '닥락',
+        '람동',
+        '푸꾸옥 섬',
+        '깐토',
+        '띠엔장',
+        '동탑',
+    ],
+    태국: [
+        '치앙마이',
+        '치앙라이',
+        '람팡',
+        '매홍손',
+        '빠이',
+        '우돈타니',
+        '나콘라차시마',
+        '농카이',
+        '후아힌',
+        '칸차나부리',
+        '딱',
+        '방콕',
+        '수코타이',
+        '프라나콘시 아유타야',
+        '우타이타니',
+        '사뭇 프라칸',
+        '파타야',
+        '라용',
+        '찬타부리',
+        '촌부리',
+        '사뭇 사콘',
+        '사뭇 송크람',
+        '푸켓',
+        '사무이 섬',
+        '핫야이',
+        '피피돈 섬',
+        '사멧 섬',
+        '코창',
+        '뜨랏',
+        '수랏타니',
+        '나콘시탐마랏',
+        '송클라',
+        '사툰',
+        '춤폰',
+        '카오락',
+        '팡아',
+    ],
+    필리핀: [
+        '마닐라',
+        '바기오',
+        '비간',
+        '팔라완',
+        '사가다',
+        '바나웨',
+        '레가스피',
+        '안티폴로',
+        '일로코스',
+        '잠발레스',
+        '바탕가스',
+        '라구나',
+        '앙헬레스',
+        '팡가시난',
+        '따가이따이',
+        '보라카이',
+        '세부',
+        '보홀',
+        '시키호르',
+        '일로일로',
+        '다바오',
+        '카가얀 데 오로',
+        '시아르가오',
+    ],
+    싱가포르: ['싱가포르'],
+    '홍콩과 마카오': ['홍콩', '마카오'],
+};
 
 module.exports = router;
