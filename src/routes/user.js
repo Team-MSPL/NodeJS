@@ -755,6 +755,75 @@ router.patch('/passportList', async (req, res) => {
     }
 });
 
+// 14. 최근 성향 선택 가져오기
+router.get('/recentSelectList', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+            User.findOne({ _id: decoded._id })
+                .then(async (user) => {
+                    if (!user) {
+                        console.log(user);
+                        return res.status(404).json({ message: '저장된 유저가 없습니다.' });
+                    }
+
+                    res.status(200).json({ recentSelectList: user.recentSelectList });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 postId 입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/recentSelectList - GET 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// 15. 최근 성향 선택 수정하기
+router.patch('/recentSelectList', async (req, res) => {
+    try {
+        const token = req.header('Authorization').split(' ')[1];
+
+        jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+            if (err) {
+                console.error('JWT 토큰 검증 에러:', err);
+                return res.status(401).json({ message: 'Unauthorized' });
+            }
+
+            const { recentSelectList } = req.body;
+
+            //find시 발생하는 문제를 처리하려면 이렇게 에러처리 두 번!
+            User.findOne({ _id: decoded._id })
+                .then(async (user) => {
+                    if (!user) {
+                        console.log(user);
+                        return res.status(404).json({ message: '저장된 유저가 없습니다.' });
+                    }
+                    user.recentSelectList = recentSelectList;
+
+                    await user.save();
+
+                    res.status(200).json({ message: '최근 성향 선택 목록이 수정되었습니다.' });
+                })
+                .catch((error) => {
+                    console.error('User.findOne() 함수에 문제 발생 : ', error);
+                    res.status(403).json({ message: '잘못된 Id 입니다.' });
+                });
+        });
+    } catch (error) {
+        console.error('/users/recentSelectList - PATCH 함수에 문제 발생 : ', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 // ms를 mm월 dd일 hh시간 mm분 형식으로 변환하는 함수
 function formatInterval(ms) {
     const seconds = Math.floor(ms / 1000);

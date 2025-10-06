@@ -5,7 +5,7 @@ const SellingProduct = require('../schemas/selling_product.js');
 const placeEmbedding = require('../schemas/place_embedding.js');
 const User = require('../schemas/user.js');
 var { fetchPlaces } = require('./firebase/firebase_place_embedding.js');
-const RegionMap = require('./region_mapping/region_mapping.js');
+const { RegionMap, KKDAYMap } = require('./region_mapping/region_mapping.js');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const axios = require('axios');
@@ -13,6 +13,7 @@ var _ = require('lodash');
 const fuzz = require('fuzzball');
 const fs = require('fs').promises;
 const cron = require('node-cron');
+const admin = require('firebase-admin');
 const CACHE_FILE = '/home/ubuntu/danim_database/kkday_products_cache.json';
 const CACHE_FILE2 = '/home/ubuntu/danim_database/place_cache.json';
 const OpenAI = require('openai');
@@ -256,22 +257,38 @@ function findKKdayCode(countryData, { countryInput, cityInput }) {
 }
 
 async function isNationwideProduct(product) {
+    // if (/(공항\s?(픽업|샌딩|라운지))/i.test(product.prod_name + product.introduction)) {
+    //     return true; // 강제 1
+    // }
+
     const prompt = `
-상품명: ${product.prod_name}
-상품 설명: ${product.introduction || ''}
-
-질문: 이 상품은 특정 도시/지역에 한정되지 않고, 한 나라의 전역에서 사용할 수 있는 상품입니까?
-
-판단 기준:
-- 1 (전국용): 공항 픽업/샌딩 서비스, JR Pass, 전국 교통 패스, eSIM, 통신 요금제, 전국 체인 이용권처럼 한 나라 어디서든 쓸 수 있는 상품
-- 0 (지역용): 특정 도시 투어, 특정 테마파크 입장권, 지역 한정 교통권처럼 특정 지역에서만 쓸 수 있는 상품
-
-정답은 반드시 0 또는 1 숫자만 출력하세요.
-`;
+    상품명: ${product.prod_name}
+    상품 설명: ${product.introduction || ''}
+    
+    질문: 이 상품은 
+    1) 특정 도시/명소에 한정된 상품인지, 
+    2) 특정 지역(예: 하노이, 오사카, 제주도) 전역에서 쓸 수 있는 상품인지, 
+    3) 한 나라 전역에서 쓸 수 있는 상품인지 구분하세요.
+    
+    판단 기준:
+    - 1 (전국/지역 전역용): 
+      * 한 나라 전체에서 사용 가능한 상품 (예: JR Pass, eSIM, 전국 교통 패스, 전국 체인 이용권, 통신 요금제)
+      * 특정 지역 전역(예: 하노이 전역, 오사카 전역, 제주도 전역)에서 사용 가능한 상품 
+        (예: **지역 공항 픽업/샌딩 서비스, 지역 공항 라운지 이용권, 공항-시내 이동 서비스, 지역 전체 숙박/투어 이용권 등**)
+      * 특히 '공항 픽업', '공항 샌딩', '공항 라운지'등 공항 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
+    
+    - 0 (지역 한정용): 
+      * 특정 관광지/테마파크/건물 내부에서만 사용 가능한 상품 
+        (예: 디즈니랜드 티켓, 특정 사원 입장권, 특정 공연 입장권)
+    
+    출력 형식:
+    - 정답은 반드시 숫자 0 또는 1만 출력하세요.
+    - 불필요한 설명을 붙이지 마세요.
+    `;
 
     try {
         const completion = await openai.chat.completions.create({
-            model: 'gpt-4.1-nano',
+            model: 'gpt-4.1-mini',
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 1,
         });
@@ -281,20 +298,109 @@ async function isNationwideProduct(product) {
     }
 }
 
-function normalizeCities(country, cityList) {
+// 기존 llmMatch (단일 도시)
+async function llmMatch(city, kkdayCities) {
+    const prompt = `
+    도시명 "${city}"을(를) 아래 KKday 도시 목록 중 가장 가까운 이름 하나로 매핑해줘.
+    KKday 도시 목록: [${kkdayCities.join(', ')}]
+    반드시 이름 하나만 반환하며 다른 내용은 반환하면 안돼.
+    없다면 "null"이라고 답해.
+    예시 출력: "마닐라"
+    `;
+
+    try {
+        const res = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+        });
+        const answer = res.choices[0].message.content.trim();
+        return answer === 'null' ? null : answer;
+    } catch (err) {
+        console.error('LLM 매칭 실패:', err.message);
+        return null;
+    }
+}
+
+// 🔹 batch 매핑용
+async function llmBatchMatch(cityList, kkdayCities) {
+    const prompt = `
+    다음 도시들을 KKday 도시 목록에 매핑해줘.
+    입력 도시 목록: [${cityList.join(', ')}]
+    KKday 도시 목록: [${kkdayCities.join(', ')}]
+    각 입력 도시를 KKday 도시 또는 "null"로 매핑해서 JSON 배열로만 반환해.
+    반드시 JSON 배열로만 반환하며 다른 내용은 반환하면 안돼.
+    예시 출력: ["마닐라", "세부", "null"]
+    `;
+
+    try {
+        const res = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+        });
+        const answer = res.choices[0].message.content.trim();
+        return JSON.parse(answer); // ["마닐라", "세부", "null"] 같은 결과 기대
+    } catch (err) {
+        console.error('LLM 배치 매칭 실패:', err.message);
+        return cityList.map(() => null); // 실패 시 전부 null
+    }
+}
+
+async function normalizeCities(country, cityList) {
     const filteredCityList = cityList.filter((city) => city !== '홍콩' && city !== '마카오');
 
     const map = RegionMap[country];
+    const kkdayPool = KKDAYMap[country] || [];
     if (!map) return [];
 
     const normalized = [];
 
-    for (const city of filteredCityList) {
-        const val = map[city];
-        if (!val) continue; // null 또는 undefined → 매칭 제외
-        if (Array.isArray(val)) normalized.push(...val);
-        else normalized.push(val);
+    if (filteredCityList.length <= 5) {
+        // 개별 매칭 (안정성 우선)
+        for (const city of filteredCityList) {
+            let val = map[city];
+            if (val) {
+                if (Array.isArray(val)) normalized.push(...val);
+                else normalized.push(val);
+            } else {
+                const llm = await llmMatch(city, kkdayPool);
+                console.log('llmResults');
+                console.log(llm);
+                if (llm) {
+                    normalized.push(llm);
+                }
+            }
+            continue; // null 또는 undefined → 매칭 제외
+        }
+    } else {
+        // 배치 매칭 (성능 우선)
+        const unmapped = [];
+        const directMapped = [];
+
+        for (const city of filteredCityList) {
+            const val = map[city];
+            if (val) {
+                if (Array.isArray(val)) directMapped.push(...val);
+                else directMapped.push(val);
+            } else {
+                unmapped.push(city);
+            }
+        }
+
+        const batchResults = await llmBatchMatch(unmapped, kkdayPool);
+
+        console.log('batchResults');
+        console.log(batchResults);
+
+        batchResults.forEach((res, idx) => {
+            if (res && res !== 'null') {
+                directMapped.push(res);
+            }
+            // null 또는 undefined → 매칭 제외
+        });
+
+        normalized.push(...directMapped);
     }
+
     if (cityList.includes('홍콩')) {
         normalized.push('홍콩');
     }
@@ -306,6 +412,8 @@ function normalizeCities(country, cityList) {
     // if (normalized.length == 0) {
     //     normalized.push('모든 도시');
     // }
+
+    normalized = normalized.filter((city) => city !== '모든 도시');
 
     // 중복 제거
     return [...new Set(normalized)];
@@ -321,7 +429,7 @@ router.post('/recommend', async (req, res) => {
 
         if (selectList) {
             selectedTendencies = tendencyData.flatMap((row, i) => row.filter((val, j) => selectList[i][j] === 1));
-            console.log(selectedTendencies);
+            //console.log(selectedTendencies);
         }
 
         // TODO - 느릴 경우 MongoDB Atlas Vector Search로 진행
@@ -344,7 +452,16 @@ router.post('/recommend', async (req, res) => {
         }
         // cityList 정규화
         // TODO - 매칭 안되는 도시들이 많을 경우 이 함수 안에서 "모든 도시"를 넣어볼 것!
-        const normalizedCities = normalizeCities(country, cityList);
+        console.time('city_nomalize_time');
+        let normalizedCities = [];
+        if (cityList) {
+            const resultCityList = cityList.map((item) => {
+                const parts = item.split('/');
+                return parts.pop(); // 맨 뒤 값만
+            });
+            normalizedCities = await normalizeCities(country, resultCityList);
+        }
+        console.timeEnd('city_nomalize_time');
 
         if (normalizedCities && normalizedCities.length > 0) {
             mongoFilter['$or'] = [
@@ -358,6 +475,7 @@ router.post('/recommend', async (req, res) => {
         console.timeEnd('product_load_time');
 
         // 전국용 상품 따로 빼두고 나중에 추가
+        // 공항 픽업, 샌딩 등 상품도 포함! - 어차피 앞에서 지역으로 한 번 거른 상품들이라서 괜찮음
         const nationwideProducts = filteredProducts.filter((p) => p.isNationwide);
 
         filteredProducts = filteredProducts.filter((p) => !p.isNationwide);
@@ -394,22 +512,18 @@ router.post('/recommend', async (req, res) => {
             const essentialEmbeddings = await embedText(essentialPlaces);
 
             // 1. 캐싱된 normalizedPlaces를 활용한 빠른 매칭
-            const results = await asyncPool(5, filteredProducts, async (product) => {
+            let results = await asyncPool(5, filteredProducts, async (product) => {
                 try {
                     // pathFlat vs product.normalizedPlaces 매칭 (non-essential만)
                     const commonPlaces = nonEssentialPlaces.filter((place) =>
                         product.normalizedPlaces?.includes(place)
                     );
-                    console.log(nonEssentialPlaces);
-                    console.log(product.normalizedPlaces);
-                    console.log(commonPlaces);
 
                     let nameMatchScore = 0;
                     if (commonPlaces.length > 0) {
                         //nameMatchScore = commonPlaces.length / nonEssentialPlaces.length; // 단순 비율
                         nameMatchScore = commonPlaces.length / product.normalizedPlaces?.length; // 단순 비율
                     }
-                    console.log(nameMatchScore);
 
                     // console.log('nameMatchScore');
                     // console.log(nameMatchScore);
@@ -459,27 +573,35 @@ router.post('/recommend', async (req, res) => {
             // 4. finalScore 계산 (임계값 반영)
             const VECTOR_THRESHOLD = 0.4; // 코사인 유사도 최소 기준
 
-            results
-                .forEach((p, idx) => {
-                    const rawVector = vectorScores[idx];
-                    const normVector = normVectorScores[idx];
-                    const normPref = normPrefScores[idx];
+            let passed = [];
+            let fallback = [];
 
-                    if (rawVector < VECTOR_THRESHOLD) {
-                        p.finalScore = 0;
-                        return null; // 임계값 미달 → 제외
-                    } else {
-                        // 절대값 + 정규화된 점수 혼합
-                        const vectorCombined = rawVector * 0.6 + normVector * 0.4;
-                        const prefCombined = normPref; // 성향은 min-max 반영
+            results.forEach((p, idx) => {
+                const rawVector = vectorScores[idx];
+                const normVector = normVectorScores[idx];
+                const normPref = normPrefScores[idx];
 
-                        p.finalScore = vectorCombined * 0.7 + prefCombined * 0.3;
-                    }
-                })
-                .filter(Boolean); // null 제거
+                const vectorCombined = rawVector * 0.6 + normVector * 0.4;
+                const prefCombined = normPref;
+                const finalScore = vectorCombined * 0.7 + prefCombined * 0.3;
+
+                // 점수 저장
+                p.finalScore = finalScore;
+
+                if (rawVector >= VECTOR_THRESHOLD) {
+                    passed.push(p); // 정상 통과
+                } else if (rawVector >= VECTOR_THRESHOLD / 2) {
+                    fallback.push(p); // fallback 후보
+                }
+                // TODO - 지역 필터링이 잘 된다면, 임계값 미달이더라도 그냥 넣어도 될듯. 해당 지역의 다른 관광지 추천할겸?
+            });
 
             // 5. 점수 순 정렬
-            results.sort((a, b) => b.finalScore - a.finalScore);
+            passed.sort((a, b) => b.finalScore - a.finalScore);
+            fallback.sort((a, b) => b.finalScore - a.finalScore);
+
+            // fallback 조건 적용
+            results = passed.length > 0 ? passed : fallback;
 
             nationwideProducts.sort((a, b) => {
                 const aCount = a?.sellingProductReviewCount || 0;
@@ -984,8 +1106,8 @@ async function extractPlacesFromSchedule(product, dbPlaces, placeEmbedding) {
         });
 
         rawAnswer = completion.choices[0].message.content.trim() || '';
-        console.log('=== RAW ANSWER ===');
-        console.log(rawAnswer);
+        // console.log('=== RAW ANSWER ===');
+        // console.log(rawAnswer);
 
         // 백틱/코드블록 제거
         rawAnswer = rawAnswer
@@ -1124,7 +1246,6 @@ async function updateProductCache() {
             const existingCacheMap = new Map(products.map((p) => [p.prod_name, p]));
 
             page = 0;
-            allProducts = [];
 
             while (true) {
                 const response = await kkdayPost('Search', {
@@ -1151,6 +1272,7 @@ async function updateProductCache() {
                             rating_count: p.rating_count,
                             avg_rating_star: p.avg_rating_star,
                             earliest_sale_date: p.earliest_sale_date,
+                            //countries: p.countries,
                         };
 
                         const needLLM =
@@ -1162,7 +1284,10 @@ async function updateProductCache() {
                     });
 
                 const processedProducts = await asyncPool(3, newProducts, async (product) => {
-                    if (!product.needLLM) return product;
+                    if (!product.needLLM)
+                        return {
+                            ...product,
+                        };
                     else console.log('LLM  필요 - ', product.prod_name);
 
                     // 세부 정보 조회 (상품 스케줄 포함)
@@ -1204,7 +1329,13 @@ async function updateProductCache() {
                     // sellingProductPlaceList가 있으면 추가 병합
                     const productPlaces = [...(product.sellingProductPlaceList || []), ...extractedPlaces];
 
-                    const isNationwide = await isNationwideProduct(product);
+                    // product.isNationwide가 undefined/null이면 처리
+                    let isNationwide = product.isNationwide ?? false;
+
+                    if (!product.hasOwnProperty('isNationwide') || product.isNationwide === undefined) {
+                        // 기존 값이 없을 때만 함수 호출
+                        isNationwide = await isNationwideProduct(product);
+                    }
 
                     // 성향 점수 계산
                     const productText = [product.prod_name, product.introduction || '', ...productPlaces].join(', ');
@@ -1287,7 +1418,7 @@ async function updateProductCache() {
 
                         // 도시 이름 배열 (국가 배열 안의 모든 city.name 평탄화)
                         const simplifiedCities = (p.countries || []).flatMap((c) => {
-                            if (typeof c === 'string') return []; // 문자열이면 도시 정보 없음
+                            if (typeof c === 'string') return p.cities; // 이미 countries가 문자열이면 이미 저장된 도시 정보 활용
                             if (c && Array.isArray(c.cities)) {
                                 return c.cities
                                     .map((city) => {
@@ -1339,6 +1470,7 @@ async function updateProductCache() {
             // await saveProductsStream(allProducts, 500);
             // console.log(`[CACHE] KKday 상품 캐시 스트리밍 저장 완료 (총 ${allProducts.length}개)`);
         }
+        return allProducts.length;
     } catch (error) {
         console.error('[CACHE] 상품 캐시 갱신 실패:', error);
     }
@@ -1473,19 +1605,69 @@ async function createRegionMap() {
 // ======================
 // 하루 1회 새벽 3시에 갱신 (cron: "0 3 * * *")
 // ======================
-cron.schedule('0 3 * * *', async () => {
-    console.log('[CRON] KKday 상품 캐시 갱신 시작...');
-    if (isUpdating) {
-        console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
-        return;
+// cron 표현식: 매일 18시에 실행 (18시 0분 0초)
+cron.schedule(
+    '0 0 3 * * *',
+    async () => {
+        console.log('[CRON] KKday 상품 캐시 갱신 시작...');
+        if (isUpdating) {
+            console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
+            return;
+        }
+        try {
+            isUpdating = true;
+            resultLen = await updateProductCache();
+            isUpdating = false;
+
+            //관리자에게 알림 보내기
+
+            try {
+                const userId = '6609f7a4faac39d8516b25b2'; // 관리자 _id
+                const user = await User.findOne({ _id: userId });
+
+                if (user && user.fcmToken) {
+                    const payload = {
+                        notification: {
+                            title: '캐시 업뎃 완료',
+                            body: resultLen,
+                        },
+                        data: {
+                            // 여기에 필요한 데이터를 추가할 수 있습니다.
+                            // 예: noteId, senderId 등
+                        },
+                        token: user.fcmToken,
+                    };
+
+                    try {
+                        //await admin.messaging().sendToDevice(user.fcmToken, payload);
+                        await admin.messaging().send(payload);
+                    } catch (error) {
+                        // fcmToken이 유효하지 않은 경우 삭제
+                        if (
+                            error.code === 'messaging/registration-token-not-registered' ||
+                            (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
+                        ) {
+                            console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
+                            user.fcmToken = null;
+                            await user.save();
+                        } else {
+                            console.error('FCM 전송 에러:', error);
+                        }
+                    }
+                }
+                // }
+            } catch (error) {
+                console.error('푸시 알림 전송 중 에러:', error);
+            }
+        } finally {
+            isUpdating = false;
+        }
+    },
+    {
+        scheduled: true,
+        timezone: 'Asia/Seoul', // 시간대 설정
     }
-    try {
-        isUpdating = true;
-        await updateProductCache();
-    } finally {
-        isUpdating = false;
-    }
-});
+);
 
 const domesticRegions = {
     한국: [

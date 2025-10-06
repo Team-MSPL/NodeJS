@@ -196,4 +196,41 @@ router.post('/withdraw', async (req, res) => {
     }
 });
 
+// 결제 취소 (전체/부분 통합)
+router.post('/payments/:paymentKey/cancel', async (req, res) => {
+    try {
+        const { paymentKey } = req.params;
+        const { cancelReason, cancelAmount } = req.body;
+
+        if (!paymentKey || !cancelReason) {
+            return res.status(400).json({ error: 'paymentKey와 cancelReason은 필수입니다.' });
+        }
+
+        // 취소 요청 바디 구성
+        const requestBody = { cancelReason };
+        if (cancelAmount) {
+            requestBody.cancelAmount = cancelAmount; // 부분 취소 시만 추가
+        }
+
+        // 멱등키: 결제키 + 타입(전체/부분) + 타임스탬프
+        const idempotencyKey = `cancel-${cancelAmount ? 'partial' : 'full'}-${paymentKey}-${Date.now()}`;
+
+        const response = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`, {
+            method: 'POST',
+            headers: {
+                Authorization: 'Basic test_ck_5OWRapdA8dbEzMNGx46RVo1zEqZK', // 실제 운영 키로 교체
+                'Content-Type': 'application/json',
+                'Idempotency-Key': idempotencyKey,
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        const data = await response.json();
+        return res.status(response.status).json(data);
+    } catch (error) {
+        console.error('결제 취소 오류:', error);
+        return res.status(500).json({ error: '결제 취소 중 오류가 발생했습니다.' });
+    }
+});
+
 module.exports = router;

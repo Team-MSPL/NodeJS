@@ -88,6 +88,10 @@ const userSchema = new Schema({
         type: [passportType], // 자료형
         default: [],
     },
+    recentSelectList: {
+        type: [[Number]], // 2차원 숫자 배열
+        default: [],
+    },
 });
 
 module.exports = mongoose.model('User', userSchema);
