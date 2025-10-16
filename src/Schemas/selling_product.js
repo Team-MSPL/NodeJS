@@ -144,12 +144,17 @@ const sellingProductSchema = new Schema({
     normalizedPlaces: { type: [String], default: [] },
     productPlaces: { type: [String], default: [] },
     tendencyScores: { type: Object, default: {} },
+    product_category: { type: Object, default: {} },
+    product_category_main: { type: String, default: '' },
     embedding: {
         type: [Number],
         //index: 'cosine', // MongoDB Atlas Vector Search용
     },
     introduction: { type: String },
     needLLM: { type: Boolean, default: false },
+    isTravelerOnly: { type: Boolean, default: false }, // 자국민에게는 필요 없는 상품. 예 : 유심, 이심, 포켓와이파이 등
+    isActive: { type: Boolean, default: true },
+    lastSyncedAt: { type: Date, default: null },
 });
 
 module.exports = mongoose.model('sellingProduct', sellingProductSchema);

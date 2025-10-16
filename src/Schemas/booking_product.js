@@ -30,6 +30,7 @@ const bookingProductSchema = new Schema({
         type: String, // 자료형
         required: true, // 필수 여부
     },
+    booking_key: String,
 
     //여권 정보 등록 목록 - 재활용
     passportList: {

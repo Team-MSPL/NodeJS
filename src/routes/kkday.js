@@ -366,12 +366,12 @@ router.get('/Order/QueryOrderDtlInfo/:order_no', async (req, res) => {
 // 14. Cancel API - 몽고디비 bookingProduct에서 같이 삭제
 router.post('/Order/Cancel', async (req, res) => {
     try {
-        const { userId, guid } = req.body;
+        const { order_no } = req.body;
 
         const data = await kkdayPost('Order/Cancel', req.body);
 
         // 몽고디비 bookingProduct에서 같이 삭제
-        BookingProduct.findOneAndDelete({ guid: guid })
+        BookingProduct.findOneAndDelete({ order_no: order_no })
             .then((deletedBookingProduct) => {
                 if (!deletedBookingProduct) {
                     return res.status(404).json({ message: '삭제할 예약 상품을 찾을 수 없습니다.' });

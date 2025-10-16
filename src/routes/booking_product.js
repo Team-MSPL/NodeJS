@@ -15,8 +15,6 @@ router.get('/list', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
-
     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
@@ -68,7 +66,7 @@ router.get('/list', async (req, res) => {
                 });
             }
 
-            const myBookings = await Booking.aggregate(pipeline);
+            const myBookings = await BookingProduct.aggregate(pipeline);
             res.status(200).json(myBookings);
         } catch (error) {
             console.error('/bookingProducts/list - GET 함수에 문제 발생 : ', error);
@@ -82,8 +80,6 @@ router.get('/:id', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
-
     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);
@@ -116,8 +112,6 @@ router.post('/save', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
     // JWT 토큰 검증
-    dotenv.config(); // .env 파일의 환경 변수 로드
-
     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
         if (err) {
             console.error('JWT 토큰 검증 에러:', err);

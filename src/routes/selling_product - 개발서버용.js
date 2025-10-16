@@ -275,8 +275,7 @@ async function isNationwideProduct(product) {
       * 한 나라 전체에서 사용 가능한 상품 (예: JR Pass, eSIM, 전국 교통 패스, 전국 체인 이용권, 통신 요금제)
       * 특정 지역 전역(예: 하노이 전역, 오사카 전역, 제주도 전역)에서 사용 가능한 상품 
         (예: **지역 공항 픽업/샌딩 서비스, 지역 공항 라운지 이용권, 공항-시내 이동 서비스, 지역 전체 숙박/투어 이용권 등**)
-        * 특히 '공항 픽업', '공항 샌딩', '공항 라운지'등 공항 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
-        * 특히 '전세 차량', '차량 대절', '프라이빗', '픽업', '지하철 패스' 등 지역 내를 자유롭게(오직 미리 정해진 코스대로만 갈 수 있는 상품 제외) 돌아다닐 수 있게 도와주는 교통 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
+      * 특히 '공항 픽업', '공항 샌딩', '공항 라운지'등 공항 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
     
     - 0 (지역 한정용): 
       * 특정 관광지/테마파크/건물 내부에서만 사용 가능한 상품 
@@ -284,41 +283,6 @@ async function isNationwideProduct(product) {
     
     출력 형식:
     - 정답은 반드시 숫자 0 또는 1만 출력하세요.
-    - 불필요한 설명을 붙이지 마세요.
-    `;
-
-    try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4.1-mini',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 1,
-        });
-        return completion.choices[0].message.content.trim() === '1';
-    } catch {
-        return false;
-    }
-}
-
-async function isTravelerOnlyProduct(product) {
-    const prompt = `
-    상품명: ${product.prod_name}
-    상품 설명: ${product.introduction || ''}
-
-    질문: 이 상품은 "해외 여행자 전용 상품"인가요?
-
-    판단 기준:
-    - 1 (여행자 전용):
-      * 해외여행 중 또는 해외 체류자(외국인 포함)가 주로 사용하는 상품
-      * 예: 유심칩, eSIM, 포켓 와이파이, 환전, 공항 픽업/드롭, 공항 수하물 서비스 등
-      * 특정 국가(한국, 일본 등)에서 '데이터 유심', '로밍', '공항 수령' 등 키워드가 포함된 상품
-      * 자국민도 이용 가능하더라도, 자국민이 자국 내 여행 중에는 거의 이용하지 않는 상품이라면 여행자 전용으로 간주
-
-    - 0 (일반 상품):
-      * 자국민도 자주 사용하는 숙박, 입장권, 투어, 체험, 교통패스, 식사권 등
-      * 외국인 대상이지만 자국민이 동일하게 사용할 수 있는 명소 입장권, 공연 티켓 등
-
-    출력 형식:
-    - 반드시 숫자 0 또는 1만 출력하세요.
     - 불필요한 설명을 붙이지 마세요.
     `;
 
@@ -388,7 +352,7 @@ async function normalizeCities(country, cityList) {
     const kkdayPool = KKDAYMap[country] || [];
     if (!map) return [];
 
-    let normalized = [];
+    const normalized = [];
 
     if (filteredCityList.length <= 5) {
         // 개별 매칭 (안정성 우선)
@@ -482,17 +446,13 @@ router.post('/recommend', async (req, res) => {
         // }
 
         // 1. MongoDB에서 상품 불러오기 (필터링 가능)
-        let mongoFilter = { isActive: { $ne: false } }; // 기본적으로 활성화된 상품만 불러오기
+        let mongoFilter = {};
         if (country) {
             mongoFilter['countries'] = country;
         }
-        // 🇰🇷 한국일 경우: isTravelerOnly 상품 제외
-        if (['대한민국', '한국', 'KOR', 'KR', 'Korea'].includes(country)) {
-            mongoFilter['isTravelerOnly'] = { $ne: true };
-        }
-
         // cityList 정규화
         // TODO - 매칭 안되는 도시들이 많을 경우 이 함수 안에서 "모든 도시"를 넣어볼 것!
+        console.time('city_nomalize_time');
         let normalizedCities = [];
         if (cityList) {
             const resultCityList = cityList.map((item) => {
@@ -501,6 +461,7 @@ router.post('/recommend', async (req, res) => {
             });
             normalizedCities = await normalizeCities(country, resultCityList);
         }
+        console.timeEnd('city_nomalize_time');
 
         if (normalizedCities && normalizedCities.length > 0) {
             mongoFilter['$or'] = [
@@ -521,7 +482,6 @@ router.post('/recommend', async (req, res) => {
 
         console.log('filteredProducts.length');
         console.log(filteredProducts.length);
-        console.log(filteredProducts[0]);
 
         let recommendProducts = [];
 
@@ -1227,11 +1187,6 @@ async function kkdayPostWithRetry(path, body, retries = 3, delayMs = 2000) {
     }
 }
 
-function containsKorean(text) {
-    if (!text) return false;
-    return /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(text);
-}
-
 let isUpdating = false;
 
 // ======================
@@ -1282,18 +1237,15 @@ async function updateProductCache() {
 
             // 기존 DB 로딩
             console.time('product_load_time');
-            let mongoFilter = { isActive: { $ne: false } }; // 기본적으로 활성화된 상품만 불러오기
+            let mongoFilter = {};
             mongoFilter['countries'] = targetCountries[i];
             let products = await SellingProduct.find(mongoFilter).lean();
             console.log('products 갯수 - ', products.length);
             console.timeEnd('product_load_time');
 
-            const existingProdNos = new Set(products.map((p) => p.prod_no));
-            const existingCacheMap = new Map(products.map((p) => [p.prod_no, p]));
+            const existingCacheMap = new Map(products.map((p) => [p.prod_name, p]));
 
             page = 0;
-
-            let kkdayProdNos = new Set();
 
             while (true) {
                 const response = await kkdayPost('Search', {
@@ -1305,16 +1257,13 @@ async function updateProductCache() {
 
                 if (!response.prods || response.prods.length === 0) break;
 
-                // 현재 나라의 상품 prod_no만 기록
-                response.prods.forEach((p) => kkdayProdNos.add(p.prod_no));
-
-                //if (page > 2) break; // TODO - 본서버 적용때는 주석처리!!!
+                if (page > 2) break; // TODO - 본서버 적용때는 주석처리!!!
 
                 const newProducts = response.prods
                     // 먼저 국가 2개 이상인 상품은 아예 제외
                     .filter((p) => !p.countries || p.countries.length <= 1)
                     .map((p) => {
-                        const cached = existingCacheMap.get(p.prod_no);
+                        const cached = existingCacheMap.get(p.prod_name);
 
                         const alwaysUpdate = {
                             b2c_price: p.b2c_price,
@@ -1335,12 +1284,9 @@ async function updateProductCache() {
                     });
 
                 const processedProducts = await asyncPool(3, newProducts, async (product) => {
-                    //TODO - 업뎃 후 제거
-                    let isTravelerOnlyTemp = await isTravelerOnlyProduct(product);
                     if (!product.needLLM)
                         return {
                             ...product,
-                            isTravelerOnly: isTravelerOnlyTemp,
                         };
                     else console.log('LLM  필요 - ', product.prod_name);
 
@@ -1370,7 +1316,6 @@ async function updateProductCache() {
                             tendencyScores: Object.fromEntries(tendencyData.flat().map((t) => [t, 0])),
                             embedding: [],
                             isNationwide: false,
-                            isTravelerOnly: false,
                         };
                     }
 
@@ -1391,14 +1336,6 @@ async function updateProductCache() {
                         // 기존 값이 없을 때만 함수 호출
                         isNationwide = await isNationwideProduct(product);
                     }
-
-                    // product.isTravelerOnly가 undefined/null이면 처리
-                    let isTravelerOnly = product.isTravelerOnly ?? false;
-
-                    // if (!product.hasOwnProperty('isTravelerOnly') || product.isTravelerOnly === undefined) {
-                    //     // 기존 값이 없을 때만 함수 호출
-                    //     isTravelerOnly = await isTravelerOnlyProduct(product);
-                    // }
 
                     // 성향 점수 계산
                     const productText = [product.prod_name, product.introduction || '', ...productPlaces].join(', ');
@@ -1449,14 +1386,12 @@ async function updateProductCache() {
                         //     result: fullProduct.result,
                         //     result_msg: fullProduct.result_msg,
                         // });
-                        kkdayProdNos.delete(product.prod_no); // isActive : False로 변경
                         return null; // processedProducts에 저장 안 됨
                     }
 
                     return {
                         ...product,
                         isNationwide,
-                        isTravelerOnly,
                         tendencyScores,
                         embedding,
                         productPlaces,
@@ -1472,12 +1407,6 @@ async function updateProductCache() {
                 const bulkOps = processedProducts
                     .filter((p) => p) // null/undefined 제거 -> 미지원 상품 스킵
                     .map((p) => {
-                        // product_category.main만 추출
-                        let mainCategory = null;
-                        if (p.product_category && typeof p.product_category === 'object') {
-                            mainCategory = p.product_category.main || null;
-                        }
-
                         // 국가 이름 배열
                         const simplifiedCountries = (p.countries || [])
                             .map((c) => {
@@ -1502,15 +1431,6 @@ async function updateProductCache() {
                             return [];
                         });
 
-                        // 한글 여부 검사
-                        let isActive = true;
-                        const noKorean = !containsKorean(p.prod_name) || !containsKorean(p.introduction);
-
-                        // 한글 없으면 비활성화
-                        if (noKorean) {
-                            isActive = false;
-                        }
-
                         return {
                             updateOne: {
                                 filter: { prod_no: p.prod_no },
@@ -1519,11 +1439,8 @@ async function updateProductCache() {
                                         ...p,
                                         countries: simplifiedCountries, // ["베트남", "태국", ...]
                                         cities: simplifiedCities, // ["모든 도시", "다낭", ...]
-                                        product_category_main: mainCategory,
                                         sellingProductRating: p.avg_rating_star,
                                         sellingProductReviewCount: p.rating_count,
-                                        isActive: isActive, // 다시 들어온 상품은 활성화
-                                        lastSyncedAt: new Date(), // 동기화 시간 기록
                                     },
                                 },
                                 upsert: true,
@@ -1546,21 +1463,12 @@ async function updateProductCache() {
                 page++;
                 console.log(`[CACHE] 상품 수집 완료 (누적: ${allProducts.length})`);
             }
-
-            // 나라별 삭제/비활성화 처리 (메모리 안전)
-            const missingProdNos = [...existingProdNos].filter((id) => !kkdayProdNos.has(id));
-
-            if (missingProdNos.length > 0) {
-                console.log(`[CACHE][${targetCountries[i]}] 삭제/비활성화 대상 상품: ${missingProdNos.length}개`);
-                console.error(`[CACHE][${targetCountries[i]}] 삭제/비활성화 대상 상품: ${missingProdNos.length}개`);
-
-                await SellingProduct.updateMany(
-                    { prod_no: { $in: missingProdNos } },
-                    { $set: { isActive: false, lastSyncedAt: new Date() } }
-                );
-            }
-
-            console.log(`[CACHE][${targetCountries[i]}] 완료. (총 ${kkdayProdNos.size}개 상품 유지)`);
+            // // JSON 파일로 저장
+            // await fs.writeFile(CACHE_FILE, JSON.stringify(productCache, null, 2));
+            // console.log(`[CACHE] KKday 상품 캐시 갱신 완료 (총 ${productCache.length}개)`);
+            // productCache 대신 allProducts 스트리밍 저장
+            // await saveProductsStream(allProducts, 500);
+            // console.log(`[CACHE] KKday 상품 캐시 스트리밍 저장 완료 (총 ${allProducts.length}개)`);
         }
         return allProducts.length;
     } catch (error) {
@@ -1698,108 +1606,68 @@ async function createRegionMap() {
 // 하루 1회 새벽 3시에 갱신 (cron: "0 3 * * *")
 // ======================
 // cron 표현식: 매일 18시에 실행 (18시 0분 0초)
-cron.schedule(
-    '0 0 3 * * *',
-    async () => {
-        console.log('[CRON] KKday 상품 캐시 갱신 시작...');
-        //관리자에게 알림 보내기
+// cron.schedule(
+//     '0 0 3 * * *',
+//     async () => {
+//         console.log('[CRON] KKday 상품 캐시 갱신 시작...');
+//         if (isUpdating) {
+//             console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
+//             return;
+//         }
+//         try {
+//             isUpdating = true;
+//             resultLen = await updateProductCache();
+//             isUpdating = false;
 
-        try {
-            const userId = '6609f7a4faac39d8516b25b2'; // 관리자 _id
-            const user = await User.findOne({ _id: userId });
+//             //관리자에게 알림 보내기
 
-            if (user && user.fcmToken) {
-                const payload = {
-                    notification: {
-                        title: '캐시 업뎃 준비중',
-                        body: isUpdating,
-                    },
-                    data: {
-                        // 여기에 필요한 데이터를 추가할 수 있습니다.
-                        // 예: noteId, senderId 등
-                    },
-                    token: user.fcmToken,
-                };
+//             try {
+//                 const userId = '6609f7a4faac39d8516b25b2'; // 관리자 _id
+//                 const user = await User.findOne({ _id: userId });
 
-                try {
-                    //await admin.messaging().sendToDevice(user.fcmToken, payload);
-                    await admin.messaging().send(payload);
-                } catch (error) {
-                    // fcmToken이 유효하지 않은 경우 삭제
-                    if (
-                        error.code === 'messaging/registration-token-not-registered' ||
-                        (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
-                    ) {
-                        console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
-                        user.fcmToken = null;
-                        await user.save();
-                    } else {
-                        console.error('FCM 전송 에러:', error);
-                    }
-                }
-            }
-            // }
-        } catch (error) {
-            console.error('푸시 알림 전송 중 에러:', error);
-        }
-        if (isUpdating) {
-            console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
-            return;
-        }
-        try {
-            isUpdating = true;
-            resultLen = await updateProductCache();
-            isUpdating = false;
+//                 if (user && user.fcmToken) {
+//                     const payload = {
+//                         notification: {
+//                             title: '캐시 업뎃 완료',
+//                             body: resultLen,
+//                         },
+//                         data: {
+//                             // 여기에 필요한 데이터를 추가할 수 있습니다.
+//                             // 예: noteId, senderId 등
+//                         },
+//                         token: user.fcmToken,
+//                     };
 
-            //관리자에게 알림 보내기
-
-            try {
-                const userId = '6609f7a4faac39d8516b25b2'; // 관리자 _id
-                const user = await User.findOne({ _id: userId });
-
-                if (user && user.fcmToken) {
-                    const payload = {
-                        notification: {
-                            title: '캐시 업뎃 완료' + resultLen,
-                            body: resultLen,
-                        },
-                        data: {
-                            // 여기에 필요한 데이터를 추가할 수 있습니다.
-                            // 예: noteId, senderId 등
-                        },
-                        token: user.fcmToken,
-                    };
-
-                    try {
-                        //await admin.messaging().sendToDevice(user.fcmToken, payload);
-                        await admin.messaging().send(payload);
-                    } catch (error) {
-                        // fcmToken이 유효하지 않은 경우 삭제
-                        if (
-                            error.code === 'messaging/registration-token-not-registered' ||
-                            (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
-                        ) {
-                            console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
-                            user.fcmToken = null;
-                            await user.save();
-                        } else {
-                            console.error('FCM 전송 에러:', error);
-                        }
-                    }
-                }
-                // }
-            } catch (error) {
-                console.error('푸시 알림 전송 중 에러:', error);
-            }
-        } finally {
-            isUpdating = false;
-        }
-    },
-    {
-        scheduled: true,
-        timezone: 'Asia/Seoul', // 시간대 설정
-    }
-);
+//                     try {
+//                         //await admin.messaging().sendToDevice(user.fcmToken, payload);
+//                         await admin.messaging().send(payload);
+//                     } catch (error) {
+//                         // fcmToken이 유효하지 않은 경우 삭제
+//                         if (
+//                             error.code === 'messaging/registration-token-not-registered' ||
+//                             (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
+//                         ) {
+//                             console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
+//                             user.fcmToken = null;
+//                             await user.save();
+//                         } else {
+//                             console.error('FCM 전송 에러:', error);
+//                         }
+//                     }
+//                 }
+//                 // }
+//             } catch (error) {
+//                 console.error('푸시 알림 전송 중 에러:', error);
+//             }
+//         } finally {
+//             isUpdating = false;
+//         }
+//     },
+//     {
+//         scheduled: true,
+//         timezone: 'Asia/Seoul', // 시간대 설정
+//     }
+// );
 
 const domesticRegions = {
     한국: [
