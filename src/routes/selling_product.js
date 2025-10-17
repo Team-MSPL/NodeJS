@@ -11,12 +11,15 @@ const dotenv = require('dotenv');
 const axios = require('axios');
 var _ = require('lodash');
 const fuzz = require('fuzzball');
-const fs = require('fs').promises;
+const fsp = require('fs').promises;
+
+const fs = require('fs');
 const cron = require('node-cron');
 const admin = require('firebase-admin');
 const CACHE_FILE = '/home/ubuntu/danim_database/kkday_products_cache.json';
 const CACHE_FILE2 = '/home/ubuntu/danim_database/place_cache.json';
 const OpenAI = require('openai');
+const csvParser = require('csv-parser');
 
 const KKDAY_BASE_URL = 'https://api-b2d.kkday.com/v4';
 const KKDAY_API_KEY = process.env.KKDAY_API_KEY;
@@ -275,12 +278,18 @@ async function isNationwideProduct(product) {
       * 한 나라 전체에서 사용 가능한 상품 (예: JR Pass, eSIM, 전국 교통 패스, 전국 체인 이용권, 통신 요금제)
       * 특정 지역 전역(예: 하노이 전역, 오사카 전역, 제주도 전역)에서 사용 가능한 상품 
         (예: **지역 공항 픽업/샌딩 서비스, 지역 공항 라운지 이용권, 공항-시내 이동 서비스, 지역 전체 숙박/투어 이용권 등**)
+        * 지역 내 어느 장소든 상관없이 이용 가능한 출장 서비스: 1
         * 특히 '공항 픽업', '공항 샌딩', '공항 라운지'등 공항 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
+        * 공항/역/터미널 <-> 공항/역/터미널/원하는 장소 간 이동 서비스는 1
         * 특히 '전세 차량', '차량 대절', '프라이빗', '픽업', '지하철 패스' 등 지역 내를 자유롭게(오직 미리 정해진 코스대로만 갈 수 있는 상품 제외) 돌아다닐 수 있게 도와주는 교통 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
+        * 렌터카, 전세 차량: 1
     
-    - 0 (지역 한정용): 
+    - 0 (장소 한정용): 
       * 특정 관광지/테마파크/건물 내부에서만 사용 가능한 상품 
         (예: 디즈니랜드 티켓, 특정 사원 입장권, 특정 공연 입장권)
+      * 특정 장소들을 투어하는 고정된 코스를 가진 투어 상품도 포함 ( 자유 투어는 지역 전역용(1)로 판단 )
+        * 공항/역/터미널 <-> 공항/역/터미널 외 장소 (관광지 제외)는 0
+        * 자전거 대여, 오토바이 대여: 0
     
     출력 형식:
     - 정답은 반드시 숫자 0 또는 1만 출력하세요.
@@ -299,38 +308,102 @@ async function isNationwideProduct(product) {
     }
 }
 
-async function isTravelerOnlyProduct(product) {
+async function isTravelerOnlyProduct(product, openai) {
+    // 1) 전처리: 합친 텍스트 (소문자화)
+    const text = `${product.prod_name || ''}\n${product.introduction || ''}`.toLowerCase();
+
+    // 2) 규칙 기반 키워드(우선 판단)
+    const travelerKeywords = [
+        'e-sim',
+        'esim',
+        'eSIM',
+        '유심',
+        '유심칩',
+        '심카드',
+        '심 카드',
+        '포켓 와이파이',
+        '포켓와이파이',
+        '포켓wifi',
+        '포켓 wi-fi',
+        'roaming',
+        '로밍',
+        'qr 코드',
+        'qr코드',
+        'qr',
+        'qr-code',
+        '환전',
+        '공항 픽업',
+        '공항 드롭',
+        '공항 수령',
+        'airport',
+        'pick-up',
+        'pick up',
+        '심',
+        '데이터 유심',
+        '데이터심',
+        '데이터 eSIM',
+    ].map((k) => k.toLowerCase());
+
+    const negativeKeywords = ['국내여행', '국내 숙박', '국내 투어', '지역 주민', '지역민', '내국인'].map((k) =>
+        k.toLowerCase()
+    );
+
+    // 간단 카운트
+    let hit = 0;
+    for (const k of travelerKeywords) if (text.includes(k)) hit++;
+    let negHit = 0;
+    for (const k of negativeKeywords) if (text.includes(k)) negHit++;
+
+    // 규칙 판단: 키워드가 충분히 있으면 true (단, negative가 함께 있으면 보수적으로 처리)
+    if (hit >= 1 && negHit === 0) {
+        return true; // 강한 신호: 여행자 전용
+    }
+
+    // 규칙에 모호함이 있거나 negative가 섞이면 모델로 판단
+    // 3) 모델 호출 — few-shot prompt (0 또는 1만 반환하도록 강제)
     const prompt = `
-    상품명: ${product.prod_name}
-    상품 설명: ${product.introduction || ''}
-
-    질문: 이 상품은 "해외 여행자 전용 상품"인가요?
-
-    판단 기준:
-    - 1 (여행자 전용):
-      * 해외여행 중 또는 해외 체류자(외국인 포함)가 주로 사용하는 상품
-      * 예: 유심칩, eSIM, 포켓 와이파이, 환전, 공항 픽업/드롭, 공항 수하물 서비스 등
-      * 특정 국가(한국, 일본 등)에서 '데이터 유심', '로밍', '공항 수령' 등 키워드가 포함된 상품
-      * 자국민도 이용 가능하더라도, 자국민이 자국 내 여행 중에는 거의 이용하지 않는 상품이라면 여행자 전용으로 간주
-
-    - 0 (일반 상품):
-      * 자국민도 자주 사용하는 숙박, 입장권, 투어, 체험, 교통패스, 식사권 등
-      * 외국인 대상이지만 자국민이 동일하게 사용할 수 있는 명소 입장권, 공연 티켓 등
-
-    출력 형식:
-    - 반드시 숫자 0 또는 1만 출력하세요.
-    - 불필요한 설명을 붙이지 마세요.
-    `;
+  다음 상품을 보고 "해외 여행자 전용 상품"인지 판단하세요.
+  출력은 반드시 숫자 0 또는 1만 하십시오. (0 = 일반 상품, 1 = 여행자 전용)
+  
+  예시:
+  상품명: "일본 데이터 eSIM 7일 무제한"
+  상품 설명: "입국 즉시 QR 스캔으로 활성화되는 일본 eSIM"
+  정답: 1
+  
+  상품명: "서울 강남 호텔 1박 조식 포함"
+  상품 설명: "강남 중심의 비즈니스 호텔"
+  정답: 0
+  
+  상품명: "한국 방문자용 선불 유심 카드 (공항 수령)"
+  상품 설명: "공항에서 수령 가능한 선불 유심, 단기 여행자용"
+  정답: 1
+  
+  상품명: "${product.prod_name.replace(/\n/g, ' ')}"
+  상품 설명: "${(product.introduction || '').replace(/\n/g, ' ')}"
+  
+  정답:
+    `.trim();
 
     try {
         const completion = await openai.chat.completions.create({
             model: 'gpt-4.1-mini',
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 1,
+            max_tokens: 3,
+            temperature: 0.0,
         });
-        return completion.choices[0].message.content.trim() === '1';
-    } catch {
-        return false;
+
+        const raw = (completion.choices?.[0]?.message?.content || '').trim();
+        const onlyDigits = raw.match(/[01]/) ? raw.match(/[01]/)[0] : null;
+
+        if (onlyDigits === '1') return true;
+        if (onlyDigits === '0') return false;
+
+        // 모델이 이상한 응답을 주면 규칙 결과 기반으로 안전하게 반환
+        return hit > 0 && negHit === 0;
+    } catch (err) {
+        // API 실패 시 규칙 기반 fallback
+        console.error('isTravelerOnlyProduct - model error:', err);
+        return hit > 0 && negHit === 0;
     }
 }
 
@@ -455,6 +528,38 @@ async function normalizeCities(country, cityList) {
     return [...new Set(normalized)];
 }
 
+// router.post('/update', async (req, res) => {
+//     const csvFile = '/home/ubuntu/danim_database/isNationwide.csv';
+//     const updates = [];
+
+//     fs.createReadStream(csvFile)
+//         .pipe(csvParser())
+//         .on('data', (row) => {
+//             // row._id, row.isNationwide 활용
+//             updates.push({
+//                 _id: row._id,
+//                 isNationwide: row.isNationwide.trim() === 'TRUE', // TRUE/FALSE 문자열 -> Boolean
+//             });
+//         })
+//         .on('end', async () => {
+//             console.log('CSV 읽기 완료', updates.length);
+
+//             const bulkOps = updates.map((item) => ({
+//                 updateOne: {
+//                     filter: { _id: new mongoose.Types.ObjectId(item._id.trim()) },
+//                     update: { $set: { isNationwide: item.isNationwide } },
+//                 },
+//             }));
+
+//             try {
+//                 const result = await SellingProduct.bulkWrite(bulkOps);
+//                 console.log('bulkWrite 완료:', result.modifiedCount, '개 문서 수정됨');
+//             } catch (err) {
+//                 console.error('bulkWrite 오류:', err);
+//             }
+//         });
+// });
+
 // 판매 상품 목록 추천받기 ( 5개씩 )
 // 프론트에서 다이어로그를 띄우기 전에 먼저 이 API를 쏘고, 결과가 있으면 띄움 ( AI 실행 로딩 때 같이 쏘면 될듯 )
 router.post('/recommend', async (req, res) => {
@@ -521,7 +626,6 @@ router.post('/recommend', async (req, res) => {
 
         console.log('filteredProducts.length');
         console.log(filteredProducts.length);
-        console.log(filteredProducts[0]);
 
         let recommendProducts = [];
 
@@ -1371,7 +1475,17 @@ async function updateProductCache() {
                             embedding: [],
                             isNationwide: false,
                             isTravelerOnly: false,
+                            product_category: {},
+                            product_category_main: '',
                         };
+                    }
+
+                    // product_category.main만 추출
+                    let category = {};
+                    let mainCategory = '';
+                    if (p.product_category && typeof p.product_category === 'object') {
+                        category = p.product_category;
+                        mainCategory = p.product_category.main || null;
                     }
 
                     // 관광지 배열 뽑기
@@ -1461,6 +1575,8 @@ async function updateProductCache() {
                         embedding,
                         productPlaces,
                         normalizedPlaces,
+                        product_category: category,
+                        product_category_main: mainCategory,
                         ...product.alwaysUpdate,
                     };
                 });
@@ -1472,12 +1588,6 @@ async function updateProductCache() {
                 const bulkOps = processedProducts
                     .filter((p) => p) // null/undefined 제거 -> 미지원 상품 스킵
                     .map((p) => {
-                        // product_category.main만 추출
-                        let mainCategory = null;
-                        if (p.product_category && typeof p.product_category === 'object') {
-                            mainCategory = p.product_category.main || null;
-                        }
-
                         // 국가 이름 배열
                         const simplifiedCountries = (p.countries || [])
                             .map((c) => {
@@ -1519,7 +1629,6 @@ async function updateProductCache() {
                                         ...p,
                                         countries: simplifiedCountries, // ["베트남", "태국", ...]
                                         cities: simplifiedCities, // ["모든 도시", "다낭", ...]
-                                        product_category_main: mainCategory,
                                         sellingProductRating: p.avg_rating_star,
                                         sellingProductReviewCount: p.rating_count,
                                         isActive: isActive, // 다시 들어온 상품은 활성화
@@ -1658,24 +1767,24 @@ function parseLLMJson(llmContent) {
     }
 }
 
-async function createRegionMap() {
-    const cities = await getDistinctCities();
-    const grouped = groupByCountry(cities);
+// async function createRegionMap() {
+//     const cities = await getDistinctCities();
+//     const grouped = groupByCountry(cities);
 
-    const finalDict = {};
+//     const finalDict = {};
 
-    for (const [country, cityList] of Object.entries(grouped)) {
-        console.log(`👉 ${country} (${cityList.length}개 지역) 매핑 중...`);
+//     for (const [country, cityList] of Object.entries(grouped)) {
+//         console.log(`👉 ${country} (${cityList.length}개 지역) 매핑 중...`);
 
-        const dict = await createSynonymDict(country, cityList);
-        finalDict[country] = dict;
-    }
-    await fs.writeFile(CACHE_FILE, JSON.stringify(finalDict, null, 2));
-    await fs.writeFile(CACHE_FILE2, JSON.stringify(grouped, null, 2));
+//         const dict = await createSynonymDict(country, cityList);
+//         finalDict[country] = dict;
+//     }
+//     await fs.writeFile(CACHE_FILE, JSON.stringify(finalDict, null, 2));
+//     await fs.writeFile(CACHE_FILE2, JSON.stringify(grouped, null, 2));
 
-    console.log('✅ 모든 나라 처리 완료. 결과: region_synonyms.json 저장됨');
-    process.exit(0);
-}
+//     console.log('✅ 모든 나라 처리 완료. 결과: region_synonyms.json 저장됨');
+//     process.exit(0);
+// }
 
 // ======================
 // 서버 시작 시 캐시 초기화
@@ -1702,46 +1811,7 @@ cron.schedule(
     '0 0 3 * * *',
     async () => {
         console.log('[CRON] KKday 상품 캐시 갱신 시작...');
-        //관리자에게 알림 보내기
 
-        try {
-            const userId = '6609f7a4faac39d8516b25b2'; // 관리자 _id
-            const user = await User.findOne({ _id: userId });
-
-            if (user && user.fcmToken) {
-                const payload = {
-                    notification: {
-                        title: '캐시 업뎃 준비중',
-                        body: isUpdating,
-                    },
-                    data: {
-                        // 여기에 필요한 데이터를 추가할 수 있습니다.
-                        // 예: noteId, senderId 등
-                    },
-                    token: user.fcmToken,
-                };
-
-                try {
-                    //await admin.messaging().sendToDevice(user.fcmToken, payload);
-                    await admin.messaging().send(payload);
-                } catch (error) {
-                    // fcmToken이 유효하지 않은 경우 삭제
-                    if (
-                        error.code === 'messaging/registration-token-not-registered' ||
-                        (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
-                    ) {
-                        console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
-                        user.fcmToken = null;
-                        await user.save();
-                    } else {
-                        console.error('FCM 전송 에러:', error);
-                    }
-                }
-            }
-            // }
-        } catch (error) {
-            console.error('푸시 알림 전송 중 에러:', error);
-        }
         if (isUpdating) {
             console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
             return;
@@ -1760,8 +1830,8 @@ cron.schedule(
                 if (user && user.fcmToken) {
                     const payload = {
                         notification: {
-                            title: '캐시 업뎃 완료' + resultLen,
-                            body: resultLen,
+                            title: '캐시 업뎃 완료' + String(resultLen),
+                            body: String(resultLen),
                         },
                         data: {
                             // 여기에 필요한 데이터를 추가할 수 있습니다.

@@ -136,9 +136,10 @@ router.post('/Search', async (req, res) => {
 // 1-2. QueryCategories
 router.get('/Search/QueryCategories/:locale', async (req, res) => {
     try {
-        const data = await kkdayGet('Search/QueryCategories', {
-            locale: req.params.locale || req.query.locale || 'ko',
-        });
+        const locale = req.params.locale || req.query.locale || 'ko';
+
+        const data = await kkdayGet(`Search/QueryCategories/${locale}`);
+
         res.status(200).json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -284,44 +285,29 @@ router.post('/Booking/QueryAmount', async (req, res) => {
     }
 });
 
-// 10. Booking API - 예약 요청  - 몽고디비 bookingProduct에서 같이 저장
+// 10. Booking API - 예약 요청
 router.post('/Booking', async (req, res) => {
+    let resultData = null;
+    const { prod_no, pkg_no } = req.body;
     try {
-        const { prod_no, pkg_no, userId, passportList } = req.body;
+        console.log(req.body);
 
-        const data = await kkdayPost('Booking', {
+        resultData = await kkdayPost('Booking', {
             prod_no,
             pkg_no,
             locale: 'ko',
             ...req.body,
         });
 
-        const QueryProductData = await kkdayPost('Product/QueryProduct', {
-            prod_no,
-            locale: 'ko',
-        });
+        console.log(resultData);
 
-        // 몽고디비 bookingProduct에서 Booking + Product 저장
-        const newBookingProduct = new BookingProduct({
-            userId: userId,
-            passportList: passportList ?? [],
-            guid: bookingRes.guid,
-            partner_order_no: bookingRes.partner_order_no,
-            order_no: bookingRes.order_no,
-            prod_no: prod_no,
-            pkg_no: pkg_no,
-            s_date: req.body.s_date,
-            e_date: req.body.e_date,
-            total_price: req.body.total_price,
-            product: QueryProductData, // 전체 JSON or 필요한 필드
-        });
-
-        //DB에 저장
-        await newBookingProduct.save();
-
-        res.status(200).json(data);
+        if (resultData.result !== '00') {
+            return res.status(500).json({ error: `구매에 실패하였습니다.`, data: resultData });
+        }
+        res.status(200).json({ data: resultData });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        return res.status(500).json({ error: err.message, data: resultData });
     }
 });
 
@@ -342,21 +328,23 @@ router.post('/Order/QueryOrders', async (req, res) => {
 // 12. QueryOrderDtl API
 router.get('/Order/QueryOrderDtl/:order_no', async (req, res) => {
     try {
-        const data = await kkdayGet('Order/QueryOrderDtl', {
-            order_no: req.params.order_no || req.query.order_no || 'ko',
-        });
+        const order_no = req.params.order_no || req.query.order_no;
+
+        const data = await kkdayGet(`Order/QueryOrderDtl/${order_no}`);
+
         res.status(200).json(data);
     } catch (err) {
+        console.error('QueryOrderDtl 에러:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 13. QueryOrderDtl API
+// 13. QueryOrderDtlInfo API
 router.get('/Order/QueryOrderDtlInfo/:order_no', async (req, res) => {
     try {
-        const data = await kkdayGet('Order/QueryOrderDtlInfo', {
-            order_no: req.params.order_no || req.query.order_no || 'ko',
-        });
+        const order_no = req.params.order_no || req.query.order_no;
+
+        const data = await kkdayGet(`Order/QueryOrderDtlInfo/${order_no}`);
         res.status(200).json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -370,18 +358,22 @@ router.post('/Order/Cancel', async (req, res) => {
 
         const data = await kkdayPost('Order/Cancel', req.body);
 
-        // 몽고디비 bookingProduct에서 같이 삭제
-        BookingProduct.findOneAndDelete({ order_no: order_no })
-            .then((deletedBookingProduct) => {
-                if (!deletedBookingProduct) {
+        // 몽고디비 bookingProduct에서 같이 비활성화
+        BookingProduct.findOneAndUpdate(
+            { order_no: order_no }, // 조건: order_no로 검색
+            { isActive: false }, // 업데이트할 내용
+            { new: true } // 업데이트 후 결과 반환
+        )
+            .then((updatedBookingProduct) => {
+                if (!updatedBookingProduct) {
                     return res.status(404).json({ message: '삭제할 예약 상품을 찾을 수 없습니다.' });
                 }
 
-                res.status(200).json(data);
+                res.status(200).json(data); // KKday 응답 데이터도 함께 반환
             })
             .catch((error) => {
-                console.error('BookingProduct.findOneAndDelete() 함수에 문제 발생 : ', error);
-                res.status(500).json({ error: error.message });
+                console.error('BookingProduct.findOneAndUpdate() 함수에 문제 발생 : ', error);
+                res.status(500).json({ error: error.message, data: data });
             });
     } catch (err) {
         res.status(500).json({ error: err.message });

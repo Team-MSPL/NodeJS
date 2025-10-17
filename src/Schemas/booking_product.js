@@ -69,10 +69,11 @@ const bookingProductSchema = new Schema({
     total_price: Number,
     pay_type: String,
 
+    isActive: { type: Boolean, default: true }, // 활성 상태 필드
+
     // 상품 정보 (QueryProduct API 결과 일부 저장) - pkg 제외
     product: {
         type: mongoose.Schema.Types.Mixed,
-        required: true,
     },
 
     created_at: { type: Date, default: Date.now },

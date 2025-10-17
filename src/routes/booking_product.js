@@ -23,7 +23,11 @@ router.get('/list', async (req, res) => {
         try {
             const { country, confirm, s_date, e_date, minCost, maxCost } = req.query;
 
-            const matchStage = { userId: decoded._id };
+            //const matchStage = { userId: '67bfe5d2a02da54871ad36d6' };
+            const matchStage = {
+                userId: decoded._id,
+                isActive: { $ne: false }, // 비활성(false)인 예약 제외
+            };
 
             // 예약 확정 여부
             if (confirm === 'true') matchStage.confirm = true;
@@ -54,14 +58,19 @@ router.get('/list', async (req, res) => {
                         as: 'sellingProduct',
                     },
                 },
-                { $unwind: '$sellingProduct' },
+                {
+                    $unwind: {
+                        path: '$sellingProduct',
+                        preserveNullAndEmptyArrays: true,
+                    },
+                },
             ];
 
             // 국가 필터링
             if (country) {
                 pipeline.push({
                     $match: {
-                        'sellingProduct.sellingProductCountryList': country,
+                        'sellingProduct.sellingProductCountryList': { $in: [country] },
                     },
                 });
             }
@@ -107,7 +116,7 @@ router.get('/:id', async (req, res) => {
     });
 });
 
-// // 예약 저장하기
+// 예약 저장하기
 router.post('/save', async (req, res) => {
     const token = req.header('Authorization').split(' ')[1];
 
@@ -121,9 +130,9 @@ router.post('/save', async (req, res) => {
             const newBookingProduct = new BookingProduct(req.body);
             const savedBookingProduct = await newBookingProduct.save();
 
-            await sendPushNotification(decoded._id.toString(), savedBookingProduct._id);
+            // await sendPushNotification(decoded._id.toString(), savedBookingProduct._id);
 
-            await sendEmailToAdmin('wayfarers0814@gmail.com', savedBookingProduct);
+            // await sendEmailToAdmin('wayfarers0814@gmail.com', savedBookingProduct);
 
             res.status(200).json({ bookingProductId: savedBookingProduct._id });
         } catch (error) {
@@ -133,60 +142,66 @@ router.post('/save', async (req, res) => {
     });
 });
 
-// // 예약 수정하기
-// router.patch('/:id', async (req, res) => {
-//     const token = req.header('Authorization').split(' ')[1];
+// 예약 수정하기
+router.patch('/:id', async (req, res) => {
+    const token = req.header('Authorization').split(' ')[1];
 
-//     // JWT 토큰 검증
-//     dotenv.config(); // .env 파일의 환경 변수 로드
+    // JWT 토큰 검증
+    dotenv.config(); // .env 파일의 환경 변수 로드
 
-//     jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
-//         try {
-//             const { id } = req.params;
+    jwt.verify(token, '${process.env.SECRET_KEY}', async (err, decoded) => {
+        try {
+            const { id } = req.params;
 
-//             // 업데이트할 필드 목록
-//             const updateFields = {};
-//             const allowedFields = [
-//                 'passportList',
-//                 'contact',
-//                 's_date',
-//                 'e_date',
-//                 'personCount',
-//                 'totalCost',
-//                 'pickupPlace',
-//                 'dropPlace',
-//                 'request',
-//                 'reviewPoint',
-//                 'review',
-//                 'confirm',
-//             ];
+            // // 업데이트할 필드 목록
+            // const updateFields = {};
+            // const allowedFields = [
+            //     'passportList',
+            //     'contact',
+            //     's_date',
+            //     'e_date',
+            //     'personCount',
+            //     'totalCost',
+            //     'pickupPlace',
+            //     'dropPlace',
+            //     'request',
+            //     'reviewPoint',
+            //     'review',
+            //     'confirm',
+            // ];
 
-//             allowedFields.forEach((field) => {
-//                 if (req.body[field] !== undefined) {
-//                     updateFields[field] = req.body[field];
-//                 }
-//             });
+            // allowedFields.forEach((field) => {
+            //     if (req.body[field] !== undefined) {
+            //         updateFields[field] = req.body[field];
+            //     }
+            // });
 
-//             const updatedBooking = await Booking.findOneAndUpdate(
-//                 { _id: id, userId: decoded._id }, // 본인 예약만 수정 가능
-//                 { $set: updateFields },
-//                 { new: true }
-//             );
+            // const updatedBooking = await BookingProduct.findOneAndUpdate(
+            //     { _id: id, userId: decoded._id }, // 본인 예약만 수정 가능
+            //     { $set: updateFields },
+            //     { new: true }
+            // );
+            const updatedBooking = await BookingProduct.findOneAndUpdate(
+                { _id: id, userId: decoded._id }, // 본인 예약만 수정 가능
+                { $set: req.body }, // body 전체를 업데이트
+                { new: true }
+            );
 
-//             if (!updatedBooking) {
-//                 return res.status(404).json({ message: '예약을 찾을 수 없거나 권한이 없습니다.' });
-//             } else {
-//                 await sendPushNotification(decoded._id.toString(), savedBookingProduct._id);
-//                 await sendEmailToAdmin('wayfarers0814@gmail.com', savedBookingProduct);
-//             }
+            if (!updatedBooking) {
+                return res.status(404).json({ message: '예약을 찾을 수 없거나 권한이 없습니다.' });
+            }
+            // else {
+            //     await sendPushNotification(decoded._id.toString(), savedBookingProduct._id);
+            //     await sendEmailToAdmin('wayfarers0814@gmail.com', savedBookingProduct);
+            // }
 
-//             res.status(200).json(updatedBooking);
-//         } catch (error) {
-//             console.error('/bookingProduct/:id - PATCH 함수에 문제 발생 : ', error);
-//             res.status(500).json({ message: 'Internal server error' });
-//         }
-//     });
-// });
+            res.status(200).json(updatedBooking);
+        } catch (error) {
+            console.error('/bookingProduct/:id - PATCH 함수에 문제 발생 : ', error);
+            res.status(500).json({ message: 'Internal server error' });
+        }
+    });
+});
 
 // const sendPushNotification = async (userId, bookingId) => {
 //     try {
