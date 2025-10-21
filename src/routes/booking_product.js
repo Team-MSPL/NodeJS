@@ -127,7 +127,16 @@ router.post('/save', async (req, res) => {
             return res.status(401).json({ message: 'Unauthorized' });
         }
         try {
-            const newBookingProduct = new BookingProduct(req.body);
+            // order_no 우선순위: req.body.order_no > req.body.product.data.order_no
+            const orderNo = req.body?.order_no || req.body?.product?.data?.order_no || null;
+
+            // req.body 복사 후 order_no 추가/덮어쓰기
+            const bookingData = {
+                ...req.body,
+                ...(orderNo && { order_no: orderNo }),
+            };
+
+            const newBookingProduct = new BookingProduct(bookingData);
             const savedBookingProduct = await newBookingProduct.save();
 
             // await sendPushNotification(decoded._id.toString(), savedBookingProduct._id);

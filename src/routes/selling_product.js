@@ -308,103 +308,114 @@ async function isNationwideProduct(product) {
     }
 }
 
-async function isTravelerOnlyProduct(product, openai) {
-    // 1) 전처리: 합친 텍스트 (소문자화)
+async function isTravelerOnlyProduct(product) {
     const text = `${product.prod_name || ''}\n${product.introduction || ''}`.toLowerCase();
 
-    // 2) 규칙 기반 키워드(우선 판단)
-    const travelerKeywords = [
+    const strongPositive = [
         'e-sim',
         'esim',
-        'eSIM',
         '유심',
         '유심칩',
         '심카드',
         '심 카드',
+        '데이터 유심',
+        '데이터심',
+        '데이터 esim',
         '포켓 와이파이',
         '포켓와이파이',
         '포켓wifi',
         '포켓 wi-fi',
-        'roaming',
         '로밍',
-        'qr 코드',
-        'qr코드',
-        'qr',
-        'qr-code',
-        '환전',
-        '공항 픽업',
-        '공항 드롭',
-        '공항 수령',
-        'airport',
-        'pick-up',
-        'pick up',
-        '심',
-        '데이터 유심',
-        '데이터심',
-        '데이터 eSIM',
-    ].map((k) => k.toLowerCase());
+        'roaming',
+    ];
 
-    const negativeKeywords = ['국내여행', '국내 숙박', '국내 투어', '지역 주민', '지역민', '내국인'].map((k) =>
-        k.toLowerCase()
-    );
+    const weakPositive = ['공항', 'pick-up', '픽업', '드롭', '환전', '수령', 'qr', 'qr코드', 'qr 코드'];
 
-    // 간단 카운트
-    let hit = 0;
-    for (const k of travelerKeywords) if (text.includes(k)) hit++;
-    let negHit = 0;
-    for (const k of negativeKeywords) if (text.includes(k)) negHit++;
+    const strongNegative = [
+        '국내',
+        '내국인',
+        '한국 내',
+        '한국 여행',
+        '국내 여행',
+        '한국인 전용',
+        '지역민',
+        '지역 주민',
+        '내국인 전용',
+    ];
 
-    // 규칙 판단: 키워드가 충분히 있으면 true (단, negative가 함께 있으면 보수적으로 처리)
-    if (hit >= 1 && negHit === 0) {
-        return true; // 강한 신호: 여행자 전용
+    // hit count
+    const hit = (list) => list.filter((k) => text.includes(k)).length;
+
+    const strongPosHit = hit(strongPositive);
+    const weakPosHit = hit(weakPositive);
+    const strongNegHit = hit(strongNegative);
+
+    // ② eSIM 등 → 확실히 여행자 전용
+    if (strongPosHit > 0) return true;
+
+    // ③ eSIM + 한국 언급 → 외국인 입국용으로 간주
+    if (strongPosHit > 0 && text.includes('한국')) return true;
+
+    // // ① 국내 단어가 강하게 있으면 무조건 국내용
+    // if (strongNegHit > 0) return false;
+
+    // ④ 약한 키워드만 있을 경우 (공항, QR 등)
+    if (weakPosHit > 0) {
+        // 모호할 경우 모델에 위임
+        const prompt = `
+      다음 상품을 보고 "해외 여행자 전용 상품"인지 판단하세요.
+      출력은 반드시 숫자 0 또는 1만 하십시오. (0 = 일반 상품, 1 = 여행자 전용)
+      
+      예시:
+      상품명: "일본 데이터 eSIM 7일 무제한"
+      상품 설명: "입국 즉시 QR 스캔으로 활성화되는 일본 eSIM"
+      정답: 1
+      
+      상품명: "서울 강남 호텔 1박 조식 포함"
+      상품 설명: "강남 중심의 비즈니스 호텔"
+      정답: 0
+      
+      상품명: "한국 방문자용 선불 유심 카드 (공항 수령)"
+      상품 설명: "공항에서 수령 가능한 선불 유심, 단기 여행자용"
+      정답: 1
+      
+      상품명: "제주 여미지 식물원 입장권"
+      상품 설명: "지금 바로 여미지식물원 할인 입장권을 예약하세요!"
+      정답: 0
+      
+      상품명: "경복궁 창덕궁 한복대여 | 공주한복"
+      상품 설명: "공주한복에는요즘 유행하고 있는 고급스럽고 단아한 한복까지 다양하게 준비되어 있습니다."
+      정답: 0
+      
+      상품명: "제주 차귀도 달래 배낚시(사전예약 필수)"
+      상품 설명: "차귀도의 해안절경을 만끽하며 짜릿한 손맛과 함께하는 즐거움을 누려보세요!"
+      정답: 0
+      
+      상품명: "${product.prod_name.replace(/\n/g, ' ')}"
+      상품 설명: "${(product.introduction || '').replace(/\n/g, ' ')}"
+      
+      정답:
+        `.trim();
+
+        try {
+            const completion = await openai.chat.completions.create({
+                model: 'gpt-4.1-mini',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 3,
+                temperature: 0.0,
+            });
+
+            const raw = (completion.choices?.[0]?.message?.content || '').trim();
+            const onlyDigits = raw.match(/[01]/)?.[0];
+            return onlyDigits === '1';
+        } catch (err) {
+            console.error('isTravelerOnlyProduct - model error:', err);
+            return false;
+        }
     }
 
-    // 규칙에 모호함이 있거나 negative가 섞이면 모델로 판단
-    // 3) 모델 호출 — few-shot prompt (0 또는 1만 반환하도록 강제)
-    const prompt = `
-  다음 상품을 보고 "해외 여행자 전용 상품"인지 판단하세요.
-  출력은 반드시 숫자 0 또는 1만 하십시오. (0 = 일반 상품, 1 = 여행자 전용)
-  
-  예시:
-  상품명: "일본 데이터 eSIM 7일 무제한"
-  상품 설명: "입국 즉시 QR 스캔으로 활성화되는 일본 eSIM"
-  정답: 1
-  
-  상품명: "서울 강남 호텔 1박 조식 포함"
-  상품 설명: "강남 중심의 비즈니스 호텔"
-  정답: 0
-  
-  상품명: "한국 방문자용 선불 유심 카드 (공항 수령)"
-  상품 설명: "공항에서 수령 가능한 선불 유심, 단기 여행자용"
-  정답: 1
-  
-  상품명: "${product.prod_name.replace(/\n/g, ' ')}"
-  상품 설명: "${(product.introduction || '').replace(/\n/g, ' ')}"
-  
-  정답:
-    `.trim();
-
-    try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4.1-mini',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 3,
-            temperature: 0.0,
-        });
-
-        const raw = (completion.choices?.[0]?.message?.content || '').trim();
-        const onlyDigits = raw.match(/[01]/) ? raw.match(/[01]/)[0] : null;
-
-        if (onlyDigits === '1') return true;
-        if (onlyDigits === '0') return false;
-
-        // 모델이 이상한 응답을 주면 규칙 결과 기반으로 안전하게 반환
-        return hit > 0 && negHit === 0;
-    } catch (err) {
-        // API 실패 시 규칙 기반 fallback
-        console.error('isTravelerOnlyProduct - model error:', err);
-        return hit > 0 && negHit === 0;
-    }
+    // ⑤ 아무 관련 키워드가 없으면 일반 상품
+    return false;
 }
 
 // 기존 llmMatch (단일 도시)
@@ -753,8 +764,24 @@ router.post('/recommend', async (req, res) => {
                 return bCount - aCount; // 내림차순
             });
 
+            // 전국용 상품 - 카테고리별 최대 1개씩 선택
+            const uniqueNationwide = [];
+            const seenCategories = new Set();
+
+            for (const product of nationwideProducts) {
+                const category = product.product_category_main || '기타';
+                console.log(category);
+                if (!seenCategories.has(category)) {
+                    uniqueNationwide.push(product);
+                    seenCategories.add(category);
+                }
+                if (uniqueNationwide.length >= 5) break; // 최대 5개까지만 추천
+            }
+
             // topK + 전국용 상품 추가
-            let topResults = results.slice(0, topK).concat(nationwideProducts.slice(0, 5));
+            let topResults = results.slice(0, topK).concat(uniqueNationwide);
+            // // topK + 전국용 상품 추가
+            // let topResults = results.slice(0, topK).concat(nationwideProducts.slice(0, 5));
 
             // embedding 제거
             recommendProducts.push(topResults.map(({ embedding, ...rest }) => rest));
@@ -1439,14 +1466,11 @@ async function updateProductCache() {
                     });
 
                 const processedProducts = await asyncPool(3, newProducts, async (product) => {
-                    //TODO - 업뎃 후 제거
-                    let isTravelerOnlyTemp = await isTravelerOnlyProduct(product);
-                    if (!product.needLLM)
-                        return {
-                            ...product,
-                            isTravelerOnly: isTravelerOnlyTemp,
-                        };
-                    else console.log('LLM  필요 - ', product.prod_name);
+                    // if (!product.needLLM)
+                    //     return {
+                    //         ...product,
+                    //     };
+                    // else console.log('LLM  필요 - ', product.prod_name);
 
                     // 세부 정보 조회 (상품 스케줄 포함)
                     let fullProduct = null;
@@ -1467,26 +1491,25 @@ async function updateProductCache() {
 
                     if (!fullProduct) {
                         console.warn(`[WARN] fullProduct 없음: ${product.prod_no} - LLM 처리 건너뜀`);
-                        return {
-                            ...product,
-                            productPlaces: [],
-                            normalizedPlaces: [],
-                            tendencyScores: Object.fromEntries(tendencyData.flat().map((t) => [t, 0])),
-                            embedding: [],
-                            isNationwide: false,
-                            isTravelerOnly: false,
-                            product_category: {},
-                            product_category_main: '',
-                        };
+                        return null; // processedProducts에 저장 안 됨
                     }
 
                     // product_category.main만 추출
                     let category = {};
                     let mainCategory = '';
-                    if (p.product_category && typeof p.product_category === 'object') {
-                        category = p.product_category;
-                        mainCategory = p.product_category.main || null;
+                    if (fullProduct.prod.product_category && typeof fullProduct.prod.product_category === 'object') {
+                        category = fullProduct.prod.product_category;
+                        mainCategory = fullProduct.prod.product_category.main || null;
                     }
+                    // //TODO - 업데이트하고 제거
+                    // let isTravelerOnlyTemp = await isTravelerOnlyProduct(product);
+                    // if (!product.needLLM)
+                    //     return {
+                    //         ...product,
+                    //         product_category: category,
+                    //         product_category_main: mainCategory,
+                    //         isTravelerOnly: isTravelerOnlyTemp,
+                    //     };
 
                     // 관광지 배열 뽑기
                     const { extractedPlaces, normalizedPlaces } = await extractPlacesFromSchedule(
@@ -1509,10 +1532,10 @@ async function updateProductCache() {
                     // product.isTravelerOnly가 undefined/null이면 처리
                     let isTravelerOnly = product.isTravelerOnly ?? false;
 
-                    // if (!product.hasOwnProperty('isTravelerOnly') || product.isTravelerOnly === undefined) {
-                    //     // 기존 값이 없을 때만 함수 호출
-                    //     isTravelerOnly = await isTravelerOnlyProduct(product);
-                    // }
+                    if (!product.hasOwnProperty('isTravelerOnly') || product.isTravelerOnly === undefined) {
+                        // 기존 값이 없을 때만 함수 호출
+                        isTravelerOnly = await isTravelerOnlyProduct(product);
+                    }
 
                     // 성향 점수 계산
                     const productText = [product.prod_name, product.introduction || '', ...productPlaces].join(', ');

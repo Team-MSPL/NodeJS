@@ -366,7 +366,7 @@ router.post('/Order/Cancel', async (req, res) => {
         )
             .then((updatedBookingProduct) => {
                 if (!updatedBookingProduct) {
-                    return res.status(404).json({ message: '삭제할 예약 상품을 찾을 수 없습니다.' });
+                    return res.status(404).json({ message: '비활성화할 예약 상품을 찾을 수 없습니다.' });
                 }
 
                 res.status(200).json(data); // KKday 응답 데이터도 함께 반환

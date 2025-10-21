@@ -38,9 +38,9 @@ const bookingProductSchema = new Schema({
         default: [],
     },
 
-    guid: { type: String, required: true, unique: true }, // booking 고유값
+    guid: { type: String, required: true },
     partner_order_no: String,
-    order_no: String,
+    order_no: { type: String }, // booking 고유값
     prod_no: { type: Number, required: true },
     pkg_no: Number,
     item_no: Number,
