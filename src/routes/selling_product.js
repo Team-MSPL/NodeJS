@@ -1497,9 +1497,13 @@ async function updateProductCache() {
                     // product_category.main만 추출
                     let category = {};
                     let mainCategory = '';
-                    if (fullProduct.prod.product_category && typeof fullProduct.prod.product_category === 'object') {
-                        category = fullProduct.prod.product_category;
-                        mainCategory = fullProduct.prod.product_category.main || null;
+                    const prodData = fullProduct?.prod; // 안전하게 접근
+
+                    if (prodData && typeof prodData.product_category === 'object') {
+                        category = prodData.product_category;
+                        mainCategory = prodData.product_category?.main || null;
+                    } else {
+                        console.warn(`[WARN] product_category 없음: ${product.prod_no}`);
                     }
                     // //TODO - 업데이트하고 제거
                     // let isTravelerOnlyTemp = await isTravelerOnlyProduct(product);
