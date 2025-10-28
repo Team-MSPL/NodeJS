@@ -11,12 +11,15 @@ const dotenv = require('dotenv');
 const axios = require('axios');
 var _ = require('lodash');
 const fuzz = require('fuzzball');
-const fs = require('fs').promises;
+const fsp = require('fs').promises;
+
+const fs = require('fs');
 const cron = require('node-cron');
 const admin = require('firebase-admin');
 const CACHE_FILE = '/home/ubuntu/danim_database/kkday_products_cache.json';
 const CACHE_FILE2 = '/home/ubuntu/danim_database/place_cache.json';
 const OpenAI = require('openai');
+const csvParser = require('csv-parser');
 
 const KKDAY_BASE_URL = 'https://api-b2d.kkday.com/v4';
 const KKDAY_API_KEY = process.env.KKDAY_API_KEY;
@@ -31,6 +34,16 @@ tendencyData = [
     ['바다', '산', '자연경관', '문화시설', '사진 명소', '전통'],
     ['봄', '여름', '가을', '겨울'],
 ];
+
+router.get('/list', async (req, res) => {
+    return res.status(200).json({
+        results: [],
+    });
+});
+// // 핑퐁
+// router.get('/ping', async (req, res) => {
+//     res.status(200).json({ message: 'Pong!' });
+// });
 
 // KKday API 호출 헬퍼 - get
 async function kkdayGet(endpoint, params = {}) {
@@ -275,11 +288,18 @@ async function isNationwideProduct(product) {
       * 한 나라 전체에서 사용 가능한 상품 (예: JR Pass, eSIM, 전국 교통 패스, 전국 체인 이용권, 통신 요금제)
       * 특정 지역 전역(예: 하노이 전역, 오사카 전역, 제주도 전역)에서 사용 가능한 상품 
         (예: **지역 공항 픽업/샌딩 서비스, 지역 공항 라운지 이용권, 공항-시내 이동 서비스, 지역 전체 숙박/투어 이용권 등**)
-      * 특히 '공항 픽업', '공항 샌딩', '공항 라운지'등 공항 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
+        * 지역 내 어느 장소든 상관없이 이용 가능한 출장 서비스: 1
+        * 특히 '공항 픽업', '공항 샌딩', '공항 라운지'등 공항 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
+        * 공항/역/터미널 <-> 공항/역/터미널/원하는 장소 간 이동 서비스는 1
+        * 특히 '전세 차량', '차량 대절', '프라이빗', '픽업', '지하철 패스' 등 지역 내를 자유롭게(오직 미리 정해진 코스대로만 갈 수 있는 상품 제외) 돌아다닐 수 있게 도와주는 교통 관련 서비스가 포함된 경우는 지역 전역용(1)으로 간주하세요.
+        * 렌터카, 전세 차량: 1
     
-    - 0 (지역 한정용): 
+    - 0 (장소 한정용): 
       * 특정 관광지/테마파크/건물 내부에서만 사용 가능한 상품 
         (예: 디즈니랜드 티켓, 특정 사원 입장권, 특정 공연 입장권)
+      * 특정 장소들을 투어하는 고정된 코스를 가진 투어 상품도 포함 ( 자유 투어는 지역 전역용(1)로 판단 )
+        * 공항/역/터미널 <-> 공항/역/터미널 외 장소 (관광지 제외)는 0
+        * 자전거 대여, 오토바이 대여: 0
     
     출력 형식:
     - 정답은 반드시 숫자 0 또는 1만 출력하세요.
@@ -296,6 +316,116 @@ async function isNationwideProduct(product) {
     } catch {
         return false;
     }
+}
+
+async function isTravelerOnlyProduct(product) {
+    const text = `${product.prod_name || ''}\n${product.introduction || ''}`.toLowerCase();
+
+    const strongPositive = [
+        'e-sim',
+        'esim',
+        '유심',
+        '유심칩',
+        '심카드',
+        '심 카드',
+        '데이터 유심',
+        '데이터심',
+        '데이터 esim',
+        '포켓 와이파이',
+        '포켓와이파이',
+        '포켓wifi',
+        '포켓 wi-fi',
+        '로밍',
+        'roaming',
+    ];
+
+    const weakPositive = ['공항', 'pick-up', '픽업', '드롭', '환전', '수령', 'qr', 'qr코드', 'qr 코드'];
+
+    const strongNegative = [
+        '국내',
+        '내국인',
+        '한국 내',
+        '한국 여행',
+        '국내 여행',
+        '한국인 전용',
+        '지역민',
+        '지역 주민',
+        '내국인 전용',
+    ];
+
+    // hit count
+    const hit = (list) => list.filter((k) => text.includes(k)).length;
+
+    const strongPosHit = hit(strongPositive);
+    const weakPosHit = hit(weakPositive);
+    const strongNegHit = hit(strongNegative);
+
+    // ② eSIM 등 → 확실히 여행자 전용
+    if (strongPosHit > 0) return true;
+
+    // ③ eSIM + 한국 언급 → 외국인 입국용으로 간주
+    if (strongPosHit > 0 && text.includes('한국')) return true;
+
+    // // ① 국내 단어가 강하게 있으면 무조건 국내용
+    // if (strongNegHit > 0) return false;
+
+    // ④ 약한 키워드만 있을 경우 (공항, QR 등)
+    if (weakPosHit > 0) {
+        // 모호할 경우 모델에 위임
+        const prompt = `
+      다음 상품을 보고 "해외 여행자 전용 상품"인지 판단하세요.
+      출력은 반드시 숫자 0 또는 1만 하십시오. (0 = 일반 상품, 1 = 여행자 전용)
+      
+      예시:
+      상품명: "일본 데이터 eSIM 7일 무제한"
+      상품 설명: "입국 즉시 QR 스캔으로 활성화되는 일본 eSIM"
+      정답: 1
+      
+      상품명: "서울 강남 호텔 1박 조식 포함"
+      상품 설명: "강남 중심의 비즈니스 호텔"
+      정답: 0
+      
+      상품명: "한국 방문자용 선불 유심 카드 (공항 수령)"
+      상품 설명: "공항에서 수령 가능한 선불 유심, 단기 여행자용"
+      정답: 1
+      
+      상품명: "제주 여미지 식물원 입장권"
+      상품 설명: "지금 바로 여미지식물원 할인 입장권을 예약하세요!"
+      정답: 0
+      
+      상품명: "경복궁 창덕궁 한복대여 | 공주한복"
+      상품 설명: "공주한복에는요즘 유행하고 있는 고급스럽고 단아한 한복까지 다양하게 준비되어 있습니다."
+      정답: 0
+      
+      상품명: "제주 차귀도 달래 배낚시(사전예약 필수)"
+      상품 설명: "차귀도의 해안절경을 만끽하며 짜릿한 손맛과 함께하는 즐거움을 누려보세요!"
+      정답: 0
+      
+      상품명: "${product.prod_name.replace(/\n/g, ' ')}"
+      상품 설명: "${(product.introduction || '').replace(/\n/g, ' ')}"
+      
+      정답:
+        `.trim();
+
+        try {
+            const completion = await openai.chat.completions.create({
+                model: 'gpt-4.1-mini',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 3,
+                temperature: 0.0,
+            });
+
+            const raw = (completion.choices?.[0]?.message?.content || '').trim();
+            const onlyDigits = raw.match(/[01]/)?.[0];
+            return onlyDigits === '1';
+        } catch (err) {
+            console.error('isTravelerOnlyProduct - model error:', err);
+            return false;
+        }
+    }
+
+    // ⑤ 아무 관련 키워드가 없으면 일반 상품
+    return false;
 }
 
 // 기존 llmMatch (단일 도시)
@@ -352,7 +482,7 @@ async function normalizeCities(country, cityList) {
     const kkdayPool = KKDAYMap[country] || [];
     if (!map) return [];
 
-    const normalized = [];
+    let normalized = [];
 
     if (filteredCityList.length <= 5) {
         // 개별 매칭 (안정성 우선)
@@ -419,6 +549,38 @@ async function normalizeCities(country, cityList) {
     return [...new Set(normalized)];
 }
 
+// router.post('/update', async (req, res) => {
+//     const csvFile = '/home/ubuntu/danim_database/isNationwide.csv';
+//     const updates = [];
+
+//     fs.createReadStream(csvFile)
+//         .pipe(csvParser())
+//         .on('data', (row) => {
+//             // row._id, row.isNationwide 활용
+//             updates.push({
+//                 _id: row._id,
+//                 isNationwide: row.isNationwide.trim() === 'TRUE', // TRUE/FALSE 문자열 -> Boolean
+//             });
+//         })
+//         .on('end', async () => {
+//             console.log('CSV 읽기 완료', updates.length);
+
+//             const bulkOps = updates.map((item) => ({
+//                 updateOne: {
+//                     filter: { _id: new mongoose.Types.ObjectId(item._id.trim()) },
+//                     update: { $set: { isNationwide: item.isNationwide } },
+//                 },
+//             }));
+
+//             try {
+//                 const result = await SellingProduct.bulkWrite(bulkOps);
+//                 console.log('bulkWrite 완료:', result.modifiedCount, '개 문서 수정됨');
+//             } catch (err) {
+//                 console.error('bulkWrite 오류:', err);
+//             }
+//         });
+// });
+
 // 판매 상품 목록 추천받기 ( 5개씩 )
 // 프론트에서 다이어로그를 띄우기 전에 먼저 이 API를 쏘고, 결과가 있으면 띄움 ( AI 실행 로딩 때 같이 쏘면 될듯 )
 router.post('/recommend', async (req, res) => {
@@ -446,13 +608,17 @@ router.post('/recommend', async (req, res) => {
         // }
 
         // 1. MongoDB에서 상품 불러오기 (필터링 가능)
-        let mongoFilter = {};
+        let mongoFilter = { isActive: { $ne: false } }; // 기본적으로 활성화된 상품만 불러오기
         if (country) {
             mongoFilter['countries'] = country;
         }
+        // 🇰🇷 한국일 경우: isTravelerOnly 상품 제외
+        if (['대한민국', '한국', 'KOR', 'KR', 'Korea'].includes(country)) {
+            mongoFilter['isTravelerOnly'] = { $ne: true };
+        }
+
         // cityList 정규화
         // TODO - 매칭 안되는 도시들이 많을 경우 이 함수 안에서 "모든 도시"를 넣어볼 것!
-        console.time('city_nomalize_time');
         let normalizedCities = [];
         if (cityList) {
             const resultCityList = cityList.map((item) => {
@@ -461,7 +627,6 @@ router.post('/recommend', async (req, res) => {
             });
             normalizedCities = await normalizeCities(country, resultCityList);
         }
-        console.timeEnd('city_nomalize_time');
 
         if (normalizedCities && normalizedCities.length > 0) {
             mongoFilter['$or'] = [
@@ -470,9 +635,9 @@ router.post('/recommend', async (req, res) => {
             ];
         }
 
-        console.time('product_load_time');
+        //console.time('product_load_time');
         let filteredProducts = await SellingProduct.find(mongoFilter).lean();
-        console.timeEnd('product_load_time');
+        //console.timeEnd('product_load_time');
 
         // 전국용 상품 따로 빼두고 나중에 추가
         // 공항 픽업, 샌딩 등 상품도 포함! - 어차피 앞에서 지역으로 한 번 거른 상품들이라서 괜찮음
@@ -486,7 +651,7 @@ router.post('/recommend', async (req, res) => {
         let recommendProducts = [];
 
         for (const path of pathList) {
-            console.time('duration_time');
+            //console.time('duration_time');
 
             const pathFlat = flattenPath(path);
 
@@ -560,7 +725,7 @@ router.post('/recommend', async (req, res) => {
                 }
             });
 
-            console.timeEnd('duration_time');
+            //console.timeEnd('duration_time');
 
             // 2. 벡터, 성향 점수 배열
             const vectorScores = results.map((p) => p.vectorScoreCourse);
@@ -609,8 +774,24 @@ router.post('/recommend', async (req, res) => {
                 return bCount - aCount; // 내림차순
             });
 
+            // 전국용 상품 - 카테고리별 최대 1개씩 선택
+            const uniqueNationwide = [];
+            const seenCategories = new Set();
+
+            for (const product of nationwideProducts) {
+                const category = product.product_category_main || '기타';
+                console.log(category);
+                if (!seenCategories.has(category)) {
+                    uniqueNationwide.push(product);
+                    seenCategories.add(category);
+                }
+                if (uniqueNationwide.length >= 5) break; // 최대 5개까지만 추천
+            }
+
             // topK + 전국용 상품 추가
-            let topResults = results.slice(0, topK).concat(nationwideProducts.slice(0, 5));
+            let topResults = results.slice(0, topK).concat(uniqueNationwide);
+            // // topK + 전국용 상품 추가
+            // let topResults = results.slice(0, topK).concat(nationwideProducts.slice(0, 5));
 
             // embedding 제거
             recommendProducts.push(topResults.map(({ embedding, ...rest }) => rest));
@@ -1187,6 +1368,11 @@ async function kkdayPostWithRetry(path, body, retries = 3, delayMs = 2000) {
     }
 }
 
+function containsKorean(text) {
+    if (!text) return false;
+    return /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(text);
+}
+
 let isUpdating = false;
 
 // ======================
@@ -1237,15 +1423,18 @@ async function updateProductCache() {
 
             // 기존 DB 로딩
             console.time('product_load_time');
-            let mongoFilter = {};
+            let mongoFilter = { isActive: { $ne: false } }; // 기본적으로 활성화된 상품만 불러오기
             mongoFilter['countries'] = targetCountries[i];
             let products = await SellingProduct.find(mongoFilter).lean();
             console.log('products 갯수 - ', products.length);
             console.timeEnd('product_load_time');
 
-            const existingCacheMap = new Map(products.map((p) => [p.prod_name, p]));
+            const existingProdNos = new Set(products.map((p) => p.prod_no));
+            const existingCacheMap = new Map(products.map((p) => [p.prod_no, p]));
 
             page = 0;
+
+            let kkdayProdNos = new Set();
 
             while (true) {
                 const response = await kkdayPost('Search', {
@@ -1257,13 +1446,16 @@ async function updateProductCache() {
 
                 if (!response.prods || response.prods.length === 0) break;
 
+                // 현재 나라의 상품 prod_no만 기록
+                response.prods.forEach((p) => kkdayProdNos.add(p.prod_no));
+
                 if (page > 2) break; // TODO - 본서버 적용때는 주석처리!!!
 
                 const newProducts = response.prods
                     // 먼저 국가 2개 이상인 상품은 아예 제외
                     .filter((p) => !p.countries || p.countries.length <= 1)
                     .map((p) => {
-                        const cached = existingCacheMap.get(p.prod_name);
+                        const cached = existingCacheMap.get(p.prod_no);
 
                         const alwaysUpdate = {
                             b2c_price: p.b2c_price,
@@ -1284,12 +1476,6 @@ async function updateProductCache() {
                     });
 
                 const processedProducts = await asyncPool(3, newProducts, async (product) => {
-                    if (!product.needLLM)
-                        return {
-                            ...product,
-                        };
-                    else console.log('LLM  필요 - ', product.prod_name);
-
                     // 세부 정보 조회 (상품 스케줄 포함)
                     let fullProduct = null;
                     try {
@@ -1307,17 +1493,39 @@ async function updateProductCache() {
                         fullProduct = null;
                     }
 
-                    if (!fullProduct) {
+                    if (!fullProduct || fullProduct.result !== '00') {
                         console.warn(`[WARN] fullProduct 없음: ${product.prod_no} - LLM 처리 건너뜀`);
+                        return null; // processedProducts에 저장 안 됨
+                    }
+
+                    // product_category.main만 추출
+                    let category = {};
+                    let mainCategory = '';
+                    const prodData = fullProduct?.prod; // 안전하게 접근
+
+                    if (prodData && typeof prodData.product_category === 'object') {
+                        category = prodData.product_category;
+                        mainCategory = prodData.product_category?.main || null;
+                    } else {
+                        console.warn(`[WARN] product_category 없음: ${product.prod_no}`);
+                    }
+
+                    // QueryProduct 체크는 매번 해야함
+                    if (!product.needLLM)
                         return {
                             ...product,
-                            productPlaces: [],
-                            normalizedPlaces: [],
-                            tendencyScores: Object.fromEntries(tendencyData.flat().map((t) => [t, 0])),
-                            embedding: [],
-                            isNationwide: false,
                         };
-                    }
+                    else console.log('LLM  필요 - ', product.prod_name);
+
+                    // //TODO - 업데이트하고 제거
+                    // let isTravelerOnlyTemp = await isTravelerOnlyProduct(product);
+                    // if (!product.needLLM)
+                    //     return {
+                    //         ...product,
+                    //         product_category: category,
+                    //         product_category_main: mainCategory,
+                    //         isTravelerOnly: isTravelerOnlyTemp,
+                    //     };
 
                     // 관광지 배열 뽑기
                     const { extractedPlaces, normalizedPlaces } = await extractPlacesFromSchedule(
@@ -1335,6 +1543,14 @@ async function updateProductCache() {
                     if (!product.hasOwnProperty('isNationwide') || product.isNationwide === undefined) {
                         // 기존 값이 없을 때만 함수 호출
                         isNationwide = await isNationwideProduct(product);
+                    }
+
+                    // product.isTravelerOnly가 undefined/null이면 처리
+                    let isTravelerOnly = product.isTravelerOnly ?? false;
+
+                    if (!product.hasOwnProperty('isTravelerOnly') || product.isTravelerOnly === undefined) {
+                        // 기존 값이 없을 때만 함수 호출
+                        isTravelerOnly = await isTravelerOnlyProduct(product);
                     }
 
                     // 성향 점수 계산
@@ -1386,16 +1602,20 @@ async function updateProductCache() {
                         //     result: fullProduct.result,
                         //     result_msg: fullProduct.result_msg,
                         // });
+                        kkdayProdNos.delete(product.prod_no); // isActive : False로 변경
                         return null; // processedProducts에 저장 안 됨
                     }
 
                     return {
                         ...product,
                         isNationwide,
+                        isTravelerOnly,
                         tendencyScores,
                         embedding,
                         productPlaces,
                         normalizedPlaces,
+                        product_category: category,
+                        product_category_main: mainCategory,
                         ...product.alwaysUpdate,
                     };
                 });
@@ -1431,6 +1651,15 @@ async function updateProductCache() {
                             return [];
                         });
 
+                        // 한글 여부 검사
+                        let isActive = true;
+                        const noKorean = !containsKorean(p.prod_name) || !containsKorean(p.introduction);
+
+                        // 한글 없으면 비활성화
+                        if (noKorean) {
+                            isActive = false;
+                        }
+
                         return {
                             updateOne: {
                                 filter: { prod_no: p.prod_no },
@@ -1441,6 +1670,8 @@ async function updateProductCache() {
                                         cities: simplifiedCities, // ["모든 도시", "다낭", ...]
                                         sellingProductRating: p.avg_rating_star,
                                         sellingProductReviewCount: p.rating_count,
+                                        isActive: isActive, // 다시 들어온 상품은 활성화
+                                        lastSyncedAt: new Date(), // 동기화 시간 기록
                                     },
                                 },
                                 upsert: true,
@@ -1463,12 +1694,21 @@ async function updateProductCache() {
                 page++;
                 console.log(`[CACHE] 상품 수집 완료 (누적: ${allProducts.length})`);
             }
-            // // JSON 파일로 저장
-            // await fs.writeFile(CACHE_FILE, JSON.stringify(productCache, null, 2));
-            // console.log(`[CACHE] KKday 상품 캐시 갱신 완료 (총 ${productCache.length}개)`);
-            // productCache 대신 allProducts 스트리밍 저장
-            // await saveProductsStream(allProducts, 500);
-            // console.log(`[CACHE] KKday 상품 캐시 스트리밍 저장 완료 (총 ${allProducts.length}개)`);
+
+            // 나라별 삭제/비활성화 처리 (메모리 안전)
+            const missingProdNos = [...existingProdNos].filter((id) => !kkdayProdNos.has(id));
+
+            if (missingProdNos.length > 0) {
+                console.log(`[CACHE][${targetCountries[i]}] 삭제/비활성화 대상 상품: ${missingProdNos.length}개`);
+                console.error(`[CACHE][${targetCountries[i]}] 삭제/비활성화 대상 상품: ${missingProdNos.length}개`);
+
+                await SellingProduct.updateMany(
+                    { prod_no: { $in: missingProdNos } },
+                    { $set: { isActive: false, lastSyncedAt: new Date() } }
+                );
+            }
+
+            console.log(`[CACHE][${targetCountries[i]}] 완료. (총 ${kkdayProdNos.size}개 상품 유지)`);
         }
         return allProducts.length;
     } catch (error) {
@@ -1566,24 +1806,24 @@ function parseLLMJson(llmContent) {
     }
 }
 
-async function createRegionMap() {
-    const cities = await getDistinctCities();
-    const grouped = groupByCountry(cities);
+// async function createRegionMap() {
+//     const cities = await getDistinctCities();
+//     const grouped = groupByCountry(cities);
 
-    const finalDict = {};
+//     const finalDict = {};
 
-    for (const [country, cityList] of Object.entries(grouped)) {
-        console.log(`👉 ${country} (${cityList.length}개 지역) 매핑 중...`);
+//     for (const [country, cityList] of Object.entries(grouped)) {
+//         console.log(`👉 ${country} (${cityList.length}개 지역) 매핑 중...`);
 
-        const dict = await createSynonymDict(country, cityList);
-        finalDict[country] = dict;
-    }
-    await fs.writeFile(CACHE_FILE, JSON.stringify(finalDict, null, 2));
-    await fs.writeFile(CACHE_FILE2, JSON.stringify(grouped, null, 2));
+//         const dict = await createSynonymDict(country, cityList);
+//         finalDict[country] = dict;
+//     }
+//     await fs.writeFile(CACHE_FILE, JSON.stringify(finalDict, null, 2));
+//     await fs.writeFile(CACHE_FILE2, JSON.stringify(grouped, null, 2));
 
-    console.log('✅ 모든 나라 처리 완료. 결과: region_synonyms.json 저장됨');
-    process.exit(0);
-}
+//     console.log('✅ 모든 나라 처리 완료. 결과: region_synonyms.json 저장됨');
+//     process.exit(0);
+// }
 
 // ======================
 // 서버 시작 시 캐시 초기화
@@ -1604,12 +1844,13 @@ async function createRegionMap() {
 
 // ======================
 // 하루 1회 새벽 3시에 갱신 (cron: "0 3 * * *")
-// ======================
-// cron 표현식: 매일 18시에 실행 (18시 0분 0초)
+// // ======================
+// // cron 표현식: 매일 18시에 실행 (18시 0분 0초)
 // cron.schedule(
 //     '0 0 3 * * *',
 //     async () => {
 //         console.log('[CRON] KKday 상품 캐시 갱신 시작...');
+
 //         if (isUpdating) {
 //             console.log('[CRON] 이전 갱신 작업이 아직 진행 중입니다. 건너뜁니다.');
 //             return;
@@ -1628,8 +1869,8 @@ async function createRegionMap() {
 //                 if (user && user.fcmToken) {
 //                     const payload = {
 //                         notification: {
-//                             title: '캐시 업뎃 완료',
-//                             body: resultLen,
+//                             title: '캐시 업뎃 완료' + String(resultLen),
+//                             body: String(resultLen),
 //                         },
 //                         data: {
 //                             // 여기에 필요한 데이터를 추가할 수 있습니다.

@@ -35,6 +35,16 @@ tendencyData = [
     ['봄', '여름', '가을', '겨울'],
 ];
 
+router.get('/list', async (req, res) => {
+    return res.status(200).json({
+        results: [],
+    });
+});
+// // 핑퐁
+// router.get('/ping', async (req, res) => {
+//     res.status(200).json({ message: 'Pong!' });
+// });
+
 // KKday API 호출 헬퍼 - get
 async function kkdayGet(endpoint, params = {}) {
     const { data } = await axios.get(`${KKDAY_BASE_URL}/${endpoint}`, {
@@ -625,9 +635,9 @@ router.post('/recommend', async (req, res) => {
             ];
         }
 
-        console.time('product_load_time');
+        //console.time('product_load_time');
         let filteredProducts = await SellingProduct.find(mongoFilter).lean();
-        console.timeEnd('product_load_time');
+        //console.timeEnd('product_load_time');
 
         // 전국용 상품 따로 빼두고 나중에 추가
         // 공항 픽업, 샌딩 등 상품도 포함! - 어차피 앞에서 지역으로 한 번 거른 상품들이라서 괜찮음
@@ -641,7 +651,7 @@ router.post('/recommend', async (req, res) => {
         let recommendProducts = [];
 
         for (const path of pathList) {
-            console.time('duration_time');
+            //console.time('duration_time');
 
             const pathFlat = flattenPath(path);
 
@@ -715,7 +725,7 @@ router.post('/recommend', async (req, res) => {
                 }
             });
 
-            console.timeEnd('duration_time');
+            //console.timeEnd('duration_time');
 
             // 2. 벡터, 성향 점수 배열
             const vectorScores = results.map((p) => p.vectorScoreCourse);
@@ -1466,12 +1476,6 @@ async function updateProductCache() {
                     });
 
                 const processedProducts = await asyncPool(3, newProducts, async (product) => {
-                    // if (!product.needLLM)
-                    //     return {
-                    //         ...product,
-                    //     };
-                    // else console.log('LLM  필요 - ', product.prod_name);
-
                     // 세부 정보 조회 (상품 스케줄 포함)
                     let fullProduct = null;
                     try {
@@ -1489,8 +1493,9 @@ async function updateProductCache() {
                         fullProduct = null;
                     }
 
-                    if (!fullProduct) {
-                        console.warn(`[WARN] fullProduct 없음: ${product.prod_no} - LLM 처리 건너뜀`);
+                    if (!fullProduct || fullProduct.result !== '00') {
+                        console.log(`[WARN] fullProduct 없음: ${product.prod_no} - LLM 처리 건너뜀`);
+                        kkdayProdNos.delete(product.prod_no); // isActive : False로 변경
                         return null; // processedProducts에 저장 안 됨
                     }
 
@@ -1502,9 +1507,20 @@ async function updateProductCache() {
                     if (prodData && typeof prodData.product_category === 'object') {
                         category = prodData.product_category;
                         mainCategory = prodData.product_category?.main || null;
+                        //console.log(category);
                     } else {
                         console.warn(`[WARN] product_category 없음: ${product.prod_no}`);
                     }
+
+                    // QueryProduct 체크는 매번 해야함
+                    if (!product.needLLM)
+                        return {
+                            ...product,
+                            product_category: category,
+                            product_category_main: mainCategory,
+                        };
+                    else console.log('LLM  필요 - ', product.prod_name);
+
                     // //TODO - 업데이트하고 제거
                     // let isTravelerOnlyTemp = await isTravelerOnlyProduct(product);
                     // if (!product.needLLM)

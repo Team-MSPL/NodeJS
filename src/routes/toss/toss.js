@@ -12,6 +12,9 @@ var _ = require('lodash');
 const certPath = '/home/ubuntu/danim_database/src/routes/toss/danim-toss-course-mtls_public.crt';
 const keyPath = '/home/ubuntu/danim_database/src/routes/toss/danim-toss-course-mtls_private.key';
 
+// 결제 위젯 연동키 - 테스트 - 시크릿키
+// https://developers.tosspayments.com/998210/accounts/1264954/phases/test/api-keys
+
 // 💡 Toss API 호출용 함수 정의
 function callTossAPI(callback) {
     const options = {
@@ -199,24 +202,31 @@ router.post('/withdraw', async (req, res) => {
 // 결제 승인
 router.post('/payments/confirm', async (req, res) => {
     try {
-        const { paymentKey, orderId, amount } = req.body;
+        const { paymentKey, orderId, amount, version } = req.body;
 
         // 필수값 검증
         if (!paymentKey || !orderId || !amount) {
             return res.status(400).json({ error: '필수 파라미터가 누락되었습니다.' });
         }
 
+        let payment_key = process.env.PAYMENT_TEST_KEY;
+        if (version && version.toLowerCase() === 'live') {
+            payment_key = process.env.PAYMENT_LIVE_KEY;
+        }
+
         const response = await fetch(`https://api.tosspayments.com/v1/payments/confirm`, {
             method: 'POST',
             headers: {
-                Authorization: 'Basic test_ck_5OWRapdA8dbEzMNGx46RVo1zEqZK', // 실제 운영 키로 교체
+                Authorization: `Basic ${Buffer.from(payment_key + ':').toString('base64')}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(req.body),
         });
-
         const data = await response.json();
-        return res.status(response.status).json(data);
+        console.log(data);
+        console.log(`Basic  ${Buffer.from(payment_key + ':').toString('base64')}`);
+
+        return res.json(data);
     } catch (error) {
         console.error('결제 승인 오류:', error);
         return res.status(500).json({ error: '결제 승인 중 오류가 발생했습니다. : ' + error });
@@ -227,16 +237,22 @@ router.post('/payments/confirm', async (req, res) => {
 router.get('/payments/:paymentKey', async (req, res) => {
     try {
         const { paymentKey } = req.params;
+        const { version } = req.query;
+
+        let payment_key = process.env.PAYMENT_TEST_KEY;
+        if (version && version.toLowerCase() === 'live') {
+            payment_key = process.env.PAYMENT_LIVE_KEY;
+        }
 
         const response = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}`, {
             method: 'GET',
             headers: {
-                Authorization: 'Basic test_ck_5OWRapdA8dbEzMNGx46RVo1zEqZK', // 실제 운영 키로 교체
+                Authorization: `Basic ${Buffer.from(payment_key + ':').toString('base64')}`,
             },
         });
 
         const data = await response.json();
-        return res.status(response.status).json(data);
+        return res.json(data);
     } catch (error) {
         console.error('결제 승인 오류:', error);
         return res.status(500).json({ error: '결제 승인 중 오류가 발생했습니다. : ' + error });
@@ -247,7 +263,7 @@ router.get('/payments/:paymentKey', async (req, res) => {
 router.post('/payments/:paymentKey/cancel', async (req, res) => {
     try {
         const { paymentKey } = req.params;
-        const { cancelReason, cancelAmount } = req.body;
+        const { cancelReason, cancelAmount, version } = req.body;
 
         if (!paymentKey || !cancelReason) {
             return res.status(400).json({ error: 'paymentKey와 cancelReason은 필수입니다.' });
@@ -259,13 +275,18 @@ router.post('/payments/:paymentKey/cancel', async (req, res) => {
             requestBody.cancelAmount = cancelAmount; // 부분 취소 시만 추가
         }
 
+        let payment_key = process.env.PAYMENT_TEST_KEY;
+        if (version && version.toLowerCase() === 'live') {
+            payment_key = process.env.PAYMENT_LIVE_KEY;
+        }
+
         // 멱등키: 결제키 + 타입(전체/부분) + 타임스탬프
         const idempotencyKey = `cancel-${cancelAmount ? 'partial' : 'full'}-${paymentKey}-${Date.now()}`;
 
         const response = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`, {
             method: 'POST',
             headers: {
-                Authorization: 'Basic test_ck_5OWRapdA8dbEzMNGx46RVo1zEqZK', // 실제 운영 키로 교체
+                Authorization: `Basic ${Buffer.from(payment_key + ':').toString('base64')}`,
                 'Content-Type': 'application/json',
                 'Idempotency-Key': idempotencyKey,
             },
@@ -273,7 +294,7 @@ router.post('/payments/:paymentKey/cancel', async (req, res) => {
         });
 
         const data = await response.json();
-        return res.status(response.status).json(data);
+        return res.json(data);
     } catch (error) {
         console.error('결제 취소 오류:', error);
         return res.status(500).json({ error: '결제 취소 중 오류가 발생했습니다.' });

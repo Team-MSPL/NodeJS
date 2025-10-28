@@ -8,6 +8,7 @@ const AI = require('../schemas/ai.js');
 const AIRecommendPlaceLog = require('../schemas/ai_recommend_place_log.js');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const axios = require('axios');
+const mongoose = require('mongoose');
 
 const url_v2 = 'http://3.37.228.174/ai/run';
 
@@ -276,10 +277,14 @@ router.post('/saveAI', async (req, res) => {
                 enoughPlace: enoughPlace,
                 bestPointList: bestPointList,
             });
-
-            const savedAI = await newAI.save();
-
-            res.status(201).json({ aiId: savedAI._id });
+            // 저장 시점 직전에만 로그 비활성화 - 로그가 너무 김
+            mongoose.set('debug', false);
+            try {
+                const savedAI = await newAI.save();
+                res.status(201).json({ aiId: savedAI._id });
+            } finally {
+                mongoose.set('debug', true);
+            }
         });
     } catch (error) {
         //console.error('/AI/saveAI - POST 함수에 문제 발생 : ', error);

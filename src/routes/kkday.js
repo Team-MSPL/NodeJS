@@ -302,7 +302,7 @@ router.post('/Booking', async (req, res) => {
         console.log(resultData);
 
         if (resultData.result !== '00') {
-            return res.status(500).json({ error: `구매에 실패하였습니다.`, data: resultData });
+            return res.status(400).json({ error: `구매에 실패하였습니다.`, data: resultData });
         }
         res.status(200).json({ data: resultData });
     } catch (err) {
