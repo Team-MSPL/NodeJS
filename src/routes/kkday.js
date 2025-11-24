@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const nodemailer = require('nodemailer');
+const admin = require('firebase-admin');
 var _ = require('lodash');
 
 const KKDAY_BASE_URL = 'https://api-b2d.kkday.com/v4';
@@ -284,11 +285,11 @@ router.post('/Booking/QueryAmount', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 // 10. Booking API - 예약 요청
 router.post('/Booking', async (req, res) => {
     let resultData = null;
     const { prod_no, pkg_no } = req.body;
+
     try {
         console.log(req.body);
 
@@ -302,11 +303,46 @@ router.post('/Booking', async (req, res) => {
         console.log(resultData);
 
         if (resultData.result !== '00') {
+            // 한국 시간 기준 발생 시각
+            const nowKST = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+
+            // 관리자 노트 전송 시 추가 정보 포함
+            await noteAdmin(
+                '상품 구매 실패',
+                JSON.stringify(
+                    {
+                        발생시간: nowKST,
+                        요청데이터: req.body,
+                        응답데이터: resultData,
+                    },
+                    null,
+                    2
+                )
+            );
+
             return res.status(400).json({ error: `구매에 실패하였습니다.`, data: resultData });
         }
+
         res.status(200).json({ data: resultData });
     } catch (err) {
         console.error(err);
+
+        const nowKST = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+
+        await noteAdmin(
+            'Booking API 오류 발생',
+            JSON.stringify(
+                {
+                    발생시간: nowKST,
+                    요청데이터: req.body,
+                    오류메시지: err.message,
+                    응답데이터: resultData,
+                },
+                null,
+                2
+            )
+        );
+
         return res.status(500).json({ error: err.message, data: resultData });
     }
 });
@@ -358,6 +394,14 @@ router.post('/Order/Cancel', async (req, res) => {
 
         const data = await kkdayPost('Order/Cancel', req.body);
 
+        // 환불 처리 완료 되어야 몽고디비에서 비활성화
+        if (data.result !== '00') {
+            return res.status(400).json({
+                message: 'KKday 주문 취소 실패',
+                data,
+            });
+        }
+
         // 몽고디비 bookingProduct에서 같이 비활성화
         BookingProduct.findOneAndUpdate(
             { order_no: order_no }, // 조건: order_no로 검색
@@ -366,7 +410,7 @@ router.post('/Order/Cancel', async (req, res) => {
         )
             .then((updatedBookingProduct) => {
                 if (!updatedBookingProduct) {
-                    return res.status(404).json({ message: '비활성화할 예약 상품을 찾을 수 없습니다.' });
+                    return res.status(404).json({ message: '비활성화할 예약 상품을 찾을 수 없습니다.', data: data });
                 }
 
                 res.status(200).json(data); // KKday 응답 데이터도 함께 반환
@@ -603,5 +647,56 @@ router.post('/BookingWithEmail', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+//관리자에게 알림 보내기
+async function noteAdmin(title, note) {
+    const userId = '6609f7a4faac39d8516b25b2'; // 관리자 _id
+
+    User.findOne({ _id: userId })
+        .then(async (user) => {
+            if (!user) {
+                console.log(user);
+            }
+            user.noteList.push(note);
+
+            await user.save();
+
+            // 여기서 FCM 푸시 알림 보내기
+            if (user.fcmToken) {
+                const payload = {
+                    notification: {
+                        title: note,
+                        body: note,
+                        //image: 'https://danim.me/square_logo.png', // 이미지 URL을 여기에 추가
+                    },
+                    data: {
+                        // 여기에 필요한 데이터를 추가할 수 있습니다.
+                        // 예: noteId, senderId 등
+                    },
+                    token: user.fcmToken,
+                };
+
+                try {
+                    //await admin.messaging().sendToDevice(user.fcmToken, payload);
+                    await admin.messaging().send(payload);
+                } catch (error) {
+                    // fcmToken이 유효하지 않은 경우 삭제
+                    if (
+                        error.code === 'messaging/registration-token-not-registered' ||
+                        (error.errorInfo && error.errorInfo.code === 'messaging/registration-token-not-registered')
+                    ) {
+                        console.log('유효하지 않은 FCM 토큰 삭제:', user.fcmToken);
+                        user.fcmToken = null;
+                        await user.save();
+                    } else {
+                        console.error('FCM 전송 에러:', error);
+                    }
+                }
+            }
+        })
+        .catch((error) => {
+            console.error('User.findOne() 함수에 문제 발생 : ', error);
+        });
+}
 
 module.exports = router;

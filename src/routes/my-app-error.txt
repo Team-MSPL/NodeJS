@@ -1,0 +1,2 @@
+2025-11-11 02:15:27 - ERROR - 관광지 데이터셋을 읽어오는 중에 오류가 발생했습니다:, can only concatenate str (not "int") to str
+2025-11-11 02:15 +00:00: 2025-11-11 02:15:27 - ERROR - 관광지 데이터셋을 읽어오는 중에 오류가 발생했습니다:, can only concatenate str (not "int") to str

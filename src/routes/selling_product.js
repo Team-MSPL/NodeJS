@@ -27,11 +27,11 @@ const KKDAY_API_KEY = process.env.KKDAY_API_KEY;
 // === 캐시 로드 ===
 let productCache = [];
 
-tendencyData = [
-    ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와'],
+const tendencyData = [
+    ['나홀로', '연인과', '친구와', '가족과', '효도', '자녀와', '반려동물과'],
     ['힐링', '활동적인', '배움이 있는', '맛있는', '교통이 편한', '알뜰한'],
-    ['레저 스포츠', '산책', '드라이브코스', '이색체험', '쇼핑', '시티투어', '역사 여행'],
-    ['바다', '산', '자연경관', '문화시설', '사진 명소', '전통'],
+    ['레저 스포츠', '산책', '드라이브', '이색체험', '쇼핑', '시티투어'],
+    ['바다', '산', '실내여행지', '문화시설', '사진 명소', '유적지', '박물관', '전통', '공원', '사찰', '성지'],
     ['봄', '여름', '가을', '겨울'],
 ];
 
@@ -585,12 +585,28 @@ async function normalizeCities(country, cityList) {
 // 프론트에서 다이어로그를 띄우기 전에 먼저 이 API를 쏘고, 결과가 있으면 띄움 ( AI 실행 로딩 때 같이 쏘면 될듯 )
 router.post('/recommend', async (req, res) => {
     try {
-        const { pathList, country, cityList, selectList, topK = 10 } = req.body;
+        const {
+            pathList,
+            country,
+            cityList,
+            selectList,
+            topK = 10,
+            mode = 'recommend', // 추천/목록 모드 구분
+            keyword = '', // prod_name 검색
+            page = 1, // 페이지 번호
+            limit = 20, // 페이지당 개수
+        } = req.body;
 
         let selectedTendencies = [];
 
+        //selectList에서 선택된 항목들만 tendencyData 텍스트로 꺼내 하나의 배열로 만들기
         if (selectList) {
-            selectedTendencies = tendencyData.flatMap((row, i) => row.filter((val, j) => selectList[i][j] === 1));
+            console.log(selectList);
+            selectedTendencies = tendencyData.flatMap((row, i) => {
+                const selRow = Array.isArray(selectList[i]) ? selectList[i] : [];
+                return row.filter((val, j) => selRow[j] === 1);
+            });
+
             //console.log(selectedTendencies);
         }
 
@@ -634,169 +650,197 @@ router.post('/recommend', async (req, res) => {
                 { cities: ['모든 도시'] }, // cities 배열이 정확히 ["모든 도시"]인 경우
             ];
         }
-
-        //console.time('product_load_time');
-        let filteredProducts = await SellingProduct.find(mongoFilter).lean();
-        //console.timeEnd('product_load_time');
-
-        // 전국용 상품 따로 빼두고 나중에 추가
-        // 공항 픽업, 샌딩 등 상품도 포함! - 어차피 앞에서 지역으로 한 번 거른 상품들이라서 괜찮음
-        const nationwideProducts = filteredProducts.filter((p) => p.isNationwide);
-
-        filteredProducts = filteredProducts.filter((p) => !p.isNationwide);
-
-        console.log('filteredProducts.length');
-        console.log(filteredProducts.length);
-
-        let recommendProducts = [];
-
-        for (const path of pathList) {
-            //console.time('duration_time');
-
-            const pathFlat = flattenPath(path);
-
-            // // 코스 장소 임베딩 미리 한번에 가져오기 - 어차피 코스는 다 같음
-            // const placeMap = await getPlaceEmbeddingsBulk(pathFlat);
-
-            // const placeEmbeddings = pathFlat.map((p) => placeMap[p]).filter(Boolean);
-            // if (!placeEmbeddings.length) return 0;
-
-            // is_essential or p.category === 5 인 경우만 임베딩으로 추가 가중치
-            // // TODO - API 실행 시간이 여유있다면 category가 0이 아닌 경우로 바꾸기?
-            const essentialPlaces = path
-                .flatMap((day) => day.filter((p) => p.is_essential || (p.category && p.category !== 0)))
-                .map((p) => p.name);
-
-            // essential 비율 계산
-            const essentialRatio = essentialPlaces.length / pathFlat.length; // 0 ~ 1
-
-            // essential 제외한 non-essential 장소들만 추출
-            const nonEssentialPlaces = pathFlat.filter((p) => !essentialPlaces.includes(p));
-
-            // essential 장소들에 대해 임베딩 직접 계산
-            const essentialEmbeddings = await embedText(essentialPlaces);
-
-            // 1. 캐싱된 normalizedPlaces를 활용한 빠른 매칭
-            let results = await asyncPool(5, filteredProducts, async (product) => {
-                try {
-                    // pathFlat vs product.normalizedPlaces 매칭 (non-essential만)
-                    const commonPlaces = nonEssentialPlaces.filter((place) =>
-                        product.normalizedPlaces?.includes(place)
-                    );
-
-                    let nameMatchScore = 0;
-                    if (commonPlaces.length > 0) {
-                        //nameMatchScore = commonPlaces.length / nonEssentialPlaces.length; // 단순 비율
-                        nameMatchScore = commonPlaces.length / product.normalizedPlaces?.length; // 단순 비율
-                    }
-
-                    // console.log('nameMatchScore');
-                    // console.log(nameMatchScore);
-
-                    let vectorScoreCourse = nameMatchScore;
-
-                    if (essentialPlaces.length > 0) {
-                        const validEmbeddings = essentialEmbeddings.filter(Boolean);
-
-                        if (validEmbeddings.length > 0) {
-                            const scores = validEmbeddings.map((emb) => cosineSimilarity(emb, product.embedding));
-                            const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-                            const maxScore = Math.max(...scores);
-                            const embScore = avgScore * 0.2 + maxScore * 0.8;
-
-                            // 이름 매칭과 임베딩을 비율대로 혼합
-                            vectorScoreCourse = nameMatchScore * (1 - essentialRatio) + embScore * essentialRatio;
-                        }
-                    }
-
-                    // 성향 점수
-                    const avgPrefScore = selectedTendencies.length
-                        ? selectedTendencies.reduce((sum, t) => sum + (product.tendencyScores[t] || 0), 0) /
-                          selectedTendencies.length
-                        : 0;
-
-                    // console.log(product.prod_name);
-                    // console.log(vectorScoreCourse);
-
-                    return { ...product, vectorScoreCourse, avgPrefScore };
-                } catch (err) {
-                    console.error('추천 계산 중 오류', err);
-                    return { ...product, vectorScoreCourse: 0, avgPrefScore: 0 };
-                }
-            });
-
-            //console.timeEnd('duration_time');
-
-            // 2. 벡터, 성향 점수 배열
-            const vectorScores = results.map((p) => p.vectorScoreCourse);
-            const prefScores = results.map((p) => p.avgPrefScore);
-
-            // 3. minMax 스케일링
-            const normVectorScores = minMaxScale(vectorScores);
-            const normPrefScores = minMaxScale(prefScores);
-
-            // 4. finalScore 계산 (임계값 반영)
-            const VECTOR_THRESHOLD = 0.4; // 코사인 유사도 최소 기준
-
-            let passed = [];
-            let fallback = [];
-
-            results.forEach((p, idx) => {
-                const rawVector = vectorScores[idx];
-                const normVector = normVectorScores[idx];
-                const normPref = normPrefScores[idx];
-
-                const vectorCombined = rawVector * 0.6 + normVector * 0.4;
-                const prefCombined = normPref;
-                const finalScore = vectorCombined * 0.7 + prefCombined * 0.3;
-
-                // 점수 저장
-                p.finalScore = finalScore;
-
-                if (rawVector >= VECTOR_THRESHOLD) {
-                    passed.push(p); // 정상 통과
-                } else if (rawVector >= VECTOR_THRESHOLD / 2) {
-                    fallback.push(p); // fallback 후보
-                }
-                // TODO - 지역 필터링이 잘 된다면, 임계값 미달이더라도 그냥 넣어도 될듯. 해당 지역의 다른 관광지 추천할겸?
-            });
-
-            // 5. 점수 순 정렬
-            passed.sort((a, b) => b.finalScore - a.finalScore);
-            fallback.sort((a, b) => b.finalScore - a.finalScore);
-
-            // fallback 조건 적용
-            results = passed.length > 0 ? passed : fallback;
-
-            nationwideProducts.sort((a, b) => {
-                const aCount = a?.sellingProductReviewCount || 0;
-                const bCount = b?.sellingProductReviewCount || 0;
-                return bCount - aCount; // 내림차순
-            });
-
-            // 전국용 상품 - 카테고리별 최대 1개씩 선택
-            const uniqueNationwide = [];
-            const seenCategories = new Set();
-
-            for (const product of nationwideProducts) {
-                const category = product.product_category_main || '기타';
-                console.log(category);
-                if (!seenCategories.has(category)) {
-                    uniqueNationwide.push(product);
-                    seenCategories.add(category);
-                }
-                if (uniqueNationwide.length >= 5) break; // 최대 5개까지만 추천
+        if (mode === 'list') {
+            // prod_name 검색 적용
+            if (keyword && keyword.trim() !== '') {
+                mongoFilter['prod_name'] = { $regex: keyword.trim(), $options: 'i' };
             }
 
-            // topK + 전국용 상품 추가
-            let topResults = results.slice(0, topK).concat(uniqueNationwide);
-            // // topK + 전국용 상품 추가
-            // let topResults = results.slice(0, topK).concat(nationwideProducts.slice(0, 5));
+            // 전체 개수 먼저 계산
+            const totalCount = await SellingProduct.countDocuments(mongoFilter);
 
-            // embedding 제거
-            recommendProducts.push(topResults.map(({ embedding, ...rest }) => rest));
+            // 페이지 계산
+            const skip = (page - 1) * limit;
+
+            // 실제 데이터 조회
+            const products = await SellingProduct.find(mongoFilter)
+                .skip(skip)
+                .limit(limit)
+                .sort({ sellingProductReviewCount: -1 }) // optional 정렬
+                .lean();
+
+            return res.json({
+                page,
+                limit,
+                totalCount,
+                totalPage: Math.ceil(totalCount / limit),
+                products: products.map(({ embedding, ...rest }) => rest),
+            });
         }
-        res.json(recommendProducts);
+        // MODE = "recommend": 기존 추천 로직 실행
+        else {
+            //console.time('product_load_time');
+            let filteredProducts = await SellingProduct.find(mongoFilter).lean();
+            //console.timeEnd('product_load_time');
+
+            // 전국용 상품 따로 빼두고 나중에 추가
+            // 공항 픽업, 샌딩 등 상품도 포함! - 어차피 앞에서 지역으로 한 번 거른 상품들이라서 괜찮음
+            const nationwideProducts = filteredProducts.filter((p) => p.isNationwide);
+
+            filteredProducts = filteredProducts.filter((p) => !p.isNationwide);
+
+            console.log('filteredProducts.length');
+            console.log(filteredProducts.length);
+
+            let recommendProducts = [];
+
+            for (const path of pathList) {
+                //console.time('duration_time');
+
+                const pathFlat = flattenPath(path);
+
+                // // 코스 장소 임베딩 미리 한번에 가져오기 - 어차피 코스는 다 같음
+                // const placeMap = await getPlaceEmbeddingsBulk(pathFlat);
+
+                // const placeEmbeddings = pathFlat.map((p) => placeMap[p]).filter(Boolean);
+                // if (!placeEmbeddings.length) return 0;
+
+                // is_essential or p.category === 5 인 경우만 임베딩으로 추가 가중치
+                // // TODO - API 실행 시간이 여유있다면 category가 0이 아닌 경우로 바꾸기?
+                const essentialPlaces = path
+                    .flatMap((day) => day.filter((p) => p.is_essential || (p.category && p.category !== 0)))
+                    .map((p) => p.name);
+
+                // essential 비율 계산
+                const essentialRatio = essentialPlaces.length / pathFlat.length; // 0 ~ 1
+
+                // essential 제외한 non-essential 장소들만 추출
+                const nonEssentialPlaces = pathFlat.filter((p) => !essentialPlaces.includes(p));
+
+                // essential 장소들에 대해 임베딩 직접 계산
+                const essentialEmbeddings = await embedText(essentialPlaces);
+
+                // 1. 캐싱된 normalizedPlaces를 활용한 빠른 매칭
+                let results = await asyncPool(5, filteredProducts, async (product) => {
+                    try {
+                        // pathFlat vs product.normalizedPlaces 매칭 (non-essential만)
+                        const commonPlaces = nonEssentialPlaces.filter((place) =>
+                            product.normalizedPlaces?.includes(place)
+                        );
+
+                        let nameMatchScore = 0;
+                        if (commonPlaces.length > 0) {
+                            //nameMatchScore = commonPlaces.length / nonEssentialPlaces.length; // 단순 비율
+                            nameMatchScore = commonPlaces.length / product.normalizedPlaces?.length; // 단순 비율
+                        }
+
+                        // console.log('nameMatchScore');
+                        // console.log(nameMatchScore);
+
+                        let vectorScoreCourse = nameMatchScore;
+
+                        if (essentialPlaces.length > 0) {
+                            const validEmbeddings = essentialEmbeddings.filter(Boolean);
+
+                            if (validEmbeddings.length > 0) {
+                                const scores = validEmbeddings.map((emb) => cosineSimilarity(emb, product.embedding));
+                                const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+                                const maxScore = Math.max(...scores);
+                                const embScore = avgScore * 0.2 + maxScore * 0.8;
+
+                                // 이름 매칭과 임베딩을 비율대로 혼합
+                                vectorScoreCourse = nameMatchScore * (1 - essentialRatio) + embScore * essentialRatio;
+                            }
+                        }
+
+                        // 성향 점수
+                        const avgPrefScore = selectedTendencies.length
+                            ? selectedTendencies.reduce((sum, t) => sum + (product.tendencyScores[t] || 0), 0) /
+                              selectedTendencies.length
+                            : 0;
+
+                        // console.log(product.prod_name);
+                        // console.log(vectorScoreCourse);
+
+                        return { ...product, vectorScoreCourse, avgPrefScore };
+                    } catch (err) {
+                        console.error('추천 계산 중 오류', err);
+                        return { ...product, vectorScoreCourse: 0, avgPrefScore: 0 };
+                    }
+                });
+
+                //console.timeEnd('duration_time');
+
+                // 2. 벡터, 성향 점수 배열
+                const vectorScores = results.map((p) => p.vectorScoreCourse);
+                const prefScores = results.map((p) => p.avgPrefScore);
+
+                // 3. minMax 스케일링
+                const normVectorScores = minMaxScale(vectorScores);
+                const normPrefScores = minMaxScale(prefScores);
+
+                // 4. finalScore 계산 (임계값 반영)
+                const VECTOR_THRESHOLD = 0.4; // 코사인 유사도 최소 기준
+
+                let passed = [];
+                let fallback = [];
+
+                results.forEach((p, idx) => {
+                    const rawVector = vectorScores[idx];
+                    const normVector = normVectorScores[idx];
+                    const normPref = normPrefScores[idx];
+
+                    const vectorCombined = rawVector * 0.6 + normVector * 0.4;
+                    const prefCombined = normPref;
+                    const finalScore = vectorCombined * 0.7 + prefCombined * 0.3;
+
+                    // 점수 저장
+                    p.finalScore = finalScore;
+
+                    if (rawVector >= VECTOR_THRESHOLD) {
+                        passed.push(p); // 정상 통과
+                    } else if (rawVector >= VECTOR_THRESHOLD / 2) {
+                        fallback.push(p); // fallback 후보
+                    }
+                    // TODO - 지역 필터링이 잘 된다면, 임계값 미달이더라도 그냥 넣어도 될듯. 해당 지역의 다른 관광지 추천할겸?
+                });
+
+                // 5. 점수 순 정렬
+                passed.sort((a, b) => b.finalScore - a.finalScore);
+                fallback.sort((a, b) => b.finalScore - a.finalScore);
+
+                // fallback 조건 적용
+                results = passed.length > 0 ? passed : fallback;
+
+                nationwideProducts.sort((a, b) => {
+                    const aCount = a?.sellingProductReviewCount || 0;
+                    const bCount = b?.sellingProductReviewCount || 0;
+                    return bCount - aCount; // 내림차순
+                });
+
+                // 전국용 상품 - 카테고리별 최대 1개씩 선택
+                const uniqueNationwide = [];
+                const seenCategories = new Set();
+
+                for (const product of nationwideProducts) {
+                    const category = product.product_category_main || '기타';
+                    if (!seenCategories.has(category)) {
+                        uniqueNationwide.push(product);
+                        seenCategories.add(category);
+                    }
+                    if (uniqueNationwide.length >= 5) break; // 최대 5개까지만 추천
+                }
+
+                // topK + 전국용 상품 추가
+                let topResults = results.slice(0, topK).concat(uniqueNationwide);
+                // // topK + 전국용 상품 추가
+                // let topResults = results.slice(0, topK).concat(nationwideProducts.slice(0, 5));
+
+                // embedding 제거
+                recommendProducts.push(topResults.map(({ embedding, ...rest }) => rest));
+            }
+            res.json(recommendProducts);
+        }
     } catch (error) {
         console.error('/recommend API 오류:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -1357,7 +1401,7 @@ async function kkdayPostWithRetry(path, body, retries = 3, delayMs = 2000) {
             return response; // 성공하면 바로 반환
         } catch (err) {
             if (err.response?.status === 529 && attempt < retries) {
-                console.warn(`[WARN] ${path} 실패(${err.message}), ${delayMs}ms 후 재시도 ${attempt}/${retries}`);
+                console.log(`[WARN] ${path} 실패(${err.message}), ${delayMs}ms 후 재시도 ${attempt}/${retries}`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 delayMs *= 2; // 지수적 backoff
             } else {
@@ -1375,6 +1419,14 @@ function containsKorean(text) {
 
 let isUpdating = false;
 
+// 판매 제한(민원 우려) 상품 키워드 리스트
+const restrictedKeywords = ['회원권', '선불권', '분양', '지분', '충전금'];
+//  '쿠폰', '포인트',
+function isRestrictedProduct(product) {
+    const text = `${product.prod_name || ''} ${product.introduction || ''}`;
+    return restrictedKeywords.some((keyword) => text.includes(keyword));
+}
+
 // ======================
 // KKday 전체 상품 캐시 갱신 함수
 // ======================
@@ -1383,6 +1435,7 @@ async function updateProductCache() {
         // TODO - 조회할 국가 리스트 (국가명 or 국가코드 둘 다 가능)
         const targetCountries = ['한국', '일본', '중국', '베트남', '태국', '필리핀', '싱가포르', '홍콩과 마카오'];
         const dbCountries = ['Korea', 'Japan', 'China', 'Vietnam', 'Thailand', 'Philippines', 'Singapore', 'China'];
+
         // const targetCountries = ['A01-004', 'A01-018']; // 코드로 지정해도 OK
 
         let allProducts = [];
@@ -1458,7 +1511,7 @@ async function updateProductCache() {
                         const cached = existingCacheMap.get(p.prod_no);
 
                         const alwaysUpdate = {
-                            b2c_price: p.b2c_price,
+                            b2c_price: Math.round(p.b2c_price * 1.1), //TODO - 이후 제거
                             b2b_price: p.b2b_price,
                             order_count: p.order_count,
                             rating_count: p.rating_count,
@@ -1476,6 +1529,22 @@ async function updateProductCache() {
                     });
 
                 const processedProducts = await asyncPool(3, newProducts, async (product) => {
+                    //TODO - 상황 보고 괜찮으면 해제 ( 토스페이 최대 200 )
+                    if (product.b2b_price >= 2000000) {
+                        kkdayProdNos.delete(product.prod_no); // isActive : False로 변경
+                        return null; // processedProducts에 저장 안 됨
+                    }
+                    if (product.b2b_price > product.b2c_price) {
+                        kkdayProdNos.delete(product.prod_no); // isActive : False로 변경
+                        return null; // processedProducts에 저장 안 됨
+                    }
+
+                    if (isRestrictedProduct(product)) {
+                        console.warn(`[PG 제한상품 비활성화] ${product.prod_no} - ${product.prod_name}`);
+                        kkdayProdNos.delete(product.prod_no); // isActive : False로 변경
+                        return null; // processedProducts에 저장 안 됨
+                    }
+
                     // 세부 정보 조회 (상품 스케줄 포함)
                     let fullProduct = null;
                     try {
@@ -1704,7 +1773,7 @@ async function updateProductCache() {
 
             if (missingProdNos.length > 0) {
                 console.log(`[CACHE][${targetCountries[i]}] 삭제/비활성화 대상 상품: ${missingProdNos.length}개`);
-                console.error(`[CACHE][${targetCountries[i]}] 삭제/비활성화 대상 상품: ${missingProdNos.length}개`);
+                //console.error(`[CACHE][${targetCountries[i]}] 삭제/비활성화 대상 상품: ${missingProdNos.length}개`);
 
                 await SellingProduct.updateMany(
                     { prod_no: { $in: missingProdNos } },

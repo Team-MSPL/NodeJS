@@ -134,6 +134,7 @@ router.post('/save', async (req, res) => {
             const bookingData = {
                 ...req.body,
                 ...(orderNo && { order_no: orderNo }),
+                userId: decoded._id,
             };
 
             const newBookingProduct = new BookingProduct(bookingData);

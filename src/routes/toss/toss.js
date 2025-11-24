@@ -23,13 +23,11 @@ function callTossAPI(callback) {
         rejectUnauthorized: true,
     };
 
-    console.log('Toss API 요청');
-
     const req = https.request('https://apps-in-toss-api.toss.im/endpoint', { method: 'GET', ...options }, (res) => {
         let data = '';
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => {
-            console.log('Toss API Response:', data);
+            //console.log('Toss API Response:', data);
             callback(null, data); // 응답을 callback으로 전달
         });
     });
@@ -223,8 +221,8 @@ router.post('/payments/confirm', async (req, res) => {
             body: JSON.stringify(req.body),
         });
         const data = await response.json();
-        console.log(data);
-        console.log(`Basic  ${Buffer.from(payment_key + ':').toString('base64')}`);
+        // console.log(data);
+        // console.log(`Basic  ${Buffer.from(payment_key + ':').toString('base64')}`);
 
         return res.json(data);
     } catch (error) {
