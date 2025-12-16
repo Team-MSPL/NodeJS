@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const serviceAccount = require('./danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json');
+const serviceAccount = require('./danim-3439e-36fb00b7f31c.json');
 
 if (!admin.apps.length) {
     admin.initializeApp({

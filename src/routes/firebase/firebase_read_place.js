@@ -1,6 +1,6 @@
 //import admin from 'firebase-admin';
 
-//import serviceAccount from './danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json?type=json';
+//import serviceAccount from './danim-3439e-36fb00b7f31c.json?type=json';
 
 //const admin = require('firebase-admin');
 //const express = require('express');
@@ -8,7 +8,7 @@
 const { database } = require('./firebase_options.js');
 //const { initializeApp, cert } = require('firebase-admin/app');
 //const { getFirestore } = require('firebase-admin/firestore');
-//const serviceAccount = require('./danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json');
+//const serviceAccount = require('./danim-3439e-36fb00b7f31c.json');
 
 //initializeApp({
 //   credential: cert(serviceAccount),

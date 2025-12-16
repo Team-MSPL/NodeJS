@@ -592,6 +592,8 @@ router.post('/recommend', async (req, res) => {
             selectList,
             topK = 10,
             mode = 'recommend', // 추천/목록 모드 구분
+            sortOption = 'order_count', // order_count, b2b_price, avg_rating_star, b2c_price
+            sortOrder = 'desc', // asc, desc
             keyword = '', // prod_name 검색
             page = 1, // 페이지 번호
             limit = 20, // 페이지당 개수
@@ -656,6 +658,19 @@ router.post('/recommend', async (req, res) => {
                 mongoFilter['prod_name'] = { $regex: keyword.trim(), $options: 'i' };
             }
 
+            // 정렬 기준 매핑
+            const fieldMap = {
+                order_count: 'order_count',
+                b2b_price: 'b2b_price',
+                b2c_price: 'b2c_price',
+                avg_rating_star: 'avg_rating_star',
+            };
+
+            const sortField = fieldMap[sortOption] || fieldMap['order_count'];
+            const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+            const sortQuery = { [sortField]: sortDirection };
+
             // 전체 개수 먼저 계산
             const totalCount = await SellingProduct.countDocuments(mongoFilter);
 
@@ -663,17 +678,14 @@ router.post('/recommend', async (req, res) => {
             const skip = (page - 1) * limit;
 
             // 실제 데이터 조회
-            const products = await SellingProduct.find(mongoFilter)
-                .skip(skip)
-                .limit(limit)
-                .sort({ sellingProductReviewCount: -1 }) // optional 정렬
-                .lean();
+            const products = await SellingProduct.find(mongoFilter).skip(skip).limit(limit).sort(sortQuery).lean();
 
             return res.json({
                 page,
                 limit,
                 totalCount,
                 totalPage: Math.ceil(totalCount / limit),
+                sortOption,
                 products: products.map(({ embedding, ...rest }) => rest),
             });
         }
@@ -1251,10 +1263,21 @@ async function extractPlacesFromSchedule(product, dbPlaces, placeEmbedding) {
     }
 
     // === [2] 임베딩 배치 요청 ===
-    const embeddingResp = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: expandedAll,
-    });
+    let embeddingResp;
+    try {
+        embeddingResp = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: expandedAll,
+        });
+    } catch (err) {
+        console.error('Embedding 요청 실패!', err.message);
+        console.error('요청 객체 : ', expandedAll);
+
+        return {
+            extractedPlaces: uniqueRaw,
+            normalizedPlaces: [],
+        };
+    }
 
     const embeddingMap = {};
     embeddingResp.data.forEach((item, idx) => {

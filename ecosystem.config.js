@@ -10,6 +10,9 @@ module.exports = {
                 '/home/ubuntu/danim_database/kkday_products_cache.json',
                 '/home/ubuntu/danim_database/place_cache.json',
             ],
+            // 로그 날짜/시간 추가
+            log_date_format: 'YYYY-MM-DD HH:mm:ss',
+
             node_args: '--max-old-space-size=4096',
             env: {
                 NODE_ENV: 'development', // 개발환경시 적용될 설정 지정

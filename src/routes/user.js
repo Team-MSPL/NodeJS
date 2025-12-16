@@ -8,7 +8,7 @@ const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
 var _ = require('lodash');
 require('dotenv').config();
-const serviceAccount = require('../../danim-3439e-firebase-adminsdk-9ud51-36d28c31ba.json'); // 서비스 계정 키의 경로
+const serviceAccount = require('../../danim-3439e-36fb00b7f31c.json'); // 서비스 계정 키의 경로
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
