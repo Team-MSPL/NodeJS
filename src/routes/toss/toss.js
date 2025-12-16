@@ -299,4 +299,127 @@ router.post('/payments/:paymentKey/cancel', async (req, res) => {
     }
 });
 
+// 결제 생성 ( 앱인토스 )
+router.post('/apps-in-toss/make-payment', async (req, res) => {
+    try {
+        const { tossUserKey } = req.body;
+
+        // 필수값 검증
+        if (!paymentKey) {
+            return res.status(400).json({ error: '필수 파라미터가 누락되었습니다.' });
+        }
+
+        const response = await fetch(
+            `https://pay-apps-in-toss-api.toss.im/api-partner/v1/apps-in-toss/pay/make-payment`,
+            {
+                method: 'POST',
+                headers: {
+                    //Authorization: `Basic ${Buffer.from(payment_key + ':').toString('base64')}`,
+                    'Content-Type': 'application/json',
+                    'X-Toss-User-Key': tossUserKey,
+                },
+                body: JSON.stringify(req.body),
+            }
+        );
+        const data = await response.json();
+
+        return res.json(data);
+    } catch (error) {
+        console.error('결제 생성 오류:', error);
+        return res.status(500).json({ error: '결제 생성 중 오류가 발생했습니다. : ' + error });
+    }
+});
+
+// 결제 상태 조회 ( 앱인토스 )
+router.post('/apps-in-toss/get-payment-status', async (req, res) => {
+    try {
+        const { tossUserKey } = req.body;
+
+        // 필수값 검증
+        if (!paymentKey) {
+            return res.status(400).json({ error: '필수 파라미터가 누락되었습니다.' });
+        }
+
+        const response = await fetch(
+            `https://pay-apps-in-toss-api.toss.im/api-partner/v1/apps-in-toss/pay/get-payment-status`,
+            {
+                method: 'POST',
+                headers: {
+                    //Authorization: `Basic ${Buffer.from(payment_key + ':').toString('base64')}`,
+                    'Content-Type': 'application/json',
+                    'X-Toss-User-Key': tossUserKey,
+                },
+                body: JSON.stringify(req.body),
+            }
+        );
+        const data = await response.json();
+
+        return res.json(data);
+    } catch (error) {
+        console.error('결제 상태 조회 오류:', error);
+        return res.status(500).json({ error: '결제 상태 조회 중 오류가 발생했습니다. : ' + error });
+    }
+});
+
+// 결제 실행 ( 앱인토스 )
+router.post('/apps-in-toss/execute-payment', async (req, res) => {
+    try {
+        const { tossUserKey } = req.body;
+
+        // 필수값 검증
+        if (!paymentKey) {
+            return res.status(400).json({ error: '필수 파라미터가 누락되었습니다.' });
+        }
+
+        const response = await fetch(
+            `https://pay-apps-in-toss-api.toss.im/api-partner/v1/apps-in-toss/pay/execute-payment`,
+            {
+                method: 'POST',
+                headers: {
+                    //Authorization: `Basic ${Buffer.from(payment_key + ':').toString('base64')}`,
+                    'Content-Type': 'application/json',
+                    'X-Toss-User-Key': tossUserKey,
+                },
+                body: JSON.stringify(req.body),
+            }
+        );
+        const data = await response.json();
+
+        return res.json(data);
+    } catch (error) {
+        console.error('결제 실행 오류:', error);
+        return res.status(500).json({ error: '결제 실행 중 오류가 발생했습니다. : ' + error });
+    }
+});
+
+// 결제 환불 ( 앱인토스 )
+router.post('/apps-in-toss/refund-payment', async (req, res) => {
+    try {
+        const { tossUserKey } = req.body;
+
+        // 필수값 검증
+        if (!paymentKey) {
+            return res.status(400).json({ error: '필수 파라미터가 누락되었습니다.' });
+        }
+        const response = await fetch(
+            `https://pay-apps-in-toss-api.toss.im/api-partner/v1/apps-in-toss/pay/refund-payment`,
+            {
+                method: 'POST',
+                headers: {
+                    //Authorization: `Basic ${Buffer.from(payment_key + ':').toString('base64')}`,
+                    'Content-Type': 'application/json',
+                    'X-Toss-User-Key': tossUserKey,
+                },
+                body: JSON.stringify(req.body),
+            }
+        );
+        const data = await response.json();
+
+        return res.json(data);
+    } catch (error) {
+        console.error('결제 환불 오류:', error);
+        return res.status(500).json({ error: '결제 환불 중 오류가 발생했습니다. : ' + error });
+    }
+});
+
 module.exports = router;
